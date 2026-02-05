@@ -13,7 +13,7 @@ module.exports = {
     const botLatency = Date.now() - interaction.createdTimestamp;
     const apiLatency = Math.round(client.ws.ping);
 
-    // ─── CONTAINER UPTIME (NODE BUILT-IN) ───
+    // ─── CONTAINER UPTIME ────────────────────
     const totalSeconds = Math.floor(process.uptime());
 
     const days = Math.floor(totalSeconds / 86400);
@@ -21,57 +21,54 @@ module.exports = {
     const minutes = Math.floor(totalSeconds / 60) % 60;
     const seconds = totalSeconds % 60;
 
-    const uptime =
-      `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    const uptime = `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
-    // ─── SHARD (even if not used) ───────────
+    // ─── SHARD ───────────────────────────────
     const shardId = interaction.guild?.shardId ?? 0;
 
-    // ─── PREMIUM FLAG FROM ENV ──────────────
+    // ─── PREMIUM FLAG ────────────────────────
     const isPremium =
       process.env.PREMIUM_SERVER === 'true'
         ? '✅ Yes'
         : '❌ No';
 
-    // ─── BUILD EMBED ────────────────────────
+    // ─── BUILD EMBED ─────────────────────────
     const embed = new EmbedBuilder()
       .setTitle('🟢 Bot Status')
       .setColor(0x2b2d31)
-
       .addFields(
         {
-          name: '⌛Latency',
+          name: '⌛ Latency',
           value: `Bot: **${botLatency}ms**\nAPI: **${apiLatency}ms**`,
           inline: true
         },
         {
-          name: '⏱️Container Uptime',
+          name: '⏱️ Container Uptime',
           value: uptime,
           inline: true
         },
         {
-          name: '🫐Shard',
+          name: '🫐 Shard',
           value: `#${shardId}`,
           inline: true
         },
         {
-          name: '💎Premium Server',
+          name: '💎 Premium Server',
           value: isPremium,
           inline: true
         },
         {
-          name: '🔗Status Page',
+          name: '🔗 Status Page',
           value: 'https://status.blueberrynet.uk',
           inline: false
         }
       )
-
       .setFooter({
         text: 'BBGames • Powered by the Blueberry Network'
-      });
-
+      })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed] 
+                            });
   }
 };
