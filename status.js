@@ -3,11 +3,18 @@ const { ActivityType } = require('discord.js');
 module.exports = (client) => {
 
   const updateStatus = () => {
+
     const guildCount = client.guilds.cache.size;
+
+    // Count all members across all servers
+    const memberCount = client.guilds.cache.reduce(
+      (total, guild) => total + (guild.memberCount || 0),
+      0
+    );
 
     client.user.setPresence({
       activities: [{
-        name: `🎉 ${guildCount} servers`,
+        name: `👀 ${memberCount} members | ${guildCount} servers`,
         type: ActivityType.Watching
       }],
       status: 'online'
