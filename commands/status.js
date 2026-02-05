@@ -23,19 +23,37 @@ module.exports = {
 
     const uptime = `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
+    // ─── COUNTS ──────────────────────────────
+    const serverCount = client.guilds.cache.size;
+
+    const memberCount = client.guilds.cache.reduce(
+      (acc, guild) => acc + (guild.memberCount || 0),
+      0
+    );
+
     // ─── SHARD ───────────────────────────────
     const shardId = interaction.guild?.shardId ?? 0;
 
-    // ─── PREMIUM FLAG ────────────────────────
-    const isPremium =
-      process.env.PREMIUM_SERVER === 'true'
-        ? '✅ Yes'
-        : '❌ No';
+    // ─── PREMIUM TIER FROM ENV ───────────────
+    const premiumRaw = String(process.env.PREMIUM_SERVER || '').toLowerCase();
+
+    let premiumDisplay = '❌ Standard Bot';
+
+    if (premiumRaw === 'true_1' || premiumRaw === 'true') {
+      premiumDisplay = '💎 Tier 1';
+    }
+    else if (premiumRaw === 'true_2') {
+      premiumDisplay = '🎉 Tier 2';
+    }
+    else if (premiumRaw === 'true_3') {
+      premiumDisplay = '✨ Tier 3 - Customized Profile';
+    }
 
     // ─── BUILD EMBED ─────────────────────────
     const embed = new EmbedBuilder()
       .setTitle('🟢 Bot Status')
-      .setColor(0x2b2d31)
+      .setColor(0x57F287) // GREEN 💚
+
       .addFields(
         {
           name: '⌛ Latency',
@@ -43,32 +61,42 @@ module.exports = {
           inline: true
         },
         {
-          name: '⏱️ Container Uptime',
+          name: '⏱️ Uptime',
           value: uptime,
           inline: true
         },
         {
-          name: '🫐 Shard',
-          value: `#${shardId}`,
+          name: '🌍 Servers',
+          value: `**${serverCount}** (${memberCount} members)`,
           inline: true
         },
+
         {
-          name: '💎 Premium Server',
-          value: isPremium,
+          name: '🫐 Shard',
+          value: `Shard **${shardId}**`,
           inline: true
         },
+
+        {
+          name: '💎 Premium Tier',
+          value: premiumDisplay,
+          inline: true
+        },
+
         {
           name: '🔗 Status Page',
           value: 'https://status.blueberrynet.uk',
           inline: false
         }
       )
+
       .setFooter({
         text: 'BBGames • Powered by the Blueberry Network'
       })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] 
-                            });
+    await interaction.reply({
+      embeds: [embed]
+    });
   }
 };
