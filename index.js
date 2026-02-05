@@ -1,10 +1,9 @@
 // Require the necessary discord.js classes
-const { Client, Events, GatewayIntentBits, REST, Routes } = require('discord.js');
+const { Client, Events, GatewayIntentBits } = require('discord.js');
 require('dotenv').config();
 
 const token = process.env.TOKEN;
 
-// Create a new client instance
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -16,6 +15,9 @@ const client = new Client({
 
 client.on('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
+
+  // Load status system
+  require('./status')(client);
 });
 
 // Log in to Discord
