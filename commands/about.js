@@ -20,7 +20,7 @@ module.exports = {
 
     // Auto create invite link using your CLIENT_ID
     const inviteUrl =
-      `https://discord.com/api/oauth2/authorize?client_id=${process.env.CLIENT_ID}&permissions=0&scope=bot%20applications.commands`;
+      `https://discord.com/api/oauth2/authorize?client_id=${process.env.CLIENT_ID}&permissions=4503995570056272&scope=bot%20applications.commands`;
 
     const embed = new EmbedBuilder()
       .setTitle('🎉 BBGames')
