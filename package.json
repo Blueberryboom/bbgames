@@ -1,6 +1,6 @@
 {
   "name": "bbgames",
-  "version": "2026.2.1",
+  "version": "2026.2.2",
   "main": "index.js",
   "dependencies": {
     "discord.js": "^14.14.1",
