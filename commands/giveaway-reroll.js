@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const pool = require('../database');
+const checkPerms = require('../utils/checkEventPerms');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,6 +13,13 @@ module.exports = {
     ),
 
   async execute(interaction) {
+
+    if (!await checkPerms(interaction)) {
+      return interaction.reply({
+        content: "❌ You are not a bot admin!",
+        ephemeral: true
+      });
+    }
 
     const id = interaction.options.getString('id');
 
