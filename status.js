@@ -2,16 +2,44 @@ const { ActivityType } = require('discord.js');
 
 module.exports = (client) => {
 
-  const updateStatus = () => {
+  const updateStatus = async () => {
 
-    const guildCount = client.guilds.cache.size;
+    let guildCount = 0;
+    let memberCount = 0;
 
-    // Count all members across all servers
-    const memberCount = client.guilds.cache.reduce(
-      (total, guild) => total + (guild.memberCount || 0),
-      0
-    );
+    // ─── IF SHARDING ENABLED ─────────────────────────
+    if (client.shard) {
 
+      // Get guild counts from all shards
+      const guildCounts = await client.shard.fetchClientValues(
+        'guilds.cache.size'
+      );
+
+      guildCount = guildCounts.reduce((a, b) => a + b, 0);
+
+      // Get member totals from all shards
+      const memberCounts = await client.shard.broadcastEval(c =>
+        c.guilds.cache.reduce(
+          (acc, g) => acc + (g.memberCount || 0),
+          0
+        )
+      );
+
+      memberCount = memberCounts.reduce((a, b) => a + b, 0);
+
+    } 
+    // ─── SINGLE INSTANCE FALLBACK ─────────────────────
+    else {
+
+      guildCount = client.guilds.cache.size;
+
+      memberCount = client.guilds.cache.reduce(
+        (total, guild) => total + (guild.memberCount || 0),
+        0
+      );
+    }
+
+    // ─── SET PRESENCE ─────────────────────────────────
     client.user.setPresence({
       activities: [{
         name: `👀 ${memberCount} members | ${guildCount} servers`,
