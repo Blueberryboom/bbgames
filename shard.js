@@ -6,8 +6,8 @@ const manager = new ShardingManager('./index.js', {
   totalShards: 'auto'
 });
 
-manager.on('shardCreate', shard =>
-  console.log(`🧩 Shard ${shard.id} launched`)
-);
+manager.on('shardCreate', shard => {
+  console.log(`🧩 Shard ${shard.id} launched`);
+});
 
 manager.spawn();
