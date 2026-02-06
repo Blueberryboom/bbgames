@@ -1,35 +1,41 @@
-const { query } = require('./index');
+const pool = require('./index');
 
 module.exports = async () => {
+  const conn = await pool.getConnection();
 
-  // Giveaways table
-  await query(`
+  // ─── GIVEAWAYS ─────────────────────────────
+  await conn.query(`
     CREATE TABLE IF NOT EXISTS giveaways (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      message_id VARCHAR(32),
-      channel_id VARCHAR(32),
+      id VARCHAR(36) PRIMARY KEY,
       guild_id VARCHAR(32),
-
-      prize VARCHAR(255),
+      channel_id VARCHAR(32),
+      message_id VARCHAR(32),
+      prize TEXT,
       winners INT,
-      end_at BIGINT,
-
+      end_time BIGINT,
       required_role VARCHAR(32) NULL,
-
       ended BOOLEAN DEFAULT 0
     );
   `);
 
-  // Entries table
-  await query(`
+  // ─── ENTRIES ───────────────────────────────
+  await conn.query(`
     CREATE TABLE IF NOT EXISTS giveaway_entries (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      giveaway_id INT,
+      giveaway_id VARCHAR(36),
       user_id VARCHAR(32),
-
-      UNIQUE KEY unique_entry (giveaway_id, user_id)
+      PRIMARY KEY (giveaway_id, user_id)
     );
   `);
 
-  console.log("✅ Database tables ready");
+  // ─── EVENT ADMINS ──────────────────────────
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS event_admin_roles (
+      guild_id VARCHAR(32),
+      role_id VARCHAR(32),
+      PRIMARY KEY (guild_id, role_id)
+    );
+  `);
+
+  conn.release();
+  console.log("✅ Database ready!");
 };
