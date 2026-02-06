@@ -6,7 +6,7 @@ module.exports = (client) => {
 
     const giveaways = await query(`
       SELECT * FROM giveaways
-      WHERE ended = 0 AND end_at < ?
+      WHERE ended = 0 AND end_time < ?
     `, [Date.now()]);
 
     for (const g of giveaways) {
