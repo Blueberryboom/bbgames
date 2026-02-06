@@ -1,5 +1,10 @@
 const mariadb = require('mariadb');
 
+console.log("🗄 Connecting to MariaDB with:");
+console.log("HOST:", process.env.DB_HOST);
+console.log("USER:", process.env.DB_USER);
+console.log("DB:", process.env.DB_NAME);
+
 const pool = mariadb.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -8,16 +13,4 @@ const pool = mariadb.createPool({
   connectionLimit: 5
 });
 
-module.exports = {
-  pool,
-
-  async query(sql, params) {
-    let conn;
-    try {
-      conn = await pool.getConnection();
-      return await conn.query(sql, params);
-    } finally {
-      if (conn) conn.release();
-    }
-  }
-};
+module.exports = pool;
