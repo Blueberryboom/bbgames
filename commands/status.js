@@ -23,19 +23,46 @@ module.exports = {
 
     const uptime = `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
-    // ─── COUNTS ──────────────────────────────
-    const serverCount = client.guilds.cache.size;
+    // ─── GLOBAL COUNTS (SHARD SAFE) ──────────
+    let serverCount = 0;
+    let memberCount = 0;
 
-    const memberCount = client.guilds.cache.reduce(
-      (acc, guild) => acc + (guild.memberCount || 0),
-      0
-    );
+    if (client.shard) {
 
-    // ─── SHARD ───────────────────────────────
-    const shardId = interaction.guild?.shardId ?? 0;
+      // Guild totals from all shards
+      const guildCounts = await client.shard.fetchClientValues(
+        'guilds.cache.size'
+      );
+
+      serverCount = guildCounts.reduce((a, b) => a + b, 0);
+
+      // Member totals from all shards
+      const memberCounts = await client.shard.broadcastEval(c =>
+        c.guilds.cache.reduce(
+          (acc, g) => acc + (g.memberCount || 0),
+          0
+        )
+      );
+
+      memberCount = memberCounts.reduce((a, b) => a + b, 0);
+
+    } else {
+
+      // Fallback when running without shards
+      serverCount = client.guilds.cache.size;
+
+      memberCount = client.guilds.cache.reduce(
+        (acc, guild) => acc + (guild.memberCount || 0),
+        0
+      );
+    }
+
+    // ─── SHARD INFO ──────────────────────────
+    const shardId = client.shard?.ids[0] ?? 0;
 
     // ─── PREMIUM TIER FROM ENV ───────────────
-    const premiumRaw = String(process.env.PREMIUM_SERVER || '').toLowerCase();
+    const premiumRaw =
+      String(process.env.PREMIUM_SERVER || '').toLowerCase();
 
     let premiumDisplay = '❌ Standard Bot';
 
@@ -52,7 +79,7 @@ module.exports = {
     // ─── BUILD EMBED ─────────────────────────
     const embed = new EmbedBuilder()
       .setTitle('🟢 Bot Status')
-      .setColor(0x57F287) // GREEN 💚
+      .setColor(0x57F287)
 
       .addFields(
         {
