@@ -3,13 +3,11 @@ const pool = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
 
 module.exports = {
-
   data: new SlashCommandBuilder()
     .setName('giveaway-list')
     .setDescription('List active giveaways'),
 
   async execute(interaction) {
-
     if (!await checkPerms(interaction)) {
       return interaction.reply({
         content: "❌ You are not a bot admin!",
@@ -42,6 +40,6 @@ module.exports = {
 
     await interaction.reply({
       embeds: [embed]
-    };
+    });
   }
 };
