@@ -29,26 +29,21 @@ module.exports = {
 
     if (client.shard) {
 
-      // Guild totals from all shards
       const guildCounts = await client.shard.fetchClientValues(
         'guilds.cache.size'
       );
-
       serverCount = guildCounts.reduce((a, b) => a + b, 0);
 
-      // Member totals from all shards
       const memberCounts = await client.shard.broadcastEval(c =>
         c.guilds.cache.reduce(
           (acc, g) => acc + (g.memberCount || 0),
           0
         )
       );
-
       memberCount = memberCounts.reduce((a, b) => a + b, 0);
 
     } else {
 
-      // Fallback when running without shards
       serverCount = client.guilds.cache.size;
 
       memberCount = client.guilds.cache.reduce(
@@ -57,8 +52,15 @@ module.exports = {
       );
     }
 
-    // ─── SHARD INFO ──────────────────────────
-    const shardId = client.shard?.ids[0] ?? 0;
+    // ─── SHARD INFO X / Y ────────────────────
+    let shardDisplay = 'Standalone';
+
+    if (client.shard) {
+      const current = client.shard.ids[0] + 1;   // make human friendly
+      const total = client.shard.count;
+
+      shardDisplay = `Shard **${current} / ${total}**`;
+    }
 
     // ─── PREMIUM TIER FROM ENV ───────────────
     const premiumRaw =
@@ -100,7 +102,7 @@ module.exports = {
 
         {
           name: '🫐 Shard',
-          value: `Shard **${shardId}**`,
+          value: shardDisplay,
           inline: true
         },
 
