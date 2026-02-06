@@ -1,4 +1,11 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require('discord.js');
+
 const package = require('../package.json');
 
 module.exports = {
@@ -10,21 +17,47 @@ module.exports = {
 
     const client = interaction.client;
 
-    // Count total members across all servers
-    const totalMembers = client.guilds.cache.reduce(
-      (acc, guild) => acc + (guild.memberCount || 0),
-      0
-    );
+    let totalMembers = 0;
+    let serverCount = 0;
 
-    const serverCount = client.guilds.cache.size;
+    // ─── SHARD AWARE COUNTING ───────────────────────
+    if (client.shard) {
 
-    // Auto create invite link using your CLIENT_ID
+      // Guild count from all shards
+      const guildCounts = await client.shard.fetchClientValues(
+        'guilds.cache.size'
+      );
+
+      serverCount = guildCounts.reduce((a, b) => a + b, 0);
+
+      // Member count from all shards
+      const memberCounts = await client.shard.broadcastEval(c =>
+        c.guilds.cache.reduce(
+          (acc, g) => acc + (g.memberCount || 0),
+          0
+        )
+      );
+
+      totalMembers = memberCounts.reduce((a, b) => a + b, 0);
+
+    } else {
+
+      // Fallback if not sharded
+      serverCount = client.guilds.cache.size;
+
+      totalMembers = client.guilds.cache.reduce(
+        (acc, guild) => acc + (guild.memberCount || 0),
+        0
+      );
+    }
+
+    // Auto create invite link
     const inviteUrl =
       `https://discord.com/api/oauth2/authorize?client_id=${process.env.CLIENT_ID}&permissions=4503995570056272&scope=bot%20applications.commands`;
 
     const embed = new EmbedBuilder()
       .setTitle('🎉 BBGames')
-      .setColor(0x5865F2) // DISCORD BURPLE 💜
+      .setColor(0x5865F2)
 
       .setDescription(
         'A powerful games bot designed to replace your 200 different game bots with one!'
@@ -59,7 +92,7 @@ module.exports = {
       })
       .setTimestamp();
 
-    // BUTTONS ─────────────────────────────
+    // ─── BUTTONS ─────────────────────────────
 
     const buttons = new ActionRowBuilder()
       .addComponents(
@@ -77,7 +110,6 @@ module.exports = {
     await interaction.reply({
       embeds: [embed],
       components: [buttons]
- 
     });
   }
 };
