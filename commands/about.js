@@ -43,7 +43,7 @@ module.exports = {
         },
         {
           name: '🏡 Servers',
-          value: `${serverCount} (${totalMembers} members)`,
+          value: `**${serverCount}** (${totalMembers} members)`,
           inline: true
         },
         {
