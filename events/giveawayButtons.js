@@ -59,8 +59,7 @@ module.exports = async (interaction) => {
 
     await interaction.reply({
       content: "⚠️ You already entered!",
-      ephemeral: tru
-        e
+      ephemeral: true
     });
   }
 };
