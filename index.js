@@ -40,7 +40,7 @@ for (const file of commandFiles) {
 
 // ─── READY EVENT (SHARD AWARE) ──────────────
 
-client.on('ready', async () => {
+client.on('clientReady', async () => {
 
   const shardId = client.shard?.ids[0] ?? 0;
 
