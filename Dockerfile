@@ -7,4 +7,5 @@ RUN npm install --omit=dev
 
 COPY . .
 
-CMD ["node", "index.js"]
+# Start the shard manager
+CMD ["node", "shard.js"]
