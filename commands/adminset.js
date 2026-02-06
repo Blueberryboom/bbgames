@@ -3,7 +3,7 @@ const pool = require('../database');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('admins set')
+    .setName('adminset')
     .setDescription('Set event admin role')
     .addRoleOption(o =>
       o.setName('role')
