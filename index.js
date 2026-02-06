@@ -21,40 +21,6 @@ const client = new Client({
 
 client.commands = new Collection();
 
-
-// ─── LOAD COMMAND FILES ─────────────────────
-
-const commands = [];
-
-const commandFiles = fs
-  .readdirSync('./commands')
-  .filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-const {
-  Client,
-  GatewayIntentBits,
-  Collection,
-  REST,
-  Routes
-} = require('discord.js');
-
-require('dotenv').config();
-const fs = require('fs');
-
-const token = process.env.TOKEN;
-const clientId = process.env.CLIENT_ID;
-
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
-});
-
-client.commands = new Collection();
-
 // ✅ Load button handler ONCE
 const giveawayButtonHandler =
   require('./events/giveawayButtons');
@@ -69,7 +35,6 @@ const commandFiles = fs
   .filter(file => file.endsWith('.js'));
 
 for (const file of commandFiles) {
-
   const command = require(`./commands/${file}`);
 
   client.commands.set(command.data.name, command);
@@ -91,7 +56,6 @@ client.on('clientReady', async () => {
   try {
     const setupDatabase = require('./database/setup');
     await setupDatabase();
-
   } catch (err) {
     console.error("❌ Database setup failed:", err);
   }
@@ -102,7 +66,6 @@ client.on('clientReady', async () => {
     const rest = new REST({ version: '10' }).setToken(token);
 
     try {
-
       await rest.put(
         Routes.applicationCommands(clientId),
         { body: commands }
@@ -124,6 +87,7 @@ client.on('clientReady', async () => {
   } catch (err) {
     console.error("❌ Giveaway task failed to load:", err);
   }
+
 });
 
 
@@ -153,7 +117,6 @@ client.on('interactionCreate', async interaction => {
     await command.execute(interaction);
 
   } catch (error) {
-
     console.error(error);
 
     const errorMsg =
@@ -171,9 +134,11 @@ client.on('interactionCreate', async interaction => {
       });
     }
   }
+
 });
 
 
-// ─── LOGIN ──────────────────────────────────
+// ─── LOGIN ─────────────────
+─────────────────
 
 client.login(token);
