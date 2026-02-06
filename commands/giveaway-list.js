@@ -3,6 +3,7 @@ const pool = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
 
 module.exports = {
+
   data: new SlashCommandBuilder()
     .setName('giveaway-list')
     .setDescription('List active giveaways'),
@@ -18,7 +19,7 @@ module.exports = {
 
     const rows = await pool.query(
       "SELECT * FROM giveaways WHERE guild_id = ? AND ended = 0",
-      [interaction.guild.id]
+      [interaction.guildId]
     );
 
     if (rows.length === 0)
@@ -39,6 +40,8 @@ module.exports = {
       });
     }
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({
+      embeds: [embed]
+    };
   }
 };
