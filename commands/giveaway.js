@@ -7,6 +7,7 @@ const {
 } = require('discord.js');
 
 const pool = require('../database');
+const checkPerms = require('../utils/checkEventPerms');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -42,23 +43,9 @@ module.exports = {
 
     // ─── PERMISSION CHECK ───────────────────
 
-    const isAdmin =
-      interaction.member.permissions.has("Administrator");
-
-    // Check DB for allowed roles
-    const allowedRoles = await pool.query(
-      "SELECT role_id FROM event_admin_roles WHERE guild_id = ?",
-      [interaction.guildId]
-    );
-
-    const hasRole = allowedRoles.some(r =>
-      interaction.member.roles.cache.has(r.role_id)
-    );
-
-    if (!isAdmin && !hasRole) {
+    if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content:
-          "❌ You must be an event admin to create giveaways!",
+        content: "❌ You must be an event admin to create giveaways!",
         ephemeral: true
       });
     }
@@ -97,6 +84,8 @@ ${requiredRole
           .setLabel('Enter Giveaway')
           .setStyle(ButtonStyle.Success)
       );
+
+    // ─── SEND MESSAGE ────────────────────────
 
     const msg = await interaction.reply({
       embeds: [embed],
