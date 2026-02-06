@@ -3,11 +3,10 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
-  PermissionFlagsBits
+  ButtonStyle
 } = require('discord.js');
 
-const { query } = require('../database');
+const pool = require('../database');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -32,16 +31,39 @@ module.exports = {
         .setRequired(true)
     )
 
-    // ⭐ YOUR REQUEST ⭐
+    // ⭐ Optional role required to ENTER ⭐
     .addRoleOption(o =>
       o.setName('required_role')
         .setDescription('Role required to enter (optional)')
         .setRequired(false)
-    )
-
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageEvents),
+    ),
 
   async execute(interaction) {
+
+    // ─── PERMISSION CHECK ───────────────────
+
+    const isAdmin =
+      interaction.member.permissions.has("Administrator");
+
+    // Check DB for allowed roles
+    const allowedRoles = await pool.query(
+      "SELECT role_id FROM event_admin_roles WHERE guild_id = ?",
+      [interaction.guildId]
+    );
+
+    const hasRole = allowedRoles.some(r =>
+      interaction.member.roles.cache.has(r.role_id)
+    );
+
+    if (!isAdmin && !hasRole) {
+      return interaction.reply({
+        content:
+          "❌ You must be an event admin to create giveaways!",
+        ephemeral: true
+      });
+    }
+
+    // ─── OPTIONS ─────────────────────────────
 
     const prize = interaction.options.getString('prize');
     const winners = interaction.options.getInteger('winners');
@@ -52,7 +74,8 @@ module.exports = {
 
     const endAt = Date.now() + minutes * 60 * 1000;
 
-    // Embed
+    // ─── EMBED ───────────────────────────────
+
     const embed = new EmbedBuilder()
       .setTitle("🎉 Giveaway!")
       .setColor(0x5865F2)
@@ -81,10 +104,11 @@ ${requiredRole
       fetchReply: true
     });
 
-    // Save to DB
-    await query(`
+    // ─── SAVE TO DB ──────────────────────────
+
+    await pool.query(`
       INSERT INTO giveaways
-      (message_id, channel_id, guild_id, prize, winners, end_at, required_role)
+      (message_id, channel_id, guild_id, prize, winners, end_time, required_role)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       msg.id,
