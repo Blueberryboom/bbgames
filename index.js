@@ -48,7 +48,15 @@ client.on('ready', async () => {
     `Logged in as ${client.user.tag} | Shard ${shardId}`
   );
 
-  // 👉 ONLY REGISTER COMMANDS ON SHARD 0
+  // ─── DATABASE SETUP ───────────────────────
+  try {
+    const setupDatabase = require('./database/setup');
+    await setupDatabase();
+  } catch (err) {
+    console.error("❌ Database setup failed:", err);
+  }
+
+  // ─── REGISTER COMMANDS (ONLY ON SHARD 0) ──
   if (shardId === 0) {
 
     const rest = new REST({ version: '10' }).setToken(token);
@@ -59,15 +67,24 @@ client.on('ready', async () => {
         { body: commands }
       );
 
-      console.log('Slash commands registered!');
+      console.log('✅ Slash commands registered!');
 
     } catch (err) {
-      console.error(err);
+      console.error("❌ Command registration failed:", err);
     }
   }
 
-  // Load dynamic status system
+  // ─── LOAD SYSTEMS ─────────────────────────
+
+  // Dynamic status
   require('./status')(client);
+
+  // Giveaway end checker
+  try {
+    require('./tasks/giveawayEnder')(client);
+  } catch (err) {
+    console.error("❌ Giveaway task failed to load:", err);
+  }
 });
 
 
@@ -75,6 +92,15 @@ client.on('ready', async () => {
 
 client.on('interactionCreate', async interaction => {
 
+  // ─── BUTTON HANDLER (GIVEAWAYS ETC) ───────
+  try {
+    const buttonHandler = require('./events/giveawayButtons');
+    await buttonHandler(interaction);
+  } catch (err) {
+    console.error("Button handler error:", err);
+  }
+
+  // ─── SLASH COMMANDS ───────────────────────
   if (!interaction.isChatInputCommand()) return;
 
   const command =
@@ -88,14 +114,17 @@ client.on('interactionCreate', async interaction => {
   } catch (error) {
     console.error(error);
 
+    const errorMsg =
+      '❌ There was an error running this command.';
+
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        content: '❌ There was an error running this command.',
+        content: errorMsg,
         ephemeral: true
       });
     } else {
       await interaction.reply({
-        content: '❌ There was an error running this command.',
+        content: errorMsg,
         ephemeral: true
       });
     }
