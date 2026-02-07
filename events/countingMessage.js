@@ -3,43 +3,41 @@ const pool = require('../database');
 module.exports = async (message) => {
   if (message.author.bot) return;
 
-  const [config] = await pool.query(
+  const [rows] = await pool.query(
     "SELECT * FROM counting WHERE guild_id = ?",
     [message.guildId]
   );
 
+  const config = rows?.[0];
   if (!config || config.channel_id !== message.channel.id) return;
 
   const number = parseInt(message.content);
+
+  // ❌ Not a number → delete silently
   if (isNaN(number)) {
-    await message.delete().catch(()=>{});
-    return;
+    return message.delete().catch(() => {});
   }
 
-  // Must be next number
+  // ❌ Wrong number → delete silently
   if (number !== config.current + 1) {
-    await message.delete().catch(()=>{});
-    await message.channel.send(
-      `❌ Wrong number ${message.author}! Next is **${config.current + 1}**`
-    );
-    return;
+    return message.delete().catch(() => {});
   }
 
-  // No double counting
+  // ❌ Same user twice → delete silently
   if (config.last_user === message.author.id) {
-    await message.delete().catch(()=>{});
-    await message.channel.send(
-      `❌ You can't count twice in a row ${message.author}!`
-    );
-    return;
+    return message.delete().catch(() => {});
   }
 
-  // SUCCESS
+  // ✅ SUCCESS – update count
   await pool.query(
     "UPDATE counting SET current = ?, last_user = ? WHERE guild_id = ?",
     [number, message.author.id, message.guildId]
   );
 
-  await message.react("✅").catch(()=>
-    {});
+  // 🏆 Leaderboard tracking (if table exists)
+  await pool.query(`
+    INSERT INTO counting_leaderboard (guild_id, user_id, score)
+    VALUES (?, ?, 1)
+    ON DUPLICATE KEY UPDATE score = score + 1
+  `, [message.guildId, message.author.id]);
 };
