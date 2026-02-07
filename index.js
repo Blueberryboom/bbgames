@@ -15,15 +15,17 @@ const clientId = process.env.CLIENT_ID;
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
   ]
 });
 
 client.commands = new Collection();
 
-// ✅ Load button handler ONCE
-const giveawayButtonHandler =
-  require('./events/giveawayButtons');
+// ✅ Load systems ONCE
+const giveawayButtonHandler = require('./events/giveawayButtons');
+const countingHandler = require('./events/countingMessage');
 
 
 // ─── LOAD COMMAND FILES ─────────────────────
@@ -87,13 +89,49 @@ client.on('clientReady', async () => {
   } catch (err) {
     console.error("❌ Giveaway task failed to load:", err);
   }
+});
 
+
+// ─── MESSAGE HANDLER (COUNTING) ─────────────
+
+client.on('messageCreate', async message => {
+  try {
+    await countingHandler(message);
+  } catch (err) {
+    console.error("Counting error:", err);
+  }
 });
 
 
 // ─── INTERACTION HANDLER ────────────────────
 
 client.on('interactionCreate', async interaction => {
+
+  // ─── GLOBAL PERMISSION GUARD ─────────────
+  if (interaction.inGuild()) {
+
+    const me = interaction.guild.members.me;
+
+    const needed = [
+      "SendMessages",
+      "EmbedLinks",
+      "ViewChannel",
+      "ManageMessages"
+    ];
+
+    const missing = needed.filter(
+      p => !me.permissions.has(p)
+    );
+
+    if (missing.length > 0) {
+      return interaction.reply({
+        content:
+          "⚠️ Bot missing permissions:\n" +
+          missing.join(", "),
+        ephemeral: true
+      });
+    }
+  }
 
   // ─── BUTTON HANDLER ───────────────────────
   if (interaction.isButton()) {
@@ -134,11 +172,10 @@ client.on('interactionCreate', async interaction => {
       });
     }
   }
-
 });
 
 
-// ─── LOGIN ─────────────────
+// ─── SAFETY NET ─────────────────────────────
 
 process.on('unhandledRejection', err => {
   console.error("🔥 UNHANDLED REJECTION:", err);
@@ -147,5 +184,8 @@ process.on('unhandledRejection', err => {
 process.on('uncaughtException', err => {
   console.error("💥 UNCAUGHT EXCEPTION:", err);
 });
+
+
+// ─── LOGIN ──────────────────────────────────
 
 client.login(token);
