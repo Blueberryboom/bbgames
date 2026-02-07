@@ -64,6 +64,7 @@ module.exports = {
       .setDescription(
 `**Prize:** ${prize}
 **Winners:** ${winners}
+
 ${requiredRole
   ? `🔒 Required Role: <@&${requiredRole.id}>`
   : `🌍 Anyone can enter!`}`
@@ -79,18 +80,19 @@ ${requiredRole
           .setStyle(ButtonStyle.Success)
       );
 
-    // ─── SEND MESSAGE (new style) ────────────
+    // ─── SEND MESSAGE (modern method) ────────
     const response = await interaction.reply({
       embeds: [embed],
       components: [button],
-      withResponse: true        // ✅ modern replacement
+      withResponse: true   // new discord.js style
     });
 
     const msg = response.resource.message;
 
-    // ─── SAVE TO DB ──────────────────────────
-    const giveawayId = uuidv4();   // ✅ FIX: generate ID
+    // ─── CREATE ID ONCE ──────────────────────
+    const giveawayId = uuidv4();
 
+    // ─── SAVE TO DB ──────────────────────────
     await pool.query(`
       INSERT INTO giveaways
       (id, message_id, channel_id, guild_id, prize, winners, end_time, required_role)
@@ -104,7 +106,14 @@ ${requiredRole
       winners,
       endAt,
       requiredRole?.id || null
-      
     ]);
+
+    // ─── TELL CREATOR THE ID ─────────────────
+    await interaction.followUp({
+      content:
+        `✅ Giveaway created!\n🆔 ID: \`${giveawayId}\`\n` +
+        `Use this for:\n• /giveaway-end\n• /giveaway-reroll`,
+      ephemeral: true
+    });
   }
 };
