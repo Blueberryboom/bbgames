@@ -8,6 +8,7 @@ const {
 
 const pool = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
+const { v4: uuidv4 } = require('uuid');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -32,7 +33,6 @@ module.exports = {
         .setRequired(true)
     )
 
-    // ⭐ Optional role required to ENTER ⭐
     .addRoleOption(o =>
       o.setName('required_role')
         .setDescription('Role required to enter (optional)')
@@ -42,7 +42,6 @@ module.exports = {
   async execute(interaction) {
 
     // ─── PERMISSION CHECK ───────────────────
-
     if (!await checkPerms(interaction)) {
       return interaction.reply({
         content: "❌ You must be an event admin to create giveaways!",
@@ -51,29 +50,24 @@ module.exports = {
     }
 
     // ─── OPTIONS ─────────────────────────────
-
     const prize = interaction.options.getString('prize');
     const winners = interaction.options.getInteger('winners');
     const minutes = interaction.options.getInteger('minutes');
-
-    const requiredRole =
-      interaction.options.getRole('required_role');
+    const requiredRole = interaction.options.getRole('required_role');
 
     const endAt = Date.now() + minutes * 60 * 1000;
 
     // ─── EMBED ───────────────────────────────
-
     const embed = new EmbedBuilder()
       .setTitle("🎉 Giveaway!")
       .setColor(0x5865F2)
-      .setDescription(`
-**Prize:** ${prize}  
+      .setDescription(
+`**Prize:** ${prize}
 **Winners:** ${winners}
-
 ${requiredRole
   ? `🔒 Required Role: <@&${requiredRole.id}>`
-  : `🌍 Anyone can enter!`}
-      `)
+  : `🌍 Anyone can enter!`}`
+      )
       .setFooter({ text: "Ends" })
       .setTimestamp(endAt);
 
@@ -85,21 +79,24 @@ ${requiredRole
           .setStyle(ButtonStyle.Success)
       );
 
-    // ─── SEND MESSAGE ────────────────────────
-
-    const msg = await interaction.reply({
+    // ─── SEND MESSAGE (new style) ────────────
+    const response = await interaction.reply({
       embeds: [embed],
       components: [button],
-      fetchReply: true
+      withResponse: true        // ✅ modern replacement
     });
 
+    const msg = response.resource.message;
+
     // ─── SAVE TO DB ──────────────────────────
+    const giveawayId = uuidv4();   // ✅ FIX: generate ID
 
     await pool.query(`
       INSERT INTO giveaways
-      (message_id, channel_id, guild_id, prize, winners, end_time, required_role)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      (id, message_id, channel_id, guild_id, prize, winners, end_time, required_role)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
+      giveawayId,
       msg.id,
       msg.channelId,
       interaction.guildId,
@@ -107,6 +104,7 @@ ${requiredRole
       winners,
       endAt,
       requiredRole?.id || null
+      
     ]);
   }
 };
