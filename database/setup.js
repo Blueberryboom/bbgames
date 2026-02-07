@@ -36,12 +36,24 @@ module.exports = async () => {
   `);
 
   // ─── COUNTING SYSTEM ───────────────────────
-  await pool.query(`    
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS counting (
       guild_id VARCHAR(32) PRIMARY KEY,
       channel_id VARCHAR(32),
       current INT DEFAULT 0,
       last_user VARCHAR(32)
+    );
+  `);
+
+  // 🏆 LEADERBOARD ────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS counting_leaderboard (
+      guild_id VARCHAR(32),
+      user_id VARCHAR(32),
+      score INT DEFAULT 0,
+      fails INT DEFAULT 0,
+
+      PRIMARY KEY (guild_id, user_id)
     );
   `);
 
