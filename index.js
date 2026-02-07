@@ -26,10 +26,9 @@ client.commands = new Collection();
 // ✅ Load systems ONCE
 const giveawayButtonHandler = require('./events/giveawayButtons');
 const countingHandler = require('./events/countingMessage');
-
+const countingDeleteHandler = require('./events/countingDelete');   // ← ADDED
 
 // ─── LOAD COMMAND FILES ─────────────────────
-
 const commands = [];
 
 const commandFiles = fs
@@ -43,9 +42,7 @@ for (const file of commandFiles) {
   commands.push(command.data.toJSON());
 }
 
-
 // ─── READY EVENT (SHARD AWARE) ──────────────
-
 client.on('clientReady', async () => {
 
   const shardId = client.shard?.ids[0] ?? 0;
@@ -81,7 +78,6 @@ client.on('clientReady', async () => {
   }
 
   // ─── LOAD SYSTEMS ─────────────────────────
-
   require('./status')(client);
 
   try {
@@ -91,9 +87,7 @@ client.on('clientReady', async () => {
   }
 });
 
-
 // ─── MESSAGE HANDLER (COUNTING) ─────────────
-
 client.on('messageCreate', async message => {
   try {
     await countingHandler(message);
@@ -102,9 +96,16 @@ client.on('messageCreate', async message => {
   }
 });
 
+// ─── MESSAGE DELETE (COUNTING PROTECTION) ───
+client.on('messageDelete', async message => {
+  try {
+    await countingDeleteHandler(message);
+  } catch (err) {
+    console.error("Counting delete handler error:", err);
+  }
+});
 
 // ─── INTERACTION HANDLER ────────────────────
-
 client.on('interactionCreate', async interaction => {
 
   // ─── GLOBAL PERMISSION GUARD ─────────────
@@ -155,6 +156,7 @@ client.on('interactionCreate', async interaction => {
     await command.execute(interaction);
 
   } catch (error) {
+
     console.error(error);
 
     const errorMsg =
@@ -174,9 +176,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-
 // ─── SAFETY NET ─────────────────────────────
-
 process.on('unhandledRejection', err => {
   console.error("🔥 UNHANDLED REJECTION:", err);
 });
@@ -185,7 +185,5 @@ process.on('uncaughtException', err => {
   console.error("💥 UNCAUGHT EXCEPTION:", err);
 });
 
-
 // ─── LOGIN ──────────────────────────────────
-
 client.login(token);
