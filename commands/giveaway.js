@@ -37,6 +37,13 @@ module.exports = {
       o.setName('required_role')
         .setDescription('Role required to enter (optional)')
         .setRequired(false)
+    )
+
+    // ⭐ NEW: Custom title (not stored in DB)
+    .addStringOption(o =>
+      o.setName('title')
+        .setDescription('Custom embed title (optional)')
+        .setRequired(false)
     ),
 
   async execute(interaction) {
@@ -55,11 +62,18 @@ module.exports = {
     const minutes = interaction.options.getInteger('minutes');
     const requiredRole = interaction.options.getRole('required_role');
 
+    // ⭐ NEW
+    const customTitle =
+      interaction.options.getString('title') || "🎉 Giveaway!";
+
     const endAt = Date.now() + minutes * 60 * 1000;
+
+    // ─── CREATE ID FIRST ─────────────────────
+    const giveawayId = uuidv4();
 
     // ─── EMBED ───────────────────────────────
     const embed = new EmbedBuilder()
-      .setTitle("🎉 Giveaway!")
+      .setTitle(customTitle)
       .setColor(0x5865F2)
       .setDescription(
 `**Prize:** ${prize}
@@ -67,7 +81,9 @@ module.exports = {
 
 ${requiredRole
   ? `🔒 Required Role: <@&${requiredRole.id}>`
-  : `🌍 Anyone can enter!`}`
+  : `🌍 Anyone can enter!`}
+
+-# ID: \`${giveawayId}\``
       )
       .setFooter({ text: "Ends" })
       .setTimestamp(endAt);
@@ -80,17 +96,14 @@ ${requiredRole
           .setStyle(ButtonStyle.Success)
       );
 
-    // ─── SEND MESSAGE (modern method) ────────
+    // ─── SEND MESSAGE ────────────────────────
     const response = await interaction.reply({
       embeds: [embed],
       components: [button],
-      withResponse: true   // new discord.js style
+      withResponse: true
     });
 
     const msg = response.resource.message;
-
-    // ─── CREATE ID ONCE ──────────────────────
-    const giveawayId = uuidv4();
 
     // ─── SAVE TO DB ──────────────────────────
     await pool.query(`
@@ -108,11 +121,16 @@ ${requiredRole
       requiredRole?.id || null
     ]);
 
-    // ─── TELL CREATOR THE ID ─────────────────
+    // ─── CREATOR CONFIRM ─────────────────────
     await interaction.followUp({
       content:
-        `✅ Giveaway created!\n🆔 ID: \`${giveawayId}\`\n` +
-        `Use this for:\n• /giveaway-end\n• /giveaway-reroll`,
+`✅ Giveaway created!
+
+🆔 ID: \`${giveawayId}\`
+
+You can use this for:
+• /giveaway-end  
+• /giveaway-reroll`,
       ephemeral: true
     });
   }
