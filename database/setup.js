@@ -35,5 +35,16 @@ module.exports = async () => {
     );
   `);
 
+  // ─── COUNTING SYSTEM ────────────────────────
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS counting (
+      guild_id VARCHAR(32) PRIMARY KEY,
+      channel_id VARCHAR(32),
+      current INT DEFAULT 0,
+      last_user VARCHAR(32)
+    );
+  `);
+  
+
   console.log("✅ Database ready!");
 };
