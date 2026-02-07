@@ -39,7 +39,6 @@ module.exports = {
         .setRequired(false)
     )
 
-    // ⭐ NEW: Custom title (not stored in DB)
     .addStringOption(o =>
       o.setName('title')
         .setDescription('Custom embed title (optional)')
@@ -62,16 +61,15 @@ module.exports = {
     const minutes = interaction.options.getInteger('minutes');
     const requiredRole = interaction.options.getRole('required_role');
 
-    // ⭐ NEW
     const customTitle =
       interaction.options.getString('title') || "🎉 Giveaway!";
 
     const endAt = Date.now() + minutes * 60 * 1000;
 
-    // ─── CREATE ID FIRST ─────────────────────
+    // ─── CREATE ID ───────────────────────────
     const giveawayId = uuidv4();
 
-    // ─── EMBED ───────────────────────────────
+    // ─── EMBED (NO ID INSIDE) ────────────────
     const embed = new EmbedBuilder()
       .setTitle(customTitle)
       .setColor(0x5865F2)
@@ -81,18 +79,17 @@ module.exports = {
 
 ${requiredRole
   ? `🔒 Required Role: <@&${requiredRole.id}>`
-  : `🌍 Anyone can enter!`}
-
--# ID: \`${giveawayId}\``
+  : `🌍 Anyone can enter!`}`
       )
       .setFooter({ text: "Ends" })
       .setTimestamp(endAt);
 
+    // ⭐ Button starts at 0 entries
     const button = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
           .setCustomId('giveaway_enter')
-          .setLabel('Enter Giveaway')
+          .setLabel('Enter Giveaway (0)')
           .setStyle(ButtonStyle.Success)
       );
 
@@ -100,6 +97,10 @@ ${requiredRole
     const response = await interaction.reply({
       embeds: [embed],
       components: [button],
+
+      // ✅ COPYABLE PLAINTEXT ID UNDER EMBED
+      content: `-# ID: ${giveawayId}`,
+
       withResponse: true
     });
 
