@@ -27,7 +27,7 @@ module.exports = {
     );
 
     await interaction.reply(
-      `✅ ${role} can now manage giveaways!`
+      `✅ ${role} can now manage the bot!`
     );
   }
 };
