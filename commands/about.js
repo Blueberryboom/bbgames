@@ -92,20 +92,30 @@ module.exports = {
       })
       .setTimestamp();
 
-    // ─── BUTTONS ─────────────────────────────
+// ─── BUTTONS ─────────────────────────────
+    
+const buttons = new ActionRowBuilder()
+  .addComponents(
 
-    const buttons = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setLabel('Invite Bot')
-          .setStyle(ButtonStyle.Link)
-          .setURL(inviteUrl),
+    new ButtonBuilder()
+      .setLabel('Invite Bot')
+      .setEmoji('🤖')
+      .setStyle(ButtonStyle.Link)
+      .setURL(inviteUrl),
 
-        new ButtonBuilder()
-          .setLabel('My Discord')
-          .setStyle(ButtonStyle.Link)
-          .setURL('https://discord.gg/sKV2ze9HQv')
-      );
+    new ButtonBuilder()
+      .setLabel('My Discord')
+      .setEmoji('🎉')
+      .setStyle(ButtonStyle.Link)
+      .setURL('https://discord.gg/sKV2ze9HQv'),
+
+    // 🌐 Icon-only website button
+    new ButtonBuilder()
+      .setEmoji('🌐')
+      .setStyle(ButtonStyle.Link)
+      .setURL('https://bbgames.blueberrynet.uk')
+  );
+
 
     await interaction.reply({
       embeds: [embed],
