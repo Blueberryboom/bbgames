@@ -99,7 +99,7 @@ ${requiredRole
       components: [button],
 
       // ✅ COPYABLE PLAINTEXT ID UNDER EMBED
-      content: `-# ID: `${giveawayId}``,
+      content: ` -# ID: `${giveawayId}` `,
 
       withResponse: true
     });
