@@ -21,7 +21,7 @@ module.exports = async (message) => {
   // ➜ Re-post the correct number
   try {
     await message.channel.send(
-      `⚠️ Last number was deleted by <@${message.author.id}> — restoring:\n\n➡ **${config.current}**`
+      `Next number: **${config.current}**`
     );
   } catch (err) {
     console.log("Could not resend deleted count:", err);
