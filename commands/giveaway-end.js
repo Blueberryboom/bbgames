@@ -24,11 +24,34 @@ module.exports = {
 
     const id = interaction.options.getString('id');
 
-    await pool.query(
-      "UPDATE giveaways SET ended = 1 WHERE id = ?",
-      [id]
+    // ─── VERIFY GIVEAWAY BELONGS TO THIS SERVER ─────
+    const rows = await pool.query(
+      "SELECT * FROM giveaways WHERE id = ? AND guild_id = ?",
+      [id, interaction.guildId]
     );
 
-    await interaction.reply("✅ Giveaway ended!");
+    const giveaway = rows[0];
+
+    if (!giveaway) {
+      return interaction.reply({
+        content: "❌ Giveaway not found in this server!",
+        ephemeral: true
+      });
+    }
+
+    if (giveaway.ended) {
+      return interaction.reply({
+        content: "⚠️ This giveaway has already ended!",
+        ephemeral: true
+      });
+    }
+
+    // ─── END IT SAFELY ───────────────────────
+    await pool.query(
+      "UPDATE giveaways SET ended = 1 WHERE id = ? AND guild_id = ?",
+      [id, interaction.guildId]
+    );
+
+    await interaction.reply("✅ Giveaway ended successfully!");
   }
 };
