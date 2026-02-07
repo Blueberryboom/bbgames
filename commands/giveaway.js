@@ -10,6 +10,26 @@ const pool = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
 const { v4: uuidv4 } = require('uuid');
 
+// ─── TIME PARSER ────────────────────────────
+function parseDuration(input) {
+  const regex = /(\d+)\s*(d|h|m)/gi;
+
+  let total = 0;
+  let match;
+
+  while ((match = regex.exec(input)) !== null) {
+    const value = parseInt(match[1]);
+    const unit = match[2].toLowerCase();
+
+    if (unit === 'd') total += value * 24 * 60;
+    if (unit === 'h') total += value * 60;
+    if (unit === 'm') total += value;
+  }
+
+  return total; // minutes
+}
+// ────────────────────────────────────────────
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('giveaway')
@@ -27,9 +47,10 @@ module.exports = {
         .setRequired(true)
     )
 
-    .addIntegerOption(o =>
-      o.setName('minutes')
-        .setDescription('How long should it last?')
+    // ⭐ CHANGED TO STRING
+    .addStringOption(o =>
+      o.setName('duration')
+        .setDescription('Time like: 1d 2h 30m')
         .setRequired(true)
     )
 
@@ -47,7 +68,6 @@ module.exports = {
 
   async execute(interaction) {
 
-    // ─── PERMISSION CHECK ───────────────────
     if (!await checkPerms(interaction)) {
       return interaction.reply({
         content: "❌ You must be an event admin to create giveaways!",
@@ -55,24 +75,36 @@ module.exports = {
       });
     }
 
-    // ─── OPTIONS ─────────────────────────────
     const prize = interaction.options.getString('prize');
     const winners = interaction.options.getInteger('winners');
-    const minutes = interaction.options.getInteger('minutes');
+    const durationInput = interaction.options.getString('duration');
     const requiredRole = interaction.options.getRole('required_role');
 
     const customTitle =
       interaction.options.getString('title') || "🎉 Giveaway!";
 
-    const endAt = Date.now() + minutes * 60 * 1000;
+    // ─── PARSE TIME ──────────────────────────
+    const minutes = parseDuration(durationInput);
 
-    // Discord timestamp (seconds)
+    if (!minutes || minutes <= 0) {
+      return interaction.reply({
+        content:
+`❌ Invalid time format!
+
+Examples:
+• \`1d\`
+• \`2h 30m\`
+• \`1d 6h\`
+• \`45m\``,
+        ephemeral: true
+      });
+    }
+
+    const endAt = Date.now() + minutes * 60 * 1000;
     const unix = Math.floor(endAt / 1000);
 
-    // ─── CREATE ID ───────────────────────────
     const giveawayId = uuidv4();
 
-    // ─── EMBED WITH AUTO TIME ────────────────
     const embed = new EmbedBuilder()
       .setTitle(customTitle)
       .setColor(0x5865F2)
@@ -95,7 +127,6 @@ ${requiredRole
 
       .setTimestamp(endAt);
 
-    // ⭐ Button starts at 0 entries
     const button = new ActionRowBuilder()
       .addComponents(
         new ButtonBuilder()
@@ -104,7 +135,6 @@ ${requiredRole
           .setStyle(ButtonStyle.Success)
       );
 
-    // ─── SEND MESSAGE ────────────────────────
     const response = await interaction.reply({
       embeds: [embed],
       components: [button],
@@ -113,7 +143,6 @@ ${requiredRole
 
     const msg = response.resource.message;
 
-    // ─── SAVE TO DB ──────────────────────────
     await pool.query(`
       INSERT INTO giveaways
       (id, message_id, channel_id, guild_id, prize, winners, end_time, required_role)
@@ -129,7 +158,6 @@ ${requiredRole
       requiredRole?.id || null
     ]);
 
-    // ─── CREATOR CONFIRM ─────────────────────
     await interaction.followUp({
       content:
 `✅ Giveaway created!
