@@ -1,8 +1,5 @@
 const pool = require('../database');
 
-// channelId → timestamp
-const cooldown = new Map();
-
 module.exports = async (message) => {
   if (!message.guild || message.author?.bot) return;
 
@@ -33,22 +30,32 @@ module.exports = async (message) => {
   }
   // ─────────────────────────────────────────────
 
-  // ─── 30 SECOND COOLDOWN ──────────────────────
-  const lastTime = cooldown.get(message.channel.id) || 0;
-  const now = Date.now();
+  const content = `⚠️ Current count: **${config.current}**`;
 
-  if (now - lastTime < 30_000) {
-    return; // still cooling down
-  }
-
-  cooldown.set(message.channel.id, now);
-  // ─────────────────────────────────────────────
-
-  // ➜ Re-post the correct number
   try {
-    await message.channel.send(
-      `⚠️ Current count: **${config.current}**`
+    // ─── IF STATUS MESSAGE EXISTS → EDIT ────────
+    if (config.status_message_id) {
+      try {
+        const statusMsg =
+          await message.channel.messages.fetch(config.status_message_id);
+
+        await statusMsg.edit(content);
+        return;
+      } catch {
+        // Message was deleted manually → recreate
+      }
+    }
+
+    // ─── OTHERWISE SEND NEW ─────────────────────
+    const newMsg = await message.channel.send(content);
+
+    await pool.query(
+      `UPDATE counting
+       SET status_message_id = ?
+       WHERE guild_id = ?`,
+      [newMsg.id, message.guildId]
     );
+
   } catch (err) {
     console.log("Could not resend deleted count:", err);
   }
