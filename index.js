@@ -26,7 +26,6 @@ client.commands = new Collection();
 // ✅ Load systems ONCE
 const giveawayButtonHandler = require('./events/giveawayButtons');
 const countingHandler = require('./events/countingMessage');
-const countingDeleteHandler = require('./events/countingDelete');   // ← ADDED
 
 // ─── LOAD COMMAND FILES ─────────────────────
 const commands = [];
@@ -93,15 +92,6 @@ client.on('messageCreate', async message => {
     await countingHandler(message);
   } catch (err) {
     console.error("Counting error:", err);
-  }
-});
-
-// ─── MESSAGE DELETE (COUNTING PROTECTION) ───
-client.on('messageDelete', async message => {
-  try {
-    await countingDeleteHandler(message);
-  } catch (err) {
-    console.error("Counting delete handler error:", err);
   }
 });
 
