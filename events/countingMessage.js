@@ -2,7 +2,7 @@ const pool = require('../database');
 
 module.exports = async (message) => {
 
-  if (message.author.bot) return;
+  if (!message.guild || message.author.bot) return;
 
   const [config] = await pool.query(
     "SELECT * FROM counting WHERE guild_id = ?",
@@ -24,7 +24,6 @@ module.exports = async (message) => {
 
     await message.delete().catch(() => {});
 
-    // ➜ Add FAIL point
     await pool.query(`
       INSERT INTO counting_leaderboard
       (guild_id, user_id, fails)
@@ -52,16 +51,46 @@ module.exports = async (message) => {
 
   // ─── SUCCESS ───────────────────────────────
 
+  // Update DB first
   await pool.query(
     "UPDATE counting SET current = ?, last_user = ? WHERE guild_id = ?",
     [number, message.author.id, message.guildId]
   );
 
-  // ➜ Add SCORE point
   await pool.query(`
     INSERT INTO counting_leaderboard
     (guild_id, user_id, score)
     VALUES (?, ?, 1)
     ON DUPLICATE KEY UPDATE score = score + 1
   `, [message.guildId, message.author.id]);
+
+  // ─── WEBHOOK SYSTEM ────────────────────────
+
+  let webhook;
+
+  try {
+    const hooks = await message.channel.fetchWebhooks();
+
+    webhook = hooks.find(w => w.name === "Counting");
+
+    if (!webhook) {
+      webhook = await message.channel.createWebhook({
+        name: "Counting"
+      });
+    }
+
+    // Send as webhook
+    await webhook.send({
+      content: number.toString(),
+      username: message.member.displayName,
+      avatarURL: message.author.displayAvatarURL({ dynamic: true })
+    });
+
+    // Delete original message
+    await message.delete().catch(() => {});
+
+  } catch (err) {
+    console.log("Webhook error:", err);
+  }
+
 };
