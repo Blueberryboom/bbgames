@@ -45,6 +45,14 @@ module.exports = async () => {
     );
   `);
 
+  // ─── BLACKLIST ──────────────────────────────
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS blacklist (
+    guild_id VARCHAR(32) PRIMARY KEY,
+    added_at BIGINT
+  );
+`);
+
   // 🏆 LEADERBOARD ────────────────────────────
   await pool.query(`
     CREATE TABLE IF NOT EXISTS counting_leaderboard (
