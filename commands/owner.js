@@ -7,7 +7,7 @@ const {
   ComponentType
 } = require('discord.js');
 
-const pool = require('../../database');
+const pool = require('../database');
 
 const BOT_OWNER = "YOUR_USER_ID";
 
