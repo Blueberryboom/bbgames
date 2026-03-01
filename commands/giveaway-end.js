@@ -5,7 +5,7 @@ const checkPerms = require('../utils/checkEventPerms');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('giveaway-end')
-    .setDescription('End a giveaway')
+    .setDescription('End a giveaway - FULLY DELETES')
     .addStringOption(o =>
       o.setName('id')
        .setDescription('Giveaway ID')
