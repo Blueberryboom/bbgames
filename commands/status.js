@@ -66,16 +66,16 @@ module.exports = {
     const premiumRaw =
       String(process.env.PREMIUM_SERVER || '').toLowerCase();
 
-    let premiumDisplay = '❌ Standard Bot';
+    let premiumDisplay = 'Standard Bot (premium only for custom profiles as of now)';
 
     if (premiumRaw === 'true_1' || premiumRaw === 'true') {
-      premiumDisplay = '💎 Tier 1';
+      premiumDisplay = 'Tier 1';
     }
     else if (premiumRaw === 'true_2') {
-      premiumDisplay = '🎉 Tier 2';
+      premiumDisplay = 'Tier 2';
     }
     else if (premiumRaw === 'true_3') {
-      premiumDisplay = '✨ Tier 3 - Customized Profile';
+      premiumDisplay = 'Tier 3 - Customized Profile';
     }
 
     // ─── BUILD EMBED ─────────────────────────
