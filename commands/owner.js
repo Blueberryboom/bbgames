@@ -7,7 +7,9 @@ const {
   ComponentType
 } = require('discord.js');
 
-const BOT_OWNER = "1056523021894029372";
+const pool = require('../../database');
+
+const BOT_OWNER = "YOUR_USER_ID";
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -22,7 +24,7 @@ module.exports = {
        .setDescription('Send announcement to all counting channels')
        .addStringOption(o =>
          o.setName('message')
-          .setDescription('Announcement message')
+          .setDescription('Message')
           .setRequired(true)
        )
     )
@@ -47,7 +49,6 @@ module.exports = {
 
   async execute(interaction) {
 
-    // ─── DM ONLY ─────────────────────────────
     if (interaction.guild)
       return interaction.reply({ content: "❌ DM only.", ephemeral: true });
 
@@ -57,37 +58,44 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     // ======================================================
-    // ================== SERVERS VIEW ======================
+    // ================= SERVERS ============================
     // ======================================================
 
     if (sub === "servers") {
 
       await interaction.deferReply({ ephemeral: true });
 
-      // Get ALL guilds across shards
-      const results = await interaction.client.shard.broadcastEval(client =>
-        client.guilds.cache.map(g => ({
-          name: g.name,
-          id: g.id,
-          members: g.memberCount
-        }))
-      );
+      let guilds = [];
 
-      const guilds = results.flat();
+      try {
+        const results = await interaction.client.shard.broadcastEval(
+          client => client.guilds.cache.map(g => ({
+            name: g.name,
+            id: g.id,
+            members: g.memberCount
+          }))
+        );
+        guilds = results.flat();
+      } catch (err) {
+        console.error("Shard fetch failed:", err);
+        return interaction.editReply("❌ Failed to fetch guilds.");
+      }
 
-      let page = 0;
       const perPage = 10;
-      const totalPages = Math.ceil(guilds.length / perPage);
+      const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
+      let page = 0;
 
-      const getEmbed = () => {
+      const buildEmbed = () => {
         const slice = guilds.slice(page * perPage, (page + 1) * perPage);
 
         return new EmbedBuilder()
           .setTitle(`🌍 Total Servers: ${guilds.length}`)
           .setDescription(
-            slice.map(g =>
-              `**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
-            ).join("\n\n") || "No servers."
+            slice.length
+              ? slice.map(g =>
+                  `**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
+                ).join("\n\n")
+              : "No servers."
           )
           .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
       };
@@ -110,7 +118,7 @@ module.exports = {
       );
 
       const msg = await interaction.editReply({
-        embeds: [getEmbed()],
+        embeds: [buildEmbed()],
         components: [row]
       });
 
@@ -123,55 +131,71 @@ module.exports = {
         if (i.user.id !== BOT_OWNER)
           return i.reply({ content: "Not for you.", ephemeral: true });
 
-        if (i.customId === "next") {
-          page = (page + 1) % totalPages;
-          await i.update({ embeds: [getEmbed()] });
-        }
+        try {
 
-        if (i.customId === "back") {
-          page = (page - 1 + totalPages) % totalPages;
-          await i.update({ embeds: [getEmbed()] });
-        }
+          if (i.customId === "next") {
+            page = (page + 1) % totalPages;
+            return i.update({ embeds: [buildEmbed()] });
+          }
 
-        if (i.customId === "join") {
-          const current = guilds[page * perPage];
+          if (i.customId === "back") {
+            page = (page - 1 + totalPages) % totalPages;
+            return i.update({ embeds: [buildEmbed()] });
+          }
 
-          if (!current)
-            return i.reply({ content: "No guild selected.", ephemeral: true });
+          if (i.customId === "join") {
 
-          const invite = await interaction.client.shard.broadcastEval(
-            async (client, { guildId }) => {
-              const guild = client.guilds.cache.get(guildId);
-              if (!guild) return null;
+            const selected = guilds[page * perPage];
+            if (!selected)
+              return i.reply({ content: "No guild on this page.", ephemeral: true });
 
-              const channel = guild.channels.cache
-                .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has("CreateInstantInvite"))
-                .first();
+            let inviteUrl = null;
 
-              if (!channel) return null;
+            try {
+              const results = await interaction.client.shard.broadcastEval(
+                async (client, { guildId }) => {
+                  const guild = client.guilds.cache.get(guildId);
+                  if (!guild) return null;
 
-              try {
-                const invite = await channel.createInvite({ maxAge: 300 });
-                return invite.url;
-              } catch {
-                return null;
-              }
-            },
-            { context: { guildId: current.id } }
-          );
+                  const channel = guild.channels.cache
+                    .filter(c =>
+                      c.isTextBased() &&
+                      c.permissionsFor(guild.members.me)?.has("CreateInstantInvite")
+                    )
+                    .first();
 
-          const url = invite.find(Boolean);
+                  if (!channel) return null;
 
-          if (!url)
-            return i.reply({ content: "❌ Cannot create invite.", ephemeral: true });
+                  try {
+                    const invite = await channel.createInvite({ maxAge: 300 });
+                    return invite.url;
+                  } catch {
+                    return null;
+                  }
+                },
+                { context: { guildId: selected.id } }
+              );
 
-          await i.reply({ content: url, ephemeral: true });
+              inviteUrl = results.find(Boolean);
+            } catch (err) {
+              console.error("Invite creation failed:", err);
+            }
+
+            if (!inviteUrl)
+              return i.reply({ content: "❌ Cannot create invite.", ephemeral: true });
+
+            return i.reply({ content: inviteUrl, ephemeral: true });
+          }
+
+        } catch (err) {
+          console.error("Collector error:", err);
+          i.reply({ content: "❌ Error occurred.", ephemeral: true });
         }
       });
     }
 
     // ======================================================
-    // ================= GLOBAL ANNOUNCE ====================
+    // ================= ANNOUNCE ===========================
     // ======================================================
 
     if (sub === "announce") {
@@ -180,40 +204,53 @@ module.exports = {
 
       await interaction.deferReply({ ephemeral: true });
 
-      const results = await interaction.client.shard.broadcastEval(
-        async (client, { messageText }) => {
+      let rows;
 
-          const pool = require('../../database');
+      try {
+        rows = await pool.query("SELECT guild_id, channel_id FROM counting");
+      } catch (err) {
+        console.error("DB fetch failed:", err);
+        return interaction.editReply("❌ Database error.");
+      }
 
-          const rows = await pool.query("SELECT * FROM counting");
+      let totalSent = 0;
 
-          let sent = 0;
+      try {
+        const results = await interaction.client.shard.broadcastEval(
+          async (client, { rows, messageText }) => {
 
-          for (const row of rows) {
-            const guild = client.guilds.cache.get(row.guild_id);
-            if (!guild) continue;
+            let sent = 0;
 
-            const channel = guild.channels.cache.get(row.channel_id);
-            if (!channel || !channel.isTextBased()) continue;
+            for (const row of rows) {
+              const guild = client.guilds.cache.get(row.guild_id);
+              if (!guild) continue;
 
-            try {
-              await channel.send(`📢 **Announcement:**\n${messageText}`);
-              sent++;
-            } catch {}
-          }
+              const channel = guild.channels.cache.get(row.channel_id);
+              if (!channel || !channel.isTextBased()) continue;
 
-          return sent;
-        },
-        { context: { messageText } }
-      );
+              try {
+                await channel.send(`📢 **Announcement:**\n${messageText}`);
+                sent++;
+              } catch {}
+            }
 
-      const total = results.reduce((a, b) => a + b, 0);
+            return sent;
+          },
+          { context: { rows, messageText } }
+        );
 
-      await interaction.editReply(`✅ Sent to ${total} counting channels.`);
+        totalSent = results.reduce((a, b) => a + b, 0);
+
+      } catch (err) {
+        console.error("Announcement failed:", err);
+        return interaction.editReply("❌ Shard error.");
+      }
+
+      return interaction.editReply(`✅ Sent to ${totalSent} counting channels.`);
     }
 
     // ======================================================
-    // ==================== MODERATE ========================
+    // ================= MODERATE ===========================
     // ======================================================
 
     if (sub === "moderate") {
@@ -223,27 +260,41 @@ module.exports = {
 
       await interaction.deferReply({ ephemeral: true });
 
-      const result = await interaction.client.shard.broadcastEval(
-        async (client, { guildId, action }) => {
+      if (action === "blacklist") {
+        try {
+          await pool.query(
+            "INSERT IGNORE INTO blacklist (guild_id, added_at) VALUES (?, ?)",
+            [guildId, Date.now()]
+          );
+        } catch (err) {
+          console.error("Blacklist insert failed:", err);
+          return interaction.editReply("❌ DB error.");
+        }
+      }
 
-          const guild = client.guilds.cache.get(guildId);
-          if (!guild) return false;
+      let left = false;
 
-          if (action === "leave") {
-            await guild.leave();
+      try {
+        const results = await interaction.client.shard.broadcastEval(
+          async (client, { guildId }) => {
+            const guild = client.guilds.cache.get(guildId);
+            if (!guild) return false;
+            await guild.leave().catch(() => {});
             return true;
-          }
+          },
+          { context: { guildId } }
+        );
 
-          return false;
+        left = results.some(Boolean);
 
-        },
-        { context: { guildId, action } }
-      );
+      } catch (err) {
+        console.error("Leave failed:", err);
+      }
 
-      if (result.some(Boolean))
-        return interaction.editReply("✅ Done.");
+      if (!left && action === "leave")
+        return interaction.editReply("❌ Guild not found.");
 
-      interaction.editReply("❌ Guild not found.");
+      return interaction.editReply("✅ Action complete.");
     }
 
   }
