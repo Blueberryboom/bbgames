@@ -16,7 +16,7 @@ module.exports = {
       [interaction.guildId]
     );
 
-    await interaction.reply("💥 Counting data reset!");
+    await interaction.reply("💥 Counting data reset! Successfuly reset counting channel and count.");
   }
   
 };
