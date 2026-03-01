@@ -78,12 +78,6 @@ module.exports = {
           name: '🏡 Servers',
           value: `**${serverCount}** (${totalMembers} members)`,
           inline: true
-        },
-        {
-          name: '🔗 Useful Links',
-          value:
-            '[Status Page](https://status.blueberrynet.uk)',
-          inline: false
         }
       )
 
@@ -108,12 +102,12 @@ const buttons = new ActionRowBuilder()
       .setEmoji('🎉')
       .setStyle(ButtonStyle.Link)
       .setURL('https://discord.gg/sKV2ze9HQv'),
-
-    // 🌐 Icon-only website button
+    
     new ButtonBuilder()
-      .setEmoji('🌐')
+      .setLabel('Status Page')
+      .setEmoji('🛠️')
       .setStyle(ButtonStyle.Link)
-      .setURL('https://bbgames.blueberrynet.uk')
+      .setURL('https://status.blueberrynet.uk')
   );
 
 
