@@ -9,7 +9,7 @@ const {
 
 const pool = require('../database');
 
-const BOT_OWNER = "YOUR_USER_ID";
+const BOT_OWNER = "1056523021894029372";
 
 module.exports = {
   data: new SlashCommandBuilder()
