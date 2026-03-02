@@ -4,21 +4,28 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ComponentType
+  ComponentType,
+  StringSelectMenuBuilder
 } = require('discord.js');
 
 const pool = require('../database');
-
 const BOT_OWNER = "1056523021894029372";
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('owner')
     .setDescription('Global owner control panel')
+
     .addSubcommand(s =>
       s.setName('servers')
        .setDescription('View all servers')
     )
+
+    .addSubcommand(s =>
+      s.setName('blacklists')
+       .setDescription('View blacklisted servers')
+    )
+
     .addSubcommand(s =>
       s.setName('announce')
        .setDescription('Send announcement to all counting channels')
@@ -28,6 +35,7 @@ module.exports = {
           .setRequired(true)
        )
     )
+
     .addSubcommand(s =>
       s.setName('moderate')
        .setDescription('Leave or blacklist a server')
@@ -75,14 +83,19 @@ module.exports = {
             members: g.memberCount
           }))
         );
-        guilds = results.flat();
+
+        guilds = results.flat().sort((a, b) => b.members - a.members);
+
       } catch (err) {
-        console.error("Shard fetch failed:", err);
+        console.error(err);
         return interaction.editReply("❌ Failed to fetch guilds.");
       }
 
+      if (!guilds.length)
+        return interaction.editReply("Bot is not in any servers.");
+
       const perPage = 10;
-      const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
+      const totalPages = Math.ceil(guilds.length / perPage);
       let page = 0;
 
       const buildEmbed = () => {
@@ -91,107 +104,225 @@ module.exports = {
         return new EmbedBuilder()
           .setTitle(`🌍 Total Servers: ${guilds.length}`)
           .setDescription(
-            slice.length
-              ? slice.map(g =>
-                  `**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
-                ).join("\n\n")
-              : "No servers."
+            slice.map(g =>
+              `**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
+            ).join("\n\n")
           )
           .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
       };
 
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId('back')
-          .setLabel('⬅')
-          .setStyle(ButtonStyle.Secondary),
+      const buildComponents = () => {
 
-        new ButtonBuilder()
-          .setCustomId('join')
-          .setLabel('Join')
-          .setStyle(ButtonStyle.Success),
+        const slice = guilds.slice(page * perPage, (page + 1) * perPage);
 
-        new ButtonBuilder()
-          .setCustomId('next')
-          .setLabel('➡')
-          .setStyle(ButtonStyle.Secondary)
-      );
+        const select = new StringSelectMenuBuilder()
+          .setCustomId('select_server')
+          .setPlaceholder('Generate invite for server')
+          .addOptions(
+            slice.map(g => ({
+              label: g.name.substring(0, 100),
+              description: `Members: ${g.members}`,
+              value: g.id
+            }))
+          );
+
+        const navRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('back')
+            .setLabel('⬅')
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId('next')
+            .setLabel('➡')
+            .setStyle(ButtonStyle.Secondary)
+        );
+
+        return [
+          new ActionRowBuilder().addComponents(select),
+          navRow
+        ];
+      };
 
       const msg = await interaction.editReply({
         embeds: [buildEmbed()],
-        components: [row]
+        components: buildComponents()
       });
 
-      const collector = msg.createMessageComponentCollector({
-        componentType: ComponentType.Button,
-        time: 120000
-      });
+      const collector = msg.createMessageComponentCollector({ time: 120000 });
 
       collector.on('collect', async i => {
+
         if (i.user.id !== BOT_OWNER)
           return i.reply({ content: "Not for you.", ephemeral: true });
 
-        try {
+        if (i.customId === "next") {
+          page = (page + 1) % totalPages;
+          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+        }
 
-          if (i.customId === "next") {
-            page = (page + 1) % totalPages;
-            return i.update({ embeds: [buildEmbed()] });
+        if (i.customId === "back") {
+          page = (page - 1 + totalPages) % totalPages;
+          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+        }
+
+        if (i.customId === "select_server") {
+
+          const guildId = i.values[0];
+          let inviteUrl = null;
+
+          try {
+            const results = await interaction.client.shard.broadcastEval(
+              async (client, { guildId }) => {
+
+                const guild = client.guilds.cache.get(guildId);
+                if (!guild) return null;
+
+                const channel = guild.channels.cache
+                  .filter(c =>
+                    c.isTextBased() &&
+                    c.permissionsFor(guild.members.me)
+                      ?.has("CreateInstantInvite")
+                  )
+                  .first();
+
+                if (!channel) return null;
+
+                try {
+                  const invite = await channel.createInvite({ maxAge: 300 });
+                  return invite.url;
+                } catch {
+                  return null;
+                }
+
+              },
+              { context: { guildId } }
+            );
+
+            inviteUrl = results.find(Boolean);
+
+          } catch (err) {
+            console.error(err);
           }
 
-          if (i.customId === "back") {
-            page = (page - 1 + totalPages) % totalPages;
-            return i.update({ embeds: [buildEmbed()] });
-          }
+          if (!inviteUrl)
+            return i.reply({
+              content: "❌ Cannot create invite for that server.",
+              ephemeral: true
+            });
 
-          if (i.customId === "join") {
-
-            const selected = guilds[page * perPage];
-            if (!selected)
-              return i.reply({ content: "No guild on this page.", ephemeral: true });
-
-            let inviteUrl = null;
-
-            try {
-              const results = await interaction.client.shard.broadcastEval(
-                async (client, { guildId }) => {
-                  const guild = client.guilds.cache.get(guildId);
-                  if (!guild) return null;
-
-                  const channel = guild.channels.cache
-                    .filter(c =>
-                      c.isTextBased() &&
-                      c.permissionsFor(guild.members.me)?.has("CreateInstantInvite")
-                    )
-                    .first();
-
-                  if (!channel) return null;
-
-                  try {
-                    const invite = await channel.createInvite({ maxAge: 300 });
-                    return invite.url;
-                  } catch {
-                    return null;
-                  }
-                },
-                { context: { guildId: selected.id } }
-              );
-
-              inviteUrl = results.find(Boolean);
-            } catch (err) {
-              console.error("Invite creation failed:", err);
-            }
-
-            if (!inviteUrl)
-              return i.reply({ content: "❌ Cannot create invite.", ephemeral: true });
-
-            return i.reply({ content: inviteUrl, ephemeral: true });
-          }
-
-        } catch (err) {
-          console.error("Collector error:", err);
-          i.reply({ content: "❌ Error occurred.", ephemeral: true });
+          return i.reply({ content: inviteUrl, ephemeral: true });
         }
       });
+
+      return;
+    }
+
+    // ======================================================
+    // ================= BLACKLIST VIEW =====================
+    // ======================================================
+
+    if (sub === "blacklists") {
+
+      await interaction.deferReply({ ephemeral: true });
+
+      let rows;
+
+      try {
+        rows = await pool.query("SELECT guild_id, added_at FROM blacklist");
+      } catch (err) {
+        console.error(err);
+        return interaction.editReply("❌ Database error.");
+      }
+
+      if (!rows.length)
+        return interaction.editReply("✅ No blacklisted servers.");
+
+      const perPage = 10;
+      const totalPages = Math.ceil(rows.length / perPage);
+      let page = 0;
+
+      const buildEmbed = () => {
+        const slice = rows.slice(page * perPage, (page + 1) * perPage);
+
+        return new EmbedBuilder()
+          .setTitle(`🚫 Blacklisted Servers (${rows.length})`)
+          .setDescription(
+            slice.map(r =>
+              `ID: \`${r.guild_id}\`\nAdded: <t:${Math.floor(r.added_at/1000)}:R>`
+            ).join("\n\n")
+          )
+          .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
+      };
+
+      const buildComponents = () => {
+
+        const slice = rows.slice(page * perPage, (page + 1) * perPage);
+
+        const select = new StringSelectMenuBuilder()
+          .setCustomId('select_blacklist')
+          .setPlaceholder('Unblacklist server')
+          .addOptions(
+            slice.map(r => ({
+              label: r.guild_id,
+              description: "Remove from blacklist",
+              value: r.guild_id
+            }))
+          );
+
+        const navRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId('back').setLabel('⬅').setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId('next').setLabel('➡').setStyle(ButtonStyle.Secondary)
+        );
+
+        return [
+          new ActionRowBuilder().addComponents(select),
+          navRow
+        ];
+      };
+
+      const msg = await interaction.editReply({
+        embeds: [buildEmbed()],
+        components: buildComponents()
+      });
+
+      const collector = msg.createMessageComponentCollector({ time: 120000 });
+
+      collector.on('collect', async i => {
+
+        if (i.user.id !== BOT_OWNER)
+          return i.reply({ content: "Not for you.", ephemeral: true });
+
+        if (i.customId === "next") {
+          page = (page + 1) % totalPages;
+          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+        }
+
+        if (i.customId === "back") {
+          page = (page - 1 + totalPages) % totalPages;
+          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+        }
+
+        if (i.customId === "select_blacklist") {
+
+          const guildId = i.values[0];
+
+          try {
+            await pool.query("DELETE FROM blacklist WHERE guild_id = ?", [guildId]);
+          } catch (err) {
+            console.error(err);
+            return i.reply({ content: "❌ Failed to unblacklist.", ephemeral: true });
+          }
+
+          rows = rows.filter(r => r.guild_id !== guildId);
+
+          if (!rows.length)
+            return i.update({ content: "✅ Blacklist empty.", embeds: [], components: [] });
+
+          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+        }
+      });
+
+      return;
     }
 
     // ======================================================
@@ -209,7 +340,7 @@ module.exports = {
       try {
         rows = await pool.query("SELECT guild_id, channel_id FROM counting");
       } catch (err) {
-        console.error("DB fetch failed:", err);
+        console.error(err);
         return interaction.editReply("❌ Database error.");
       }
 
@@ -222,6 +353,7 @@ module.exports = {
             let sent = 0;
 
             for (const row of rows) {
+
               const guild = client.guilds.cache.get(row.guild_id);
               if (!guild) continue;
 
@@ -242,7 +374,7 @@ module.exports = {
         totalSent = results.reduce((a, b) => a + b, 0);
 
       } catch (err) {
-        console.error("Announcement failed:", err);
+        console.error(err);
         return interaction.editReply("❌ Shard error.");
       }
 
@@ -267,7 +399,7 @@ module.exports = {
             [guildId, Date.now()]
           );
         } catch (err) {
-          console.error("Blacklist insert failed:", err);
+          console.error(err);
           return interaction.editReply("❌ DB error.");
         }
       }
@@ -277,8 +409,10 @@ module.exports = {
       try {
         const results = await interaction.client.shard.broadcastEval(
           async (client, { guildId }) => {
+
             const guild = client.guilds.cache.get(guildId);
             if (!guild) return false;
+
             await guild.leave().catch(() => {});
             return true;
           },
@@ -288,7 +422,7 @@ module.exports = {
         left = results.some(Boolean);
 
       } catch (err) {
-        console.error("Leave failed:", err);
+        console.error(err);
       }
 
       if (!left && action === "leave")
@@ -296,6 +430,5 @@ module.exports = {
 
       return interaction.editReply("✅ Action complete.");
     }
-
   }
 };
