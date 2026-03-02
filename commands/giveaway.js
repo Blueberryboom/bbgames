@@ -14,7 +14,7 @@ const { parseDuration, endGiveaway } = require('../utils/giveawayManager');
 async function hasAdminPermission(interaction) {
   // Check database for configured admin roles
   const [rows] = await pool.query(
-    `SELECT role_id FROM admin_roles WHERE guild_id=?`,
+    `SELECT role_id FROM event_admin_roles WHERE guild_id=?`,
     [interaction.guild.id]
   );
 
