@@ -1,185 +1,189 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const pool = require('../database/index');
-const ms = require('ms');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Collection } = require('discord.js');
+const ms = require('ms'); // For parsing duration strings
 
-// Interval in milliseconds for checking giveaways
-const CHECK_INTERVAL = 15000; // 15 seconds
-
-/**
- * Initialize the giveaway system
- * @param {Client} client 
- */
-async function initGiveawaySystem(client) {
-  setInterval(async () => {
-    try {
-      await checkAndEndGiveaways(client);
-      await cleanupOldGiveaways();
-    } catch (err) {
-      console.error('❌ Giveaway system error:', err);
-    }
-  }, CHECK_INTERVAL);
-
-  console.log('✅ Giveaway system initialized');
-}
-
-/**
- * Check the DB for giveaways that need to end and end them
- * @param {Client} client 
- */
-async function checkAndEndGiveaways(client) {
-  const now = Date.now();
-
-  // Fetch active giveaways that should end
-  const [giveaways] = await pool.query(
-    `SELECT * FROM giveaways WHERE ended = 0 AND end_time <= ?`,
-    [now]
-  );
-
-  for (const giveaway of giveaways) {
-    try {
-      // End each giveaway safely
-      await endGiveaway(client, giveaway);
-    } catch (err) {
-      console.error(`❌ Error ending giveaway ${giveaway.id}:`, err);
-    }
-  }
-}
-
-/**
- * End a giveaway
- * @param {Client} client 
- * @param {Object} giveaway 
- */
-async function endGiveaway(client, giveaway) {
-  if (giveaway.ended) return;
-
-  // Lock giveaway in DB to avoid double ending
-  const [result] = await pool.query(
-    `UPDATE giveaways SET ended = 1 WHERE id = ? AND ended = 0`,
-    [giveaway.id]
-  );
-  if (result.affectedRows === 0) return; // Already ended by another shard
-
-  // Fetch participants
-  const [entries] = await pool.query(
-    `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
-    [giveaway.id]
-  );
-  if (!entries.length) {
-    await announceNoWinners(client, giveaway);
-    return;
-  }
-
-  // Handle extra entries
-  let weighted = [];
-  const extraEntries = giveaway.extra_entries ? JSON.parse(giveaway.extra_entries) : {};
-  for (const entry of entries) {
-    let count = 1;
-    for (const [roleId, weight] of Object.entries(extraEntries)) {
-      try {
-        const member = await client.guilds.cache.get(giveaway.guild_id)?.members.fetch(entry.user_id).catch(() => null);
-        if (member && member.roles.cache.has(roleId)) count += Number(weight);
-      } catch {}
-    }
-    for (let i = 0; i < count; i++) weighted.push(entry.user_id);
-  }
-
-  // Randomly pick winners
-  const winners = [];
-  const numberOfWinners = Math.min(giveaway.winners, entries.length);
-  while (winners.length < numberOfWinners && weighted.length) {
-    const index = Math.floor(Math.random() * weighted.length);
-    const winner = weighted.splice(index, 1)[0];
-    if (!winners.includes(winner)) winners.push(winner);
-  }
-
-  // Edit original giveaway embed
-  try {
-    const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
-    if (channel) {
-      const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
-      if (msg) {
-        const embed = EmbedBuilder.from(msg.embeds[0])
-          .setFooter({ text: `Giveaway ended | Hosted by ${embedFooter(giveaway.host_id, client)}` });
-
-        const disabledRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`disabled`).setLabel('Join').setStyle(ButtonStyle.Primary).setDisabled(true),
-          new ButtonBuilder().setCustomId(`disabled`).setLabel('Participants').setStyle(ButtonStyle.Secondary).setDisabled(true)
-        );
-
-        await msg.edit({ embeds: [embed], components: [disabledRow] });
-      }
-    }
-  } catch (err) {
-    console.error(`❌ Failed to edit giveaway message ${giveaway.id}:`, err);
-  }
-
-  // Announce winners
-  try {
-    const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
-    if (channel) {
-      const mentions = winners.map(u => `<@${u}>`).join(', ');
-      await channel.send(`🎉 Congratulations to ${mentions} for winning the giveaway: **${giveaway.prize}**!`);
-    }
-  } catch (err) {
-    console.error(`❌ Failed to announce winners for ${giveaway.id}:`, err);
-  }
-}
-
-/**
- * Helper: announce no winners
- */
-async function announceNoWinners(client, giveaway) {
-  try {
-    const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
-    if (channel) {
-      await channel.send(`❌ Giveaway for **${giveaway.prize}** ended with no participants.`);
-    }
-  } catch {}
-}
-
-/**
- * Helper: reroll a giveaway
- */
-async function rerollGiveaway(client, giveaway) {
-  // Reset ended to 0 temporarily to use endGiveaway logic
-  giveaway.ended = 0;
-  await endGiveaway(client, giveaway);
-}
-
-/**
- * Cleanup giveaways older than 7 days
- */
-async function cleanupOldGiveaways() {
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  try {
-    const [oldGiveaways] = await pool.query(
-      `SELECT id FROM giveaways WHERE ended = 1 AND end_time <= ?`,
-      [cutoff]
-    );
-    for (const g of oldGiveaways) {
-      await pool.query(`DELETE FROM giveaways WHERE id = ?`, [g.id]);
-      await pool.query(`DELETE FROM giveaway_entries WHERE giveaway_id = ?`, [g.id]);
-    }
-  } catch (err) {
-    console.error('❌ Giveaway cleanup failed:', err);
-  }
-}
-
-/**
- * Helper to safely get host tag
- */
-function embedFooter(userId, client) {
-  try {
-    const member = client.users.cache.get(userId);
-    return member ? member.tag : 'Unknown';
-  } catch {
-    return 'Unknown';
-  }
-}
+// In-memory cache for giveaways per guild (shard-safe)
+const activeGiveaways = new Collection();
 
 module.exports = {
-  initGiveawaySystem,
-  endGiveaway,
-  rerollGiveaway
+  initGiveawaySystem: async (client) => {
+    try {
+      // Load all active giveaways from DB
+      const [rows] = await pool.query(`SELECT * FROM giveaways WHERE ended = 0`);
+      for (const giveaway of rows) {
+        scheduleEnd(client, giveaway);
+        activeGiveaways.set(giveaway.id, giveaway);
+      }
+
+      // Cleanup giveaways older than 7 days
+      const now = Date.now();
+      await pool.query(`DELETE FROM giveaways WHERE ended = 1 AND end_time < ?`, [now - 7 * 24 * 60 * 60 * 1000]);
+
+      console.log(`✅ Giveaway system initialized. ${rows.length} active giveaways loaded.`);
+    } catch (err) {
+      console.error('❌ Failed to init giveaway system:', err);
+    }
+  },
+
+  // ─── CREATE GIVEAWAY ─────────────────────────
+  createGiveaway: async (client, giveawayData) => {
+    try {
+      const { guildId, channelId, prize, winners, endTime, requiredRole, title, hostId, messageId } = giveawayData;
+
+      const id = giveawayData.id; // Already generated UUID
+
+      // Insert into DB
+      await pool.query(
+        `INSERT INTO giveaways (id, guild_id, channel_id, message_id, prize, winners, end_time, required_role, title) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, guildId, channelId, messageId, prize, winners, endTime, requiredRole || null, title || null]
+      );
+
+      // Schedule the giveaway end
+      scheduleEnd(client, { id, guild_id: guildId, channel_id: channelId, prize, winners, end_time: endTime, required_role: requiredRole, title, message_id: messageId });
+
+      activeGiveaways.set(id, { id, guild_id: guildId, channel_id: channelId, prize, winners, end_time: endTime, required_role: requiredRole, title, message_id: messageId, ended: 0 });
+
+      return id;
+    } catch (err) {
+      console.error('❌ Failed to create giveaway:', err);
+      throw err;
+    }
+  },
+
+  // ─── END GIVEAWAY EARLY ─────────────────────
+  endGiveaway: async (client, giveawayId) => {
+    try {
+      const [rows] = await pool.query(`SELECT * FROM giveaways WHERE id = ?`, [giveawayId]);
+      if (!rows.length) throw new Error('Giveaway not found');
+      const giveaway = rows[0];
+
+      if (giveaway.ended) throw new Error('Giveaway already ended');
+
+      await concludeGiveaway(client, giveaway);
+    } catch (err) {
+      console.error('❌ Failed to end giveaway:', err);
+      throw err;
+    }
+  },
+
+  // ─── REROLL GIVEAWAY ────────────────────────
+  rerollGiveaway: async (client, giveawayId) => {
+    try {
+      const [rows] = await pool.query(`SELECT * FROM giveaways WHERE id = ?`, [giveawayId]);
+      if (!rows.length) throw new Error('Giveaway not found');
+      const giveaway = rows[0];
+
+      if (!giveaway.ended) throw new Error('Giveaway has not ended yet');
+
+      const [entries] = await pool.query(`SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`, [giveawayId]);
+      if (!entries.length) throw new Error('No participants to reroll');
+
+      const winners = pickWinners(entries.map(e => e.user_id), giveaway.winners);
+
+      const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
+      if (channel) {
+        channel.send(`🎉 Giveaway rerolled! New winner(s): ${winners.map(id => `<@${id}>`).join(', ')} for **${giveaway.prize}**!`).catch(() => {});
+      }
+
+    } catch (err) {
+      console.error('❌ Failed to reroll giveaway:', err);
+      throw err;
+    }
+  },
+
+  // ─── DELETE GIVEAWAY ───────────────────────
+  deleteGiveaway: async (client, giveawayId) => {
+    try {
+      const [rows] = await pool.query(`SELECT * FROM giveaways WHERE id = ?`, [giveawayId]);
+      if (!rows.length) throw new Error('Giveaway not found');
+      const giveaway = rows[0];
+
+      // Remove message buttons
+      const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
+      if (channel) {
+        const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
+        if (msg) {
+          const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('disabled').setLabel('Join').setStyle(ButtonStyle.Primary).setDisabled(true),
+            new ButtonBuilder().setCustomId('disabled').setLabel('Participants').setStyle(ButtonStyle.Secondary).setDisabled(true)
+          );
+          await msg.edit({ components: [row] }).catch(() => {});
+        }
+      }
+
+      // Remove from DB
+      await pool.query(`DELETE FROM giveaway_entries WHERE giveaway_id = ?`, [giveawayId]);
+      await pool.query(`DELETE FROM giveaways WHERE id = ?`, [giveawayId]);
+      activeGiveaways.delete(giveawayId);
+
+      return true;
+    } catch (err) {
+      console.error('❌ Failed to delete giveaway:', err);
+      throw err;
+    }
+  },
+
+  // ─── LIST ACTIVE GIVEAWAYS ─────────────────
+  listActiveGiveaways: async (guildId) => {
+    try {
+      const [rows] = await pool.query(`SELECT * FROM giveaways WHERE guild_id = ? AND ended = 0 ORDER BY end_time ASC`, [guildId]);
+      return rows;
+    } catch (err) {
+      console.error('❌ Failed to list giveaways:', err);
+      return [];
+    }
+  }
 };
+
+// ─────────────────────────────────────────────
+// ─── INTERNAL HELPERS ────────────────────────
+// ─────────────────────────────────────────────
+
+async function scheduleEnd(client, giveaway) {
+  const delay = giveaway.end_time - Date.now();
+  if (delay <= 0) return concludeGiveaway(client, giveaway); // Already expired
+
+  setTimeout(() => {
+    concludeGiveaway(client, giveaway).catch(err => console.error('❌ Failed to auto-end giveaway:', err));
+  }, delay);
+}
+
+async function concludeGiveaway(client, giveaway) {
+  try {
+    // Mark giveaway ended
+    await pool.query(`UPDATE giveaways SET ended = 1 WHERE id = ?`, [giveaway.id]);
+    activeGiveaways.delete(giveaway.id);
+
+    const [entries] = await pool.query(`SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`, [giveaway.id]);
+    const winnerIds = pickWinners(entries.map(e => e.user_id), giveaway.winners);
+
+    const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
+    if (!channel) return;
+
+    // Edit original message to disable buttons
+    const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
+    if (msg) {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('disabled').setLabel('Join').setStyle(ButtonStyle.Primary).setDisabled(true),
+        new ButtonBuilder().setCustomId('disabled').setLabel('Participants').setStyle(ButtonStyle.Secondary).setDisabled(true)
+      );
+      await msg.edit({ components: [row] }).catch(() => {});
+    }
+
+    // Announce winners
+    if (!winnerIds.length) {
+      channel.send(`😢 Giveaway ended for **${giveaway.prize}** but no one participated!`).catch(() => {});
+    } else {
+      channel.send(`🎉 Congratulations to ${winnerIds.map(id => `<@${id}>`).join(', ')} for winning **${giveaway.prize}**!`).catch(() => {});
+    }
+  } catch (err) {
+    console.error('❌ Failed to conclude giveaway:', err);
+  }
+}
+
+function pickWinners(users, amount) {
+  if (!users.length) return [];
+  const shuffled = [...users].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, Math.min(amount, users.length));
+}
