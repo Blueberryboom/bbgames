@@ -22,7 +22,7 @@ module.exports = {
     const role = interaction.options.getRole('role');
 
     await pool.query(
-      "REPLACE INTO event_admin_roles VALUES (?, ?)",
+      "REPLACE INTO admin_roles VALUES (?, ?)",
       [interaction.guild.id, role.id]
     );
 
