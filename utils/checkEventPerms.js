@@ -19,7 +19,7 @@ module.exports = async (interaction) => {
 
   // ─── CHECK DB ROLES ────────────────────────
   const allowedRoles = await pool.query(
-    "SELECT role_id FROM event_admin_roles WHERE guild_id = ?",
+    "SELECT role_id FROM admin_roles WHERE guild_id = ?",
     [interaction.guildId]
   );
 
