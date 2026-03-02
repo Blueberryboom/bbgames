@@ -47,13 +47,17 @@ async function cleanupOldGiveaways() {
 /* ------------------ END GIVEAWAY ------------------ */
 
 async function endGiveaway(client, giveawayId, silent = false) {
-  const [rows] = await pool.query(`SELECT * FROM giveaways WHERE id=?`, [giveawayId]);
+  const rows = await pool.query(
+    `SELECT * FROM giveaways WHERE id=?`,
+    [giveawayId]
+  );
+
   if (!rows.length) return;
 
   const g = rows[0];
   if (g.ended) return;
 
-  const [entries] = await pool.query(
+  const entries = await pool.query(
     `SELECT user_id FROM giveaway_entries WHERE giveaway_id=?`,
     [giveawayId]
   );
@@ -66,7 +70,10 @@ async function endGiveaway(client, giveawayId, silent = false) {
 
   const message = await channel.messages.fetch(g.message_id).catch(() => null);
 
-  await pool.query(`UPDATE giveaways SET ended=1 WHERE id=?`, [giveawayId]);
+  await pool.query(
+    `UPDATE giveaways SET ended=1 WHERE id=?`,
+    [giveawayId]
+  );
 
   let winnerMentions = 'No winners.';
   if (entries.length) {
@@ -104,6 +111,7 @@ async function endGiveaway(client, giveawayId, silent = false) {
 
 async function scheduleGiveaway(client, giveaway) {
   const remaining = giveaway.end_time - Date.now();
+
   if (remaining <= 0) {
     return endGiveaway(client, giveaway.id);
   }
@@ -120,7 +128,7 @@ async function scheduleGiveaway(client, giveaway) {
 async function initGiveawaySystem(client) {
   await cleanupOldGiveaways();
 
-  const [active] = await pool.query(
+  const active = await pool.query(
     `SELECT * FROM giveaways WHERE ended=0`
   );
 
@@ -132,24 +140,29 @@ async function initGiveawaySystem(client) {
     if (!interaction.isButton()) return;
 
     try {
+      /* ---------- JOIN BUTTON ---------- */
       if (interaction.customId.startsWith('gw_join_')) {
         const id = interaction.customId.replace('gw_join_', '');
 
-        const [rows] = await pool.query(`SELECT * FROM giveaways WHERE id=?`, [id]);
+        const rows = await pool.query(
+          `SELECT * FROM giveaways WHERE id=?`,
+          [id]
+        );
+
         if (!rows.length || rows[0].ended)
           return interaction.reply({ content: 'Giveaway ended.', flags: 64 });
 
         const g = rows[0];
 
         if (g.required_role &&
-          !interaction.member.roles.cache.has(g.required_role)) {
+            !interaction.member.roles.cache.has(g.required_role)) {
           return interaction.reply({
             content: 'You do not have the required role.',
             flags: 64
           });
         }
 
-        const [existing] = await pool.query(
+        const existing = await pool.query(
           `SELECT * FROM giveaway_entries WHERE giveaway_id=? AND user_id=?`,
           [id, interaction.user.id]
         );
@@ -161,12 +174,12 @@ async function initGiveawaySystem(client) {
           );
         } else {
           await pool.query(
-            `INSERT INTO giveaway_entries VALUES (?, ?)`,
+            `INSERT INTO giveaway_entries (giveaway_id, user_id) VALUES (?, ?)`,
             [id, interaction.user.id]
           );
         }
 
-        const [countRows] = await pool.query(
+        const countRows = await pool.query(
           `SELECT COUNT(*) as count FROM giveaway_entries WHERE giveaway_id=?`,
           [id]
         );
@@ -187,10 +200,11 @@ async function initGiveawaySystem(client) {
         await interaction.update({ components: [row] });
       }
 
+      /* ---------- PARTICIPANTS BUTTON ---------- */
       if (interaction.customId.startsWith('gw_list_')) {
         const id = interaction.customId.replace('gw_list_', '');
 
-        const [entries] = await pool.query(
+        const entries = await pool.query(
           `SELECT user_id FROM giveaway_entries WHERE giveaway_id=?`,
           [id]
         );
