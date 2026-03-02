@@ -12,14 +12,13 @@ const pool = require('../database');
 const { parseDuration, endGiveaway } = require('../utils/giveawayManager');
 
 async function hasAdminPermission(interaction) {
-  // Check database for configured admin roles
-  const [rows] = await pool.query(
+  // 🔥 FIXED FOR MARIADB
+  const rows = await pool.query(
     `SELECT role_id FROM admin_roles WHERE guild_id=?`,
     [interaction.guild.id]
   );
 
   if (!rows.length) {
-    // Fallback to ManageGuild if no admin roles configured
     return interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
   }
 
@@ -105,8 +104,11 @@ module.exports = {
           fetchReply: true
         });
 
+        // 🔥 FIXED INSERT (explicit column list + correct order)
         await pool.query(
-          `INSERT INTO giveaways VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+          `INSERT INTO giveaways 
+          (id, guild_id, channel_id, message_id, prize, winners, end_time, required_role, title, ended)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
           [
             id,
             interaction.guild.id,
@@ -114,9 +116,9 @@ module.exports = {
             msg.id,
             prize,
             winners,
+            endTime,
             requiredRole?.id || null,
-            title || null,
-            endTime
+            title || null
           ]
         );
 
@@ -168,7 +170,8 @@ module.exports = {
       // =============================
       if (sub === 'list') {
 
-        const [rows] = await pool.query(
+        // 🔥 FIXED FOR MARIADB
+        const rows = await pool.query(
           `SELECT * FROM giveaways WHERE guild_id=? AND ended=0`,
           [interaction.guild.id]
         );
