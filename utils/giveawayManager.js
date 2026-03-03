@@ -3,10 +3,12 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  Collection
+  Collection,
+  EmbedBuilder
 } = require('discord.js');
 
 const activeGiveaways = new Collection();
+const activeTimeouts = new Collection();
 
 module.exports = {
 
@@ -15,19 +17,14 @@ module.exports = {
   // ─────────────────────────────
   initGiveawaySystem: async (client) => {
     try {
-      const rows = await query(`SELECT * FROM giveaways WHERE ended = 0`);
+      const rows = await query(
+        `SELECT * FROM giveaways WHERE ended = 0`
+      );
 
       for (const giveaway of rows) {
-        scheduleEnd(client, giveaway);
         activeGiveaways.set(giveaway.id, giveaway);
+        scheduleEnd(client, giveaway);
       }
-
-      const now = Date.now();
-      await query(
-        `DELETE FROM giveaways 
-         WHERE ended = 1 AND end_time < ?`,
-        [now - 7 * 24 * 60 * 60 * 1000]
-      );
 
       console.log(`✅ Giveaway system initialized. ${rows.length} active giveaways loaded.`);
     } catch (err) {
@@ -39,182 +36,68 @@ module.exports = {
   // CREATE
   // ─────────────────────────────
   createGiveaway: async (client, data) => {
-    try {
-      const {
-        id,
-        guildId,
-        channelId,
-        messageId,
-        prize,
-        winners,
-        endTime,
-        requiredRole,
-        title
-      } = data;
 
-      await query(
-        `INSERT INTO giveaways 
-        (id, guild_id, channel_id, message_id, prize, winners, end_time, required_role, title, ended)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-        [
-          id,
-          guildId,
-          channelId,
-          messageId,
-          prize,
-          winners,
-          endTime,
-          requiredRole || null,
-          title || null
-        ]
-      );
+    await query(
+      `INSERT INTO giveaways 
+      (id, guild_id, channel_id, message_id, prize, winners, end_time, required_role, title, ended)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [
+        data.id,
+        data.guildId,
+        data.channelId,
+        data.messageId,
+        data.prize,
+        data.winners,
+        data.endTime,
+        data.requiredRole || null,
+        data.title || null
+      ]
+    );
 
-      const giveawayObj = {
-        id,
-        guild_id: guildId,
-        channel_id: channelId,
-        message_id: messageId,
-        prize,
-        winners,
-        end_time: endTime,
-        required_role: requiredRole,
-        title,
-        ended: 0
-      };
+    const giveawayObj = {
+      id: data.id,
+      guild_id: data.guildId,
+      channel_id: data.channelId,
+      message_id: data.messageId,
+      prize: data.prize,
+      winners: data.winners,
+      end_time: data.endTime,
+      required_role: data.requiredRole,
+      title: data.title,
+      ended: 0
+    };
 
-      activeGiveaways.set(id, giveawayObj);
-      scheduleEnd(client, giveawayObj);
-
-      return id;
-    } catch (err) {
-      console.error('❌ Failed to create giveaway:', err);
-      throw err;
-    }
+    activeGiveaways.set(data.id, giveawayObj);
+    scheduleEnd(client, giveawayObj);
   },
 
   // ─────────────────────────────
   // END EARLY
   // ─────────────────────────────
   endGiveaway: async (client, giveawayId) => {
-    try {
-      const rows = await query(`SELECT * FROM giveaways WHERE id = ?`, [giveawayId]);
-      if (!rows.length) throw new Error('Giveaway not found');
 
-      const giveaway = rows[0];
-      if (giveaway.ended) throw new Error('Giveaway already ended');
+    const giveaway = await getGiveaway(giveawayId);
+    if (!giveaway) throw new Error('Giveaway not found');
+    if (giveaway.ended) throw new Error('Giveaway already ended');
 
-      await concludeGiveaway(client, giveaway);
-    } catch (err) {
-      console.error('❌ Failed to end giveaway:', err);
-      throw err;
-    }
+    await concludeGiveaway(client, giveaway);
   },
 
   // ─────────────────────────────
   // REROLL
   // ─────────────────────────────
   rerollGiveaway: async (client, giveawayId) => {
-    try {
-      const rows = await query(`SELECT * FROM giveaways WHERE id = ?`, [giveawayId]);
-      if (!rows.length) throw new Error('Giveaway not found');
 
-      const giveaway = rows[0];
-      if (!giveaway.ended) throw new Error('Giveaway has not ended yet');
-
-      const entries = await query(
-        `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
-        [giveawayId]
-      );
-
-      if (!entries.length) throw new Error('No participants to reroll');
-
-      const winners = pickWinners(
-        entries.map(e => e.user_id),
-        giveaway.winners
-      );
-
-      const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
-      if (!channel) return;
-
-      await channel.send(
-        `🎉 Giveaway rerolled! New winner(s): ${winners.map(id => `<@${id}>`).join(', ')} for **${giveaway.prize}**!`
-      ).catch(() => {});
-    } catch (err) {
-      console.error('❌ Failed to reroll giveaway:', err);
-      throw err;
-    }
-  },
-
-  // ─────────────────────────────
-  // DELETE
-  // ─────────────────────────────
-  deleteGiveaway: async (client, giveawayId) => {
-    try {
-      const rows = await query(`SELECT * FROM giveaways WHERE id = ?`, [giveawayId]);
-      if (!rows.length) throw new Error('Giveaway not found');
-
-      const giveaway = rows[0];
-
-      await disableButtons(client, giveaway);
-
-      await query(`DELETE FROM giveaway_entries WHERE giveaway_id = ?`, [giveawayId]);
-      await query(`DELETE FROM giveaways WHERE id = ?`, [giveawayId]);
-
-      activeGiveaways.delete(giveawayId);
-
-      return true;
-    } catch (err) {
-      console.error('❌ Failed to delete giveaway:', err);
-      throw err;
-    }
-  },
-
-  // ─────────────────────────────
-  // LIST
-  // ─────────────────────────────
-  listActiveGiveaways: async (guildId) => {
-    try {
-      return await query(
-        `SELECT * FROM giveaways 
-         WHERE guild_id = ? AND ended = 0
-         ORDER BY end_time ASC`,
-        [guildId]
-      );
-    } catch (err) {
-      console.error('❌ Failed to list giveaways:', err);
-      return [];
-    }
-  }
-};
-
-//
-// ─────────────────────────────────────────────
-// INTERNALS
-// ─────────────────────────────────────────────
-//
-
-function scheduleEnd(client, giveaway) {
-  const delay = giveaway.end_time - Date.now();
-
-  if (delay <= 0) {
-    concludeGiveaway(client, giveaway).catch(() => {});
-    return;
-  }
-
-  setTimeout(() => {
-    concludeGiveaway(client, giveaway).catch(() => {});
-  }, delay);
-}
-
-async function concludeGiveaway(client, giveaway) {
-  try {
-    await query(`UPDATE giveaways SET ended = 1 WHERE id = ?`, [giveaway.id]);
-    activeGiveaways.delete(giveaway.id);
+    const giveaway = await getGiveaway(giveawayId);
+    if (!giveaway) throw new Error('Giveaway not found');
+    if (!giveaway.ended) throw new Error('Giveaway has not ended yet');
 
     const entries = await query(
       `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
-      [giveaway.id]
+      [giveawayId]
     );
+
+    if (!entries.length) throw new Error('No participants to reroll');
 
     const winners = pickWinners(
       entries.map(e => e.user_id),
@@ -224,49 +107,141 @@ async function concludeGiveaway(client, giveaway) {
     const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
     if (!channel) return;
 
+    await channel.send(
+      `🎉 Giveaway rerolled! New winner(s): ${winners.map(id => `<@${id}>`).join(', ')} for **${giveaway.prize}**!`
+    );
+  },
+
+  // ─────────────────────────────
+  // DELETE
+  // ─────────────────────────────
+  deleteGiveaway: async (client, giveawayId) => {
+
+    const giveaway = await getGiveaway(giveawayId);
+    if (!giveaway) throw new Error('Giveaway not found');
+
+    clearTimeout(activeTimeouts.get(giveawayId));
+    activeTimeouts.delete(giveawayId);
+    activeGiveaways.delete(giveawayId);
+
     await disableButtons(client, giveaway);
 
-    if (!winners.length) {
-      await channel.send(`😢 Giveaway ended for **${giveaway.prize}** but no one participated!`).catch(() => {});
-    } else {
-      await channel.send(
-        `🎉 Congratulations to ${winners.map(id => `<@${id}>`).join(', ')} for winning **${giveaway.prize}**!`
-      ).catch(() => {});
-    }
+    await query(`DELETE FROM giveaway_entries WHERE giveaway_id = ?`, [giveawayId]);
+    await query(`DELETE FROM giveaways WHERE id = ?`, [giveawayId]);
+  },
 
-  } catch (err) {
-    console.error('❌ Failed to conclude giveaway:', err);
+  // ─────────────────────────────
+  // LIST
+  // ─────────────────────────────
+  listActiveGiveaways: async (guildId) => {
+
+    return await query(
+      `SELECT * FROM giveaways 
+       WHERE guild_id = ? AND ended = 0
+       ORDER BY end_time ASC`,
+      [guildId]
+    );
+  }
+};
+
+//
+// ─────────────────────────────
+// INTERNALS
+// ─────────────────────────────
+//
+
+async function getGiveaway(id) {
+  const rows = await query(`SELECT * FROM giveaways WHERE id = ?`, [id]);
+  return rows.length ? rows[0] : null;
+}
+
+function scheduleEnd(client, giveaway) {
+
+  const delay = giveaway.end_time - Date.now();
+
+  if (delay <= 0) {
+    concludeGiveaway(client, giveaway);
+    return;
+  }
+
+  const timeout = setTimeout(() => {
+    concludeGiveaway(client, giveaway);
+  }, delay);
+
+  activeTimeouts.set(giveaway.id, timeout);
+}
+
+async function concludeGiveaway(client, giveaway) {
+
+  const fresh = await getGiveaway(giveaway.id);
+  if (!fresh || fresh.ended) return;
+
+  await query(`UPDATE giveaways SET ended = 1 WHERE id = ?`, [giveaway.id]);
+
+  clearTimeout(activeTimeouts.get(giveaway.id));
+  activeTimeouts.delete(giveaway.id);
+  activeGiveaways.delete(giveaway.id);
+
+  const entries = await query(
+    `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
+    [giveaway.id]
+  );
+
+  const winners = pickWinners(
+    entries.map(e => e.user_id),
+    giveaway.winners
+  );
+
+  const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
+  if (!channel) return;
+
+  const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
+
+  if (msg) {
+    const embed = EmbedBuilder.from(msg.embeds[0])
+      .setFooter({ text: '🎉 Giveaway Ended' });
+
+    await msg.edit({
+      embeds: [embed],
+      components: disableRow(msg.components)
+    }).catch(() => {});
+  }
+
+  if (!winners.length) {
+    await channel.send(`😢 Giveaway ended for **${giveaway.prize}** but no one participated!`);
+  } else {
+    await channel.send(
+      `🎉 Congratulations ${winners.map(id => `<@${id}>`).join(', ')}! You won **${giveaway.prize}**!`
+    );
   }
 }
 
+function disableRow(rows) {
+  if (!rows.length) return [];
+
+  return rows.map(row =>
+    new ActionRowBuilder().addComponents(
+      row.components.map(btn =>
+        ButtonBuilder.from(btn).setDisabled(true)
+      )
+    )
+  );
+}
+
 async function disableButtons(client, giveaway) {
-  try {
-    const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
-    if (!channel) return;
+  const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
+  if (!channel) return;
 
-    const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
-    if (!msg) return;
+  const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
+  if (!msg) return;
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('disabled')
-        .setLabel('Join')
-        .setStyle(ButtonStyle.Primary)
-        .setDisabled(true),
-      new ButtonBuilder()
-        .setCustomId('disabled')
-        .setLabel('Participants')
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true)
-    );
-
-    await msg.edit({ components: [row] }).catch(() => {});
-  } catch {}
+  await msg.edit({
+    components: disableRow(msg.components)
+  }).catch(() => {});
 }
 
 function pickWinners(users, amount) {
   if (!users.length) return [];
-
   const shuffled = [...users].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, Math.min(amount, users.length));
 }
