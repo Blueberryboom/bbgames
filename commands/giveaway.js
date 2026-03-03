@@ -2,7 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const pool = require('../database/index'); // your DB pool
 const { v4: uuidv4 } = require('uuid');
 const ms = require('ms');
-const { checkPerms } = require('../utils/permissions');
+const checkPerms = require('../utils/checkEventPerms');
 
 module.exports = {
   data: new SlashCommandBuilder()
