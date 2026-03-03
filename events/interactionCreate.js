@@ -1,64 +1,123 @@
-const pool = require('../database/index');
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ComponentType } = require('discord.js');
+const { query } = require('../database/index');
+const {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  ComponentType,
+  MessageFlags
+} = require('discord.js');
 
 module.exports = async (interaction) => {
   if (!interaction.isButton()) return;
 
   try {
-    const [action, giveawayId] = interaction.customId.split('_').slice(1);
+    const parts = interaction.customId.split('_');
+    if (parts.length < 3) return;
 
-    // Fetch giveaway
-    const [rows] = await pool.query(`SELECT * FROM giveaways WHERE id = ?`, [giveawayId]);
-    if (!rows.length) return interaction.reply({ content: 'Giveaway not found.', ephemeral: true });
+    const action = parts[1];
+    const giveawayId = parts[2];
+
+    // Fetch giveaway (FIXED — no destructuring)
+    const rows = await query(
+      `SELECT * FROM giveaways WHERE id = ?`,
+      [giveawayId]
+    );
+
+    if (!rows || rows.length === 0) {
+      return interaction.reply({
+        content: 'Giveaway not found.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
     const giveaway = rows[0];
 
     if (giveaway.ended) {
-      return interaction.reply({ content: '❌ This giveaway has already ended.', ephemeral: true });
+      return interaction.reply({
+        content: '❌ This giveaway has already ended.',
+        flags: MessageFlags.Ephemeral
+      });
     }
 
-    // ─── JOIN BUTTON ─────────────────────────
+    // ─────────────────────────────
+    // 🎉 JOIN BUTTON
+    // ─────────────────────────────
     if (action === 'join') {
+
       if (giveaway.required_role) {
-        const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        const member = await interaction.guild.members
+          .fetch(interaction.user.id)
+          .catch(() => null);
+
         if (!member || !member.roles.cache.has(giveaway.required_role)) {
-          return interaction.reply({ content: `❌ You need the <@&${giveaway.required_role}> role to join.`, ephemeral: true });
+          return interaction.reply({
+            content: `❌ You need the <@&${giveaway.required_role}> role to join.`,
+            flags: MessageFlags.Ephemeral
+          });
         }
       }
 
-      const [existing] = await pool.query(
-        `SELECT * FROM giveaway_entries WHERE giveaway_id = ? AND user_id = ?`,
+      const existing = await query(
+        `SELECT * FROM giveaway_entries 
+         WHERE giveaway_id = ? AND user_id = ?`,
         [giveawayId, interaction.user.id]
       );
 
-      if (existing.length) {
-        await pool.query(
-          `DELETE FROM giveaway_entries WHERE giveaway_id = ? AND user_id = ?`,
+      if (existing.length > 0) {
+        await query(
+          `DELETE FROM giveaway_entries 
+           WHERE giveaway_id = ? AND user_id = ?`,
           [giveawayId, interaction.user.id]
         );
-        await interaction.reply({ content: '✅ You have left the giveaway.', ephemeral: true });
+
+        await interaction.reply({
+          content: '✅ You have left the giveaway.',
+          flags: MessageFlags.Ephemeral
+        });
+
       } else {
-        await pool.query(
-          `INSERT INTO giveaway_entries (giveaway_id, user_id) VALUES (?, ?)`,
+
+        await query(
+          `INSERT INTO giveaway_entries (giveaway_id, user_id) 
+           VALUES (?, ?)`,
           [giveawayId, interaction.user.id]
         );
-        await interaction.reply({ content: '✅ You have joined the giveaway!', ephemeral: true });
+
+        await interaction.reply({
+          content: '✅ You have joined the giveaway!',
+          flags: MessageFlags.Ephemeral
+        });
       }
 
-      // Update participants button label
+      // Update participant count
       try {
-        const [entries] = await pool.query(
-          `SELECT COUNT(*) as count FROM giveaway_entries WHERE giveaway_id = ?`,
+        const entries = await query(
+          `SELECT COUNT(*) as count 
+           FROM giveaway_entries 
+           WHERE giveaway_id = ?`,
           [giveawayId]
         );
+
         const count = entries[0]?.count || 0;
 
-        const channelMsg = await interaction.channel.messages.fetch(giveaway.message_id).catch(() => null);
+        const channelMsg = await interaction.channel.messages
+          .fetch(giveaway.message_id)
+          .catch(() => null);
+
         if (channelMsg) {
           const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`giveaway_join_${giveawayId}`).setLabel('Join').setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`giveaway_participants_${giveawayId}`).setLabel(`Participants (${count})`).setStyle(ButtonStyle.Secondary)
+            new ButtonBuilder()
+              .setCustomId(`giveaway_join_${giveawayId}`)
+              .setLabel('Join')
+              .setStyle(ButtonStyle.Primary),
+
+            new ButtonBuilder()
+              .setCustomId(`giveaway_participants_${giveawayId}`)
+              .setLabel(`Participants (${count})`)
+              .setStyle(ButtonStyle.Secondary)
           );
+
           await channelMsg.edit({ components: [row] }).catch(() => {});
         }
       } catch (err) {
@@ -66,15 +125,22 @@ module.exports = async (interaction) => {
       }
     }
 
-    // ─── PARTICIPANTS BUTTON ─────────────────
+    // ─────────────────────────────
+    // 👥 PARTICIPANTS BUTTON
+    // ─────────────────────────────
     if (action === 'participants') {
-      const [entries] = await pool.query(
-        `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
+
+      const entries = await query(
+        `SELECT user_id FROM giveaway_entries 
+         WHERE giveaway_id = ?`,
         [giveawayId]
       );
 
-      if (!entries.length) {
-        return interaction.reply({ content: 'No one has joined this giveaway yet.', ephemeral: true });
+      if (!entries || entries.length === 0) {
+        return interaction.reply({
+          content: 'No one has joined this giveaway yet.',
+          flags: MessageFlags.Ephemeral
+        });
       }
 
       const participants = entries.map(e => `<@${e.user_id}>`);
@@ -94,26 +160,46 @@ module.exports = async (interaction) => {
         .setColor('#7289DA');
 
       const row = new ActionRowBuilder();
+
       if (pages.length > 1) {
         row.addComponents(
-          new ButtonBuilder().setCustomId(`participants_prev_${giveawayId}_${currentPage}`).setLabel('⬅️ Previous').setStyle(ButtonStyle.Secondary).setDisabled(true),
-          new ButtonBuilder().setCustomId(`participants_next_${giveawayId}_${currentPage}`).setLabel('Next ➡️').setStyle(ButtonStyle.Secondary)
+          new ButtonBuilder()
+            .setCustomId(`participants_prev_${giveawayId}_${currentPage}`)
+            .setLabel('⬅️ Previous')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true),
+
+          new ButtonBuilder()
+            .setCustomId(`participants_next_${giveawayId}_${currentPage}`)
+            .setLabel('Next ➡️')
+            .setStyle(ButtonStyle.Secondary)
         );
       }
 
-      const replyMsg = await interaction.reply({ embeds: [embed], components: row.components.length ? [row] : [], ephemeral: true, fetchReply: true });
+      const replyMsg = await interaction.reply({
+        embeds: [embed],
+        components: row.components.length ? [row] : [],
+        flags: MessageFlags.Ephemeral,
+        fetchReply: true
+      });
 
-      if (pages.length <= 1) return; // no pagination needed
+      if (pages.length <= 1) return;
 
-      // Collector for pagination
-      const collector = replyMsg.createMessageComponentCollector({ componentType: ComponentType.Button, time: 5 * 60 * 1000 });
+      const collector = replyMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 5 * 60 * 1000
+      });
 
       collector.on('collect', async btnInt => {
-        if (!btnInt.user || btnInt.user.id !== interaction.user.id) {
-          return btnInt.reply({ content: '❌ You cannot control this pagination.', ephemeral: true });
+
+        if (btnInt.user.id !== interaction.user.id) {
+          return btnInt.reply({
+            content: '❌ You cannot control this pagination.',
+            flags: MessageFlags.Ephemeral
+          });
         }
 
-        const [dir, gId, page] = btnInt.customId.split('_').slice(1);
+        const [, dir, , page] = btnInt.customId.split('_');
         let pageIndex = parseInt(page);
 
         if (dir === 'next') pageIndex++;
@@ -122,36 +208,45 @@ module.exports = async (interaction) => {
         if (pageIndex < 0) pageIndex = 0;
         if (pageIndex >= pages.length) pageIndex = pages.length - 1;
 
-        // Update embed
         const newEmbed = EmbedBuilder.from(embed)
           .setDescription(pages[pageIndex])
           .setFooter({ text: `Page ${pageIndex + 1} of ${pages.length}` });
 
-        // Update buttons
         const newRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`participants_prev_${giveawayId}_${pageIndex}`).setLabel('⬅️ Previous').setStyle(ButtonStyle.Secondary).setDisabled(pageIndex === 0),
-          new ButtonBuilder().setCustomId(`participants_next_${giveawayId}_${pageIndex}`).setLabel('Next ➡️').setStyle(ButtonStyle.Secondary).setDisabled(pageIndex === pages.length - 1)
+          new ButtonBuilder()
+            .setCustomId(`participants_prev_${giveawayId}_${pageIndex}`)
+            .setLabel('⬅️ Previous')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageIndex === 0),
+
+          new ButtonBuilder()
+            .setCustomId(`participants_next_${giveawayId}_${pageIndex}`)
+            .setLabel('Next ➡️')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(pageIndex === pages.length - 1)
         );
 
-        await btnInt.update({ embeds: [newEmbed], components: [newRow] });
+        await btnInt.update({
+          embeds: [newEmbed],
+          components: [newRow]
+        });
       });
 
       collector.on('end', async () => {
-        // Disable buttons after 5 minutes
         try {
-          const disabledRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('disabled').setLabel('⬅️ Previous').setStyle(ButtonStyle.Secondary).setDisabled(true),
-            new ButtonBuilder().setCustomId('disabled').setLabel('Next ➡️').setStyle(ButtonStyle.Secondary).setDisabled(true)
-          );
-          await replyMsg.edit({ components: [disabledRow] }).catch(() => {});
+          await replyMsg.edit({ components: [] }).catch(() => {});
         } catch {}
       });
     }
 
   } catch (err) {
     console.error('❌ Giveaway button interaction error:', err);
+
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }).catch(() => {});
+      await interaction.reply({
+        content: '❌ Something went wrong.',
+        flags: MessageFlags.Ephemeral
+      }).catch(() => {});
     }
   }
 };
