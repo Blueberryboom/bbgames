@@ -3,13 +3,19 @@ const {
   GatewayIntentBits,
   Collection,
   REST,
-  Routes
+  Routes,
+  MessageFlags
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
+
+if (!token || !clientId) {
+  console.error('❌ TOKEN or CLIENT_ID missing in .env');
+  process.exit(1);
+}
 
 const client = new Client({
   intents: [
@@ -21,6 +27,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
 
 // ─── LOAD COMMAND FILES ─────────────────────
 const commands = [];
@@ -34,44 +41,53 @@ for (const file of commandFiles) {
   commands.push(command.data.toJSON());
 }
 
+
 // ─── READY EVENT ────────────────────────────
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 
   try {
-    // Setup database tables
+    // Setup database
     const setupDatabase = require('./database/setup');
     await setupDatabase();
+    console.log('✅ Database setup complete!');
 
-    // Init giveaway manager (schedules ending giveaways, etc.)
+    // Init giveaway manager
     const { initGiveawaySystem } = require('./utils/giveawayManager');
     await initGiveawaySystem(client);
+    console.log('✅ Giveaway system initialised');
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
   }
 
-  // Register global slash commands (only from shard 0)
+  // Register slash commands (only shard 0)
   const shardId = client.shard?.ids[0] ?? 0;
+
   if (shardId === 0) {
     const rest = new REST({ version: '10' }).setToken(token);
+
     try {
       await rest.put(
         Routes.applicationCommands(clientId),
         { body: commands }
       );
+
       console.log('✅ Slash commands registered');
+
     } catch (err) {
       console.error('❌ Failed to register slash commands:', err);
     }
   }
 
-  // Status / activity
+  // Status system
   require('./status')(client);
 });
 
+
 // ─── COUNTING SYSTEM ────────────────────────
 const countingHandler = require('./events/countingMessage');
+
 client.on('messageCreate', async message => {
   try {
     await countingHandler(message);
@@ -80,31 +96,39 @@ client.on('messageCreate', async message => {
   }
 });
 
+
 // ─── INTERACTIONS ──────────────────────────
 const interactionHandler = require('./events/interactionCreate');
+
 client.on('interactionCreate', async interaction => {
   try {
-    await interactionHandler(interaction, client);
+    await interactionHandler(interaction);
   } catch (err) {
     console.error('❌ Interaction handler error:', err);
+
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: '❌ Something went wrong.', ephemeral: true }).catch(() => {});
+      await interaction.reply({
+        content: '❌ Something went wrong.',
+        flags: MessageFlags.Ephemeral
+      }).catch(() => {});
     }
   }
 });
+
 
 // ─── GLOBAL ERROR HANDLING ─────────────────
 process.on('unhandledRejection', (reason, promise) => {
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', err => {
   console.error('❌ Uncaught Exception:', err);
 });
 
 process.on('uncaughtExceptionMonitor', (err, origin) => {
   console.error('❌ Uncaught Exception Monitor:', err, origin);
 });
+
 
 // ─── LOGIN ─────────────────────────────────
 client.login(token);
