@@ -15,24 +15,100 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('giveaway')
     .setDescription('Manage giveaways')
+
+    // ─────────────────────────
+    // CREATE
+    // ─────────────────────────
     .addSubcommand(sub =>
-      sub.setName('create')
+      sub
+        .setName('create')
         .setDescription('Create a giveaway')
-        .addStringOption(o => o.setName('prize').setRequired(true))
-        .addIntegerOption(o => o.setName('winners').setRequired(true))
-        .addStringOption(o => o.setName('duration').setRequired(true))
-        .addStringOption(o => o.setName('title'))
-        .addRoleOption(o => o.setName('required_role'))
+        .addStringOption(o =>
+          o.setName('prize')
+            .setDescription('The prize for the giveaway')
+            .setRequired(true)
+        )
+        .addIntegerOption(o =>
+          o.setName('winners')
+            .setDescription('Number of winners')
+            .setRequired(true)
+        )
+        .addStringOption(o =>
+          o.setName('duration')
+            .setDescription('Duration (example: 1d 2h 30m)')
+            .setRequired(true)
+        )
+        .addStringOption(o =>
+          o.setName('title')
+            .setDescription('Optional custom giveaway title')
+            .setRequired(false)
+        )
+        .addRoleOption(o =>
+          o.setName('required_role')
+            .setDescription('Role required to enter the giveaway')
+            .setRequired(false)
+        )
     )
-    .addSubcommand(sub => sub.setName('list').setDescription('List active giveaways'))
-    .addSubcommand(sub => sub.setName('end').addStringOption(o => o.setName('id').setRequired(true)))
-    .addSubcommand(sub => sub.setName('delete').addStringOption(o => o.setName('id').setRequired(true)))
-    .addSubcommand(sub => sub.setName('reroll').addStringOption(o => o.setName('id').setRequired(true))),
+
+    // ─────────────────────────
+    // LIST
+    // ─────────────────────────
+    .addSubcommand(sub =>
+      sub
+        .setName('list')
+        .setDescription('List active giveaways')
+    )
+
+    // ─────────────────────────
+    // END
+    // ─────────────────────────
+    .addSubcommand(sub =>
+      sub
+        .setName('end')
+        .setDescription('End a giveaway early')
+        .addStringOption(o =>
+          o.setName('id')
+            .setDescription('The giveaway ID')
+            .setRequired(true)
+        )
+    )
+
+    // ─────────────────────────
+    // DELETE
+    // ─────────────────────────
+    .addSubcommand(sub =>
+      sub
+        .setName('delete')
+        .setDescription('Delete a giveaway permanently')
+        .addStringOption(o =>
+          o.setName('id')
+            .setDescription('The giveaway ID')
+            .setRequired(true)
+        )
+    )
+
+    // ─────────────────────────
+    // REROLL
+    // ─────────────────────────
+    .addSubcommand(sub =>
+      sub
+        .setName('reroll')
+        .setDescription('Reroll a finished giveaway')
+        .addStringOption(o =>
+          o.setName('id')
+            .setDescription('The giveaway ID')
+            .setRequired(true)
+        )
+    ),
 
   async execute(interaction) {
 
-    if (!await checkPerms(interaction))
-      return interaction.reply({ content: "❌ No permission", flags: MessageFlags.Ephemeral });
+    if (!await checkPerms(interaction)) {
+      return interaction.reply({
+        content: "❌ You do not have permission to use this.",
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
     const sub = interaction.options.getSubcommand();
 
@@ -92,7 +168,7 @@ module.exports = {
       });
 
       return interaction.reply({
-        content: '✅ Giveaway created!',
+        content: '✅ Giveaway created successfully!',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -104,18 +180,19 @@ module.exports = {
 
       const giveaways = await giveawayManager.listActiveGiveaways(interaction.guild.id);
 
-      if (!giveaways.length)
+      if (!giveaways.length) {
         return interaction.reply({
-          content: 'No active giveaways.',
+          content: 'There are no active giveaways.',
           flags: MessageFlags.Ephemeral
         });
+      }
 
       const embed = new EmbedBuilder()
         .setColor('#5865F2')
         .setTitle('🎉 Active Giveaways')
         .setDescription(
           giveaways.map(g =>
-            `• **${g.prize}**\n🆔 \`${g.id}\`\nEnds <t:${Math.floor(g.end_time / 1000)}:R>\n`
+            `• **${g.prize}**\n🆔 \`${g.id}\`\nEnds <t:${Math.floor(Number(g.end_time) / 1000)}:R>\n`
           ).join('\n')
         );
 
@@ -147,6 +224,7 @@ module.exports = {
 function parseDuration(input) {
   const regex = /(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?/i;
   const match = regex.exec(input);
+
   if (!match) throw new Error('Invalid duration');
 
   const days = parseInt(match[1] || '0');
