@@ -43,9 +43,19 @@ module.exports = {
             .setDescription('Optional custom giveaway title')
             .setRequired(false)
         )
+        .addStringOption(o =>
+          o.setName('description')
+            .setDescription('Optional giveaway description shown in the embed')
+            .setRequired(false)
+        )
         .addRoleOption(o =>
           o.setName('required_role')
             .setDescription('Role required to enter the giveaway')
+            .setRequired(false)
+        )
+        .addRoleOption(o =>
+          o.setName('bonus_role')
+            .setDescription('Role that grants 2 entries in this giveaway')
             .setRequired(false)
         )
     )
@@ -105,7 +115,7 @@ module.exports = {
 
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: "❌ You do not have permission to use this.",
+        content: '❌ You do not have permission to use this.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -117,25 +127,45 @@ module.exports = {
     // ─────────────────────────
     if (sub === 'create') {
 
-      const prize = interaction.options.getString('prize');
+      const prize = interaction.options.getString('prize').trim();
       const winners = interaction.options.getInteger('winners');
       const durationInput = interaction.options.getString('duration');
       const title = interaction.options.getString('title');
+      const description = interaction.options.getString('description')?.trim() || null;
       const requiredRole = interaction.options.getRole('required_role');
+      const bonusRole = interaction.options.getRole('bonus_role');
 
-      const durationMs = parseDuration(durationInput);
+      if (winners < 1 || winners > 20) {
+        return interaction.reply({
+          content: '❌ Winners must be between 1 and 20.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      let durationMs;
+      try {
+        durationMs = parseDuration(durationInput);
+      } catch {
+        return interaction.reply({
+          content: '❌ Invalid duration. Example formats: `30m`, `2h`, `1d 2h 30m`.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
       const endTime = Date.now() + durationMs;
       const id = uuidv4();
 
       const embed = new EmbedBuilder()
         .setColor('#5865F2')
         .setTitle(title || '🎉 Giveaway')
-        .setDescription(
-          `**Prize:** ${prize}\n` +
-          `**Winners:** ${winners}\n\n` +
-          (requiredRole ? `🔒 **Required Role:** <@&${requiredRole.id}>\n` : '') +
-          `⏰ **Ends:** <t:${Math.floor(endTime / 1000)}:R>\n\n` +
-          `🆔 **ID:** \`${id}\``
+        .setDescription(description || null)
+        .addFields(
+          { name: 'Prize', value: prize, inline: true },
+          { name: 'Winners', value: String(winners), inline: true },
+          { name: 'Ends', value: `<t:${Math.floor(endTime / 1000)}:R>`, inline: true },
+          { name: 'Required Role', value: requiredRole ? `<@&${requiredRole.id}>` : 'None', inline: true },
+          { name: 'Bonus Role (2 Entries)', value: bonusRole ? `<@&${bonusRole.id}>` : 'None', inline: true },
+          { name: 'Giveaway ID', value: `\`${id}\``, inline: false }
         )
         .setFooter({ text: `Hosted by ${interaction.user.tag}` });
 
@@ -160,10 +190,12 @@ module.exports = {
         guildId: interaction.guild.id,
         channelId: interaction.channel.id,
         messageId: msg.id,
+        hostId: interaction.user.id,
         prize,
         winners,
         endTime,
         requiredRole: requiredRole?.id || null,
+        bonusRole: bonusRole?.id || null,
         title
       });
 
@@ -222,7 +254,7 @@ module.exports = {
 };
 
 function parseDuration(input) {
-  const regex = /(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?/i;
+  const regex = /^(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*$/i;
   const match = regex.exec(input);
 
   if (!match) throw new Error('Invalid duration');

@@ -29,9 +29,18 @@ module.exports = async () => {
       CREATE TABLE IF NOT EXISTS giveaway_entries (
         giveaway_id VARCHAR(36) NOT NULL,
         user_id VARCHAR(32) NOT NULL,
+        entry_count INT NOT NULL DEFAULT 1,
         PRIMARY KEY (giveaway_id, user_id),
         INDEX idx_giveaway (giveaway_id)
       ) ENGINE=InnoDB;
+    `);
+
+
+
+    // ─── GIVEAWAY MIGRATIONS ──────────────
+    await pool.query(`
+      ALTER TABLE giveaway_entries
+      ADD COLUMN IF NOT EXISTS entry_count INT NOT NULL DEFAULT 1
     `);
 
     // ─── EVENT ADMIN ROLES ──────────────────
