@@ -2,9 +2,6 @@ const { query } = require('../database/index');
 const {
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
-  EmbedBuilder,
-  ComponentType,
   MessageFlags
 } = require('discord.js');
 
@@ -25,7 +22,7 @@ module.exports = async (interaction) => {
 
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: '❌ Command failed.',
+          content: `❌ ${err.message || 'Command failed.'}`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -43,10 +40,10 @@ module.exports = async (interaction) => {
   try {
 
     const parts = interaction.customId.split('_');
-    if (parts.length < 3) return;
+    if (parts.length < 3 || parts[0] !== 'giveaway') return;
 
     const action = parts[1];
-    const giveawayId = parts[2];
+    const giveawayId = parts.slice(2).join('_');
 
     const rows = await query(
       `SELECT * FROM giveaways WHERE id = ?`,
@@ -62,6 +59,20 @@ module.exports = async (interaction) => {
 
     const giveaway = rows[0];
 
+    if (action === 'participants') {
+      const countRows = await query(
+        `SELECT COUNT(*) AS total FROM giveaway_entries WHERE giveaway_id = ?`,
+        [giveawayId]
+      );
+
+      const total = Number(countRows[0]?.total || 0);
+
+      return interaction.reply({
+        content: `👥 **${total}** participant${total === 1 ? '' : 's'} entered this giveaway.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
     if (giveaway.ended) {
       return interaction.reply({
         content: '❌ This giveaway has already ended.',
@@ -72,11 +83,23 @@ module.exports = async (interaction) => {
     // ─── JOIN BUTTON ───
     if (action === 'join') {
 
+      if (giveaway.required_role) {
+        const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        if (!member || !member.roles.cache.has(giveaway.required_role)) {
+          return interaction.reply({
+            content: `❌ You need <@&${giveaway.required_role}> to enter this giveaway.`,
+            flags: MessageFlags.Ephemeral
+          });
+        }
+      }
+
       const existing = await query(
-        `SELECT * FROM giveaway_entries 
+        `SELECT 1 FROM giveaway_entries 
          WHERE giveaway_id = ? AND user_id = ?`,
         [giveawayId, interaction.user.id]
       );
+
+      let feedback;
 
       if (existing.length > 0) {
 
@@ -86,10 +109,7 @@ module.exports = async (interaction) => {
           [giveawayId, interaction.user.id]
         );
 
-        await interaction.reply({
-          content: '✅ You have left the giveaway.',
-          flags: MessageFlags.Ephemeral
-        });
+        feedback = '✅ You have left the giveaway.';
 
       } else {
 
@@ -99,11 +119,15 @@ module.exports = async (interaction) => {
           [giveawayId, interaction.user.id]
         );
 
-        await interaction.reply({
-          content: '✅ You have joined the giveaway!',
-          flags: MessageFlags.Ephemeral
-        });
+        feedback = '✅ You have joined the giveaway!';
       }
+
+      await refreshParticipantButton(interaction, giveawayId);
+
+      await interaction.reply({
+        content: feedback,
+        flags: MessageFlags.Ephemeral
+      });
 
       return;
     }
@@ -119,3 +143,25 @@ module.exports = async (interaction) => {
     }
   }
 };
+
+async function refreshParticipantButton(interaction, giveawayId) {
+  const countRows = await query(
+    `SELECT COUNT(*) AS total FROM giveaway_entries WHERE giveaway_id = ?`,
+    [giveawayId]
+  );
+
+  const total = Number(countRows[0]?.total || 0);
+
+  const rows = interaction.message.components.map(row =>
+    new ActionRowBuilder().addComponents(
+      row.components.map(component => {
+        if (component.customId === `giveaway_participants_${giveawayId}`) {
+          return ButtonBuilder.from(component).setLabel(`Participants (${total})`);
+        }
+        return ButtonBuilder.from(component);
+      })
+    )
+  );
+
+  await interaction.message.edit({ components: rows }).catch(() => {});
+}

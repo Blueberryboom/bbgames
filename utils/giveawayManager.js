@@ -2,7 +2,6 @@ const { query } = require('../database');
 const {
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
   Collection,
   EmbedBuilder
 } = require('discord.js');
@@ -39,13 +38,14 @@ module.exports = {
 
     await query(
       `INSERT INTO giveaways 
-      (id, guild_id, channel_id, message_id, prize, winners, end_time, required_role, title, ended)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      (id, guild_id, channel_id, message_id, host_id, prize, winners, end_time, required_role, title, ended)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         data.id,
         data.guildId,
         data.channelId,
         data.messageId,
+        data.hostId,
         data.prize,
         data.winners,
         data.endTime,
@@ -59,6 +59,7 @@ module.exports = {
       guild_id: data.guildId,
       channel_id: data.channelId,
       message_id: data.messageId,
+      host_id: data.hostId,
       prize: data.prize,
       winners: data.winners,
       end_time: data.endTime,
@@ -101,7 +102,7 @@ module.exports = {
 
     const winners = pickWinners(
       entries.map(e => e.user_id),
-      giveaway.winners
+      Number(giveaway.winners)
     );
 
     const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
@@ -157,7 +158,7 @@ async function getGiveaway(id) {
 
 function scheduleEnd(client, giveaway) {
 
-  const delay = giveaway.end_time - Date.now();
+  const delay = Number(giveaway.end_time) - Date.now();
 
   if (delay <= 0) {
     concludeGiveaway(client, giveaway);
@@ -189,7 +190,7 @@ async function concludeGiveaway(client, giveaway) {
 
   const winners = pickWinners(
     entries.map(e => e.user_id),
-    giveaway.winners
+    Number(giveaway.winners)
   );
 
   const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
