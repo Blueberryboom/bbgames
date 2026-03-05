@@ -43,6 +43,22 @@ module.exports = async () => {
       ADD COLUMN IF NOT EXISTS entry_count INT NOT NULL DEFAULT 1
     `);
 
+
+    // ─── YOUTUBE SUBSCRIPTIONS ─────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS youtube_subscriptions (
+        guild_id VARCHAR(32) NOT NULL,
+        youtube_channel_id VARCHAR(64) NOT NULL,
+        discord_channel_id VARCHAR(32) NOT NULL,
+        ping_role_id VARCHAR(32) NULL,
+        last_video_id VARCHAR(32) NULL,
+        last_checked_at BIGINT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, youtube_channel_id),
+        INDEX idx_yt_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── EVENT ADMIN ROLES ──────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_roles (

@@ -189,11 +189,11 @@ async function concludeGiveaway(client, giveaway) {
   const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
 
   if (msg) {
-    const embed = EmbedBuilder.from(msg.embeds[0])
-      .setFooter({ text: '🎉 Giveaway Ended' });
+    const embed = EmbedBuilder.from(msg.embeds[0]);
+    const endedDescription = toEndedDescription(embed.data?.description || '');
 
     await msg.edit({
-      embeds: [embed],
+      embeds: [embed.setDescription(endedDescription)],
       components: disableRow(msg.components)
     }).catch(() => {});
   }
@@ -259,4 +259,22 @@ function pickWeightedWinners(entries, amount) {
   }
 
   return winners;
+}
+
+
+function toEndedDescription(description) {
+  if (!description) return 'This giveaway has **ended**!';
+
+  if (description.includes('This giveaway has **ended**!')) {
+    return description;
+  }
+
+  const updated = description
+    .split('\n')
+    .map(line => line.startsWith('This giveaway will end in ') ? 'This giveaway has **ended**!' : line)
+    .join('\n');
+
+  if (updated !== description) return updated;
+
+  return `${description}\nThis giveaway has **ended**!`;
 }
