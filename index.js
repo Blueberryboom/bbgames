@@ -57,6 +57,10 @@ client.once('clientReady', async () => {
     await initGiveawaySystem(client);
     console.log('✅ Giveaway system initialised');
 
+    // Init YouTube notifier
+    const { initYouTubeNotifier } = require('./utils/youtubeNotifier');
+    initYouTubeNotifier(client);
+
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
   }
