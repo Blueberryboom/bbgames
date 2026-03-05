@@ -117,13 +117,29 @@ module.exports = {
     // ─────────────────────────
     if (sub === 'create') {
 
-      const prize = interaction.options.getString('prize');
+      const prize = interaction.options.getString('prize').trim();
       const winners = interaction.options.getInteger('winners');
       const durationInput = interaction.options.getString('duration');
       const title = interaction.options.getString('title');
       const requiredRole = interaction.options.getRole('required_role');
 
-      const durationMs = parseDuration(durationInput);
+      if (winners < 1 || winners > 20) {
+        return interaction.reply({
+          content: '❌ Winners must be between 1 and 20.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      let durationMs;
+      try {
+        durationMs = parseDuration(durationInput);
+      } catch {
+        return interaction.reply({
+          content: '❌ Invalid duration. Example formats: `30m`, `2h`, `1d 2h 30m`.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
       const endTime = Date.now() + durationMs;
       const id = uuidv4();
 
@@ -160,6 +176,7 @@ module.exports = {
         guildId: interaction.guild.id,
         channelId: interaction.channel.id,
         messageId: msg.id,
+        hostId: interaction.user.id,
         prize,
         winners,
         endTime,
@@ -222,7 +239,7 @@ module.exports = {
 };
 
 function parseDuration(input) {
-  const regex = /(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?/i;
+  const regex = /^(?:(\d+)d)?\s*(?:(\d+)h)?\s*(?:(\d+)m)?\s*$/i;
   const match = regex.exec(input);
 
   if (!match) throw new Error('Invalid duration');
