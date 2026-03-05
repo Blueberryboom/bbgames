@@ -8,6 +8,8 @@ const {
   MessageFlags
 } = require('discord.js');
 
+const MAX_LEVEL = 5;
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('tictactoe')
@@ -40,129 +42,201 @@ module.exports = {
       player2 = opponent;
     }
 
+    const level = 1;
     const board = Array(9).fill(null);
-    const symbols = {
-      [player1.id]: 'X',
-      [player2.id]: 'O'
-    };
-
-    let currentPlayer = player1;
-    let gameOver = false;
+    const symbols = { [player1.id]: 'X', [player2.id]: 'O' };
 
     const embed = new EmbedBuilder()
       .setColor('#5865F2')
       .setTitle('Tic Tac Toe')
-      .setDescription(renderDescription(player1, player2, currentPlayer));
+      .setDescription(renderDescription(player1, player2, player1, aiMode ? level : null));
 
     const message = await interaction.reply({
       embeds: [embed],
-      components: createBoard(board),
+      components: createComponents(board),
       fetchReply: true
     });
 
-    const collector = message.createMessageComponentCollector({
-      componentType: ComponentType.Button,
-      time: 5 * 60 * 1000
-    });
-
-    collector.on('collect', async i => {
-      if (gameOver) return;
-
-      if (!aiMode && ![player1.id, player2.id].includes(i.user.id)) {
-        return i.reply({ content: "You're not part of this game!", flags: MessageFlags.Ephemeral });
-      }
-
-      if (i.user.id !== currentPlayer.id) {
-        return i.reply({ content: "It's not your turn!", flags: MessageFlags.Ephemeral });
-      }
-
-      const index = Number(i.customId);
-      if (!Number.isInteger(index) || index < 0 || index > 8) return;
-
-      if (board[index]) {
-        return i.reply({ content: 'That spot is taken!', flags: MessageFlags.Ephemeral });
-      }
-
-      board[index] = symbols[currentPlayer.id];
-
-      const winner = checkWinner(board);
-      if (winner || !board.includes(null)) {
-        collector.stop();
-        gameOver = true;
-        return i.update({
-          embeds: [buildResultEmbed(player1, player2, winner)],
-          components: createBoard(board, true)
-        });
-      }
-
-      if (aiMode) {
-        currentPlayer = player2;
-
-        await i.update({
-          embeds: [EmbedBuilder.from(embed).setDescription(renderDescription(player1, player2, currentPlayer))],
-          components: createBoard(board)
-        });
-
-        setTimeout(async () => {
-          if (gameOver) return;
-
-          const aiMove = getBestMove(board);
-          board[aiMove] = symbols[player2.id];
-
-          const aiWinner = checkWinner(board);
-          if (aiWinner || !board.includes(null)) {
-            gameOver = true;
-            collector.stop();
-            await message.edit({
-              embeds: [buildResultEmbed(player1, player2, aiWinner)],
-              components: createBoard(board, true)
-            }).catch(() => {});
-            return;
-          }
-
-          currentPlayer = player1;
-          await message.edit({
-            embeds: [EmbedBuilder.from(embed).setDescription(renderDescription(player1, player2, currentPlayer))],
-            components: createBoard(board)
-          }).catch(() => {});
-        }, 650);
-
-        return;
-      }
-
-      currentPlayer = currentPlayer.id === player1.id ? player2 : player1;
-
-      await i.update({
-        embeds: [EmbedBuilder.from(embed).setDescription(renderDescription(player1, player2, currentPlayer))],
-        components: createBoard(board)
-      });
-    });
-
-    collector.on('end', () => {
-      if (!gameOver) {
-        message.edit({ components: createBoard(board, true) }).catch(() => {});
-      }
-    });
+    await runGame({ message, player1, player2, aiMode, level, board, symbols, currentPlayer: player1 });
   }
 };
 
-function renderDescription(p1, p2, current) {
-  return `❌ **${p1.tag}**\n⭕ **${p2.tag}**\n\nCurrent Turn: **${current.tag}**`;
+async function runGame({ message, player1, player2, aiMode, level, board, symbols, currentPlayer }) {
+  let gameOver = false;
+
+  const collector = message.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 5 * 60 * 1000
+  });
+
+  collector.on('collect', async i => {
+    if (gameOver) return;
+
+    if (!i.customId.startsWith('ttt_cell_')) return;
+
+    if (!aiMode && ![player1.id, player2.id].includes(i.user.id)) {
+      return i.reply({ content: "You're not part of this game!", flags: MessageFlags.Ephemeral });
+    }
+
+    if (aiMode && i.user.id !== player1.id) {
+      return i.reply({ content: "You're not part of this game!", flags: MessageFlags.Ephemeral });
+    }
+
+    if (i.user.id !== currentPlayer.id) {
+      return i.reply({ content: "It's not your turn!", flags: MessageFlags.Ephemeral });
+    }
+
+    const index = Number(i.customId.replace('ttt_cell_', ''));
+    if (!Number.isInteger(index) || index < 0 || index > 8) return;
+
+    if (board[index]) {
+      return i.reply({ content: 'That spot is taken!', flags: MessageFlags.Ephemeral });
+    }
+
+    board[index] = symbols[currentPlayer.id];
+
+    const winner = checkWinner(board);
+    if (winner || !board.includes(null)) {
+      collector.stop('finished');
+      gameOver = true;
+      const rematchLevel = aiMode ? Math.min(level + 1, MAX_LEVEL) : null;
+
+      await i.update({
+        embeds: [buildResultEmbed(player1, player2, winner, aiMode ? level : null)],
+        components: createComponents(board, true, rematchLevel)
+      });
+
+      if (aiMode) {
+        await awaitRematch({ message, player1, player2, nextLevel: rematchLevel });
+      }
+      return;
+    }
+
+    if (aiMode) {
+      currentPlayer = player2;
+
+      await i.update({
+        embeds: [buildTurnEmbed(player1, player2, currentPlayer, level)],
+        components: createComponents(board)
+      });
+
+      setTimeout(async () => {
+        if (gameOver) return;
+
+        const aiMove = getAIMove(board, level);
+        board[aiMove] = symbols[player2.id];
+
+        const aiWinner = checkWinner(board);
+        if (aiWinner || !board.includes(null)) {
+          gameOver = true;
+          collector.stop('finished');
+          const rematchLevel = Math.min(level + 1, MAX_LEVEL);
+
+          await message.edit({
+            embeds: [buildResultEmbed(player1, player2, aiWinner, level)],
+            components: createComponents(board, true, rematchLevel)
+          }).catch(() => {});
+
+          await awaitRematch({ message, player1, player2, nextLevel: rematchLevel });
+          return;
+        }
+
+        currentPlayer = player1;
+        await message.edit({
+          embeds: [buildTurnEmbed(player1, player2, currentPlayer, level)],
+          components: createComponents(board)
+        }).catch(() => {});
+      }, 550);
+
+      return;
+    }
+
+    currentPlayer = currentPlayer.id === player1.id ? player2 : player1;
+
+    await i.update({
+      embeds: [buildTurnEmbed(player1, player2, currentPlayer)],
+      components: createComponents(board)
+    });
+  });
+
+  collector.on('end', async (_, reason) => {
+    if (!gameOver && reason !== 'finished') {
+      await message.edit({ components: createComponents(board, true) }).catch(() => {});
+    }
+  });
 }
 
-function buildResultEmbed(p1, p2, winner) {
+async function awaitRematch({ message, player1, player2, nextLevel }) {
+  const rematchCollector = message.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 5 * 60 * 1000
+  });
+
+  rematchCollector.on('collect', async i => {
+    if (!i.customId.startsWith('ttt_rematch_')) return;
+
+    if (i.user.id !== player1.id) {
+      return i.reply({ content: 'Only the player who started this AI game can rematch.', flags: MessageFlags.Ephemeral });
+    }
+
+    const level = Number(i.customId.replace('ttt_rematch_', ''));
+    if (!Number.isInteger(level) || level < 1 || level > MAX_LEVEL) return;
+
+    rematchCollector.stop('rematch');
+
+    const board = Array(9).fill(null);
+    const symbols = { [player1.id]: 'X', [player2.id]: 'O' };
+
+    await i.update({
+      embeds: [buildTurnEmbed(player1, player2, player1, level)],
+      components: createComponents(board)
+    });
+
+    await runGame({ message, player1, player2, aiMode: true, level, board, symbols, currentPlayer: player1 });
+  });
+
+  rematchCollector.on('end', async (_, reason) => {
+    if (reason !== 'rematch') {
+      const components = message.components;
+      if (components.length) {
+        const disabled = components.map(row => {
+          const nextRow = ActionRowBuilder.from(row);
+          nextRow.setComponents(row.components.map(component => ButtonBuilder.from(component).setDisabled(true)));
+          return nextRow;
+        });
+        await message.edit({ components: disabled }).catch(() => {});
+      }
+    }
+  });
+}
+
+function buildTurnEmbed(p1, p2, current, level = null) {
+  return new EmbedBuilder()
+    .setColor('#5865F2')
+    .setTitle('Tic Tac Toe')
+    .setDescription(renderDescription(p1, p2, current, level));
+}
+
+function renderDescription(p1, p2, current, level = null) {
+  const levelLine = Number.isInteger(level) ? `\n🤖 **AI Level:** ${level}` : '';
+  return `❌ **${p1.tag}**\n⭕ **${p2.tag}**${levelLine}\n\nCurrent Turn: **${current.tag}**`;
+}
+
+function buildResultEmbed(p1, p2, winner, level = null) {
   let resultText = "🤝 It's a draw!";
 
   if (winner === 'X') resultText = `🏆 **${p1.tag} wins!**`;
   if (winner === 'O') resultText = `🏆 **${p2.tag} wins!**`;
 
+  const levelLine = Number.isInteger(level) ? `\n🤖 **AI Level:** ${level}` : '';
+
   return new EmbedBuilder()
     .setColor(winner ? '#2ecc71' : '#f1c40f')
     .setTitle('Tic Tac Toe')
-    .setDescription(`❌ **${p1.tag}**\n⭕ **${p2.tag}**\n\n${resultText}`);
+    .setDescription(`❌ **${p1.tag}**\n⭕ **${p2.tag}**${levelLine}\n\n${resultText}`);
 }
 
-function createBoard(board, disabled = false) {
+function createComponents(board, disabled = false, rematchLevel = null) {
   const rows = [];
 
   for (let i = 0; i < 3; i++) {
@@ -173,7 +247,7 @@ function createBoard(board, disabled = false) {
 
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(String(index))
+          .setCustomId(`ttt_cell_${index}`)
           .setLabel(board[index] ? board[index] : '⬜')
           .setStyle(
             board[index] === 'X'
@@ -187,6 +261,17 @@ function createBoard(board, disabled = false) {
     }
 
     rows.push(row);
+  }
+
+  if (Number.isInteger(rematchLevel)) {
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`ttt_rematch_${rematchLevel}`)
+          .setLabel(`Rematch (${rematchLevel})`)
+          .setStyle(ButtonStyle.Primary)
+      )
+    );
   }
 
   return rows;
@@ -208,12 +293,112 @@ function checkWinner(board) {
   return null;
 }
 
-function getBestMove(board) {
-  const open = board
+function getAIMove(board, level) {
+  const open = getOpenCells(board);
+  if (!open.length) return 0;
+
+  if (level === 1) {
+    return randomFrom(open);
+  }
+
+  const winMove = findWinningMove(board, 'O');
+  if (level >= 2 && winMove !== null) return winMove;
+
+  if (level === 2) {
+    return randomFrom(open);
+  }
+
+  const blockMove = findWinningMove(board, 'X');
+  if (level >= 3 && blockMove !== null) return blockMove;
+
+  if (level === 3) {
+    if (open.includes(4)) return 4;
+    const corners = [0, 2, 6, 8].filter(index => open.includes(index));
+    if (corners.length) return randomFrom(corners);
+    return randomFrom(open);
+  }
+
+  if (level === 4) {
+    if (Math.random() < 0.75) {
+      return getMinimaxMove(board);
+    }
+
+    if (open.includes(4)) return 4;
+    const corners = [0, 2, 6, 8].filter(index => open.includes(index));
+    if (corners.length) return randomFrom(corners);
+    return randomFrom(open);
+  }
+
+  return getMinimaxMove(board);
+}
+
+function getOpenCells(board) {
+  return board
     .map((value, index) => (value === null ? index : null))
     .filter(index => index !== null);
+}
 
-  if (open.includes(4)) return 4;
+function randomFrom(items) {
+  return items[Math.floor(Math.random() * items.length)];
+}
 
-  return open[Math.floor(Math.random() * open.length)];
+function findWinningMove(board, symbol) {
+  for (const index of getOpenCells(board)) {
+    board[index] = symbol;
+    const win = checkWinner(board) === symbol;
+    board[index] = null;
+
+    if (win) return index;
+  }
+
+  return null;
+}
+
+function getMinimaxMove(board) {
+  let bestScore = -Infinity;
+  let bestMove = getOpenCells(board)[0];
+
+  for (const index of getOpenCells(board)) {
+    board[index] = 'O';
+    const score = minimax(board, false, 0);
+    board[index] = null;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestMove = index;
+    }
+  }
+
+  return bestMove;
+}
+
+function minimax(board, isMaximizing, depth) {
+  const winner = checkWinner(board);
+  if (winner === 'O') return 10 - depth;
+  if (winner === 'X') return depth - 10;
+
+  const open = getOpenCells(board);
+  if (!open.length) return 0;
+
+  if (isMaximizing) {
+    let best = -Infinity;
+
+    for (const index of open) {
+      board[index] = 'O';
+      best = Math.max(best, minimax(board, false, depth + 1));
+      board[index] = null;
+    }
+
+    return best;
+  }
+
+  let best = Infinity;
+
+  for (const index of open) {
+    board[index] = 'X';
+    best = Math.min(best, minimax(board, true, depth + 1));
+    board[index] = null;
+  }
+
+  return best;
 }
