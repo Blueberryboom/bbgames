@@ -4,7 +4,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  ComponentType
+  ComponentType,
+  MessageFlags
 } = require('discord.js');
 
 module.exports = {
@@ -18,7 +19,6 @@ module.exports = {
     ),
 
   async execute(interaction) {
-
     const player1 = interaction.user;
     const opponent = interaction.options.getUser('opponent');
 
@@ -27,29 +27,32 @@ module.exports = {
 
     if (!opponent) {
       aiMode = true;
-      player2 = { id: 'AI', tag: 'Playing against AI.' };
+      player2 = { id: 'AI', tag: 'AI Opponent' };
     } else {
-      if (opponent.bot)
-        return interaction.reply({ content: "You can't play against bots!", ephemeral: true });
+      if (opponent.bot) {
+        return interaction.reply({ content: "You can't play against bots!", flags: MessageFlags.Ephemeral });
+      }
 
-      if (opponent.id === player1.id)
-        return interaction.reply({ content: "You can't play against yourself!", ephemeral: true });
+      if (opponent.id === player1.id) {
+        return interaction.reply({ content: "You can't play against yourself!", flags: MessageFlags.Ephemeral });
+      }
 
       player2 = opponent;
     }
 
     const board = Array(9).fill(null);
+    const symbols = {
+      [player1.id]: 'X',
+      [player2.id]: 'O'
+    };
+
     let currentPlayer = player1;
     let gameOver = false;
 
     const embed = new EmbedBuilder()
       .setColor('#5865F2')
       .setTitle('Tic Tac Toe')
-      .setDescription(
-        `❌ **${player1.tag}**\n` +
-        `⭕ **${aiMode ? player2.tag : player2.tag}**\n\n` +
-        `Current Turn: **${player1.tag}**`
-      );
+      .setDescription(renderDescription(player1, player2, currentPlayer));
 
     const message = await interaction.reply({
       embeds: [embed],
@@ -63,103 +66,101 @@ module.exports = {
     });
 
     collector.on('collect', async i => {
-
       if (gameOver) return;
 
-      if (!aiMode && ![player1.id, player2.id].includes(i.user.id))
-        return i.reply({ content: "You're not part of this game!", ephemeral: true });
+      if (!aiMode && ![player1.id, player2.id].includes(i.user.id)) {
+        return i.reply({ content: "You're not part of this game!", flags: MessageFlags.Ephemeral });
+      }
 
-      if (i.user.id !== currentPlayer.id)
-        return i.reply({ content: "It's not your turn!", ephemeral: true });
+      if (i.user.id !== currentPlayer.id) {
+        return i.reply({ content: "It's not your turn!", flags: MessageFlags.Ephemeral });
+      }
 
-      const index = parseInt(i.customId);
+      const index = Number(i.customId);
+      if (!Number.isInteger(index) || index < 0 || index > 8) return;
 
-      if (board[index])
-        return i.reply({ content: "That spot is taken!", ephemeral: true });
+      if (board[index]) {
+        return i.reply({ content: 'That spot is taken!', flags: MessageFlags.Ephemeral });
+      }
 
-      board[index] = 'X';
+      board[index] = symbols[currentPlayer.id];
 
-      let winner = checkWinner(board);
-
+      const winner = checkWinner(board);
       if (winner || !board.includes(null)) {
-        return endGame(winner, board, embed, message, collector, player1, player2);
+        collector.stop();
+        gameOver = true;
+        return i.update({
+          embeds: [buildResultEmbed(player1, player2, winner)],
+          components: createBoard(board, true)
+        });
       }
 
       if (aiMode) {
         currentPlayer = player2;
 
         await i.update({
-          embeds: [updateEmbed(embed, player1, player2, currentPlayer, aiMode)],
+          embeds: [EmbedBuilder.from(embed).setDescription(renderDescription(player1, player2, currentPlayer))],
           components: createBoard(board)
         });
 
         setTimeout(async () => {
+          if (gameOver) return;
 
-          const aiMove = minimax(board, 'O').index;
-          board[aiMove] = 'O';
+          const aiMove = getBestMove(board);
+          board[aiMove] = symbols[player2.id];
 
-          winner = checkWinner(board);
-
-          if (winner || !board.includes(null)) {
-            return endGame(winner, board, embed, message, collector, player1, player2);
+          const aiWinner = checkWinner(board);
+          if (aiWinner || !board.includes(null)) {
+            gameOver = true;
+            collector.stop();
+            await message.edit({
+              embeds: [buildResultEmbed(player1, player2, aiWinner)],
+              components: createBoard(board, true)
+            }).catch(() => {});
+            return;
           }
 
           currentPlayer = player1;
-
           await message.edit({
-            embeds: [updateEmbed(embed, player1, player2, currentPlayer, aiMode)],
+            embeds: [EmbedBuilder.from(embed).setDescription(renderDescription(player1, player2, currentPlayer))],
             components: createBoard(board)
-          });
+          }).catch(() => {});
+        }, 650);
 
-        }, 700);
-
-      } else {
-        currentPlayer = currentPlayer.id === player1.id ? player2 : player1;
-
-        await i.update({
-          embeds: [updateEmbed(embed, player1, player2, currentPlayer)],
-          components: createBoard(board)
-        });
+        return;
       }
+
+      currentPlayer = currentPlayer.id === player1.id ? player2 : player1;
+
+      await i.update({
+        embeds: [EmbedBuilder.from(embed).setDescription(renderDescription(player1, player2, currentPlayer))],
+        components: createBoard(board)
+      });
     });
 
     collector.on('end', () => {
       if (!gameOver) {
-        message.edit({
-          components: createBoard(board, true)
-        }).catch(() => {});
+        message.edit({ components: createBoard(board, true) }).catch(() => {});
       }
     });
-
-    function endGame(winner, board, embed, message, collector, p1, p2) {
-      gameOver = true;
-      collector.stop();
-
-      let resultText;
-
-      if (!winner) {
-        resultText = "🤝 It's a draw!";
-      } else if (winner === 'X') {
-        resultText = `🏆 **${p1.tag} wins!**`;
-      } else {
-        resultText = `🏆 **${p2.tag} wins!**`;
-      }
-
-      const finalEmbed = EmbedBuilder.from(embed)
-        .setDescription(
-          `❌ **${p1.tag}**\n` +
-          `⭕ **${p2.tag}**\n\n` +
-          resultText
-        )
-        .setColor(winner ? '#2ecc71' : '#f1c40f');
-
-      message.edit({
-        embeds: [finalEmbed],
-        components: createBoard(board, true)
-      });
-    }
   }
 };
+
+function renderDescription(p1, p2, current) {
+  return `❌ **${p1.tag}**\n⭕ **${p2.tag}**\n\nCurrent Turn: **${current.tag}**`;
+}
+
+function buildResultEmbed(p1, p2, winner) {
+  let resultText = "🤝 It's a draw!";
+
+  if (winner === 'X') resultText = `🏆 **${p1.tag} wins!**`;
+  if (winner === 'O') resultText = `🏆 **${p2.tag} wins!**`;
+
+  return new EmbedBuilder()
+    .setColor(winner ? '#2ecc71' : '#f1c40f')
+    .setTitle('Tic Tac Toe')
+    .setDescription(`❌ **${p1.tag}**\n⭕ **${p2.tag}**\n\n${resultText}`);
+}
 
 function createBoard(board, disabled = false) {
   const rows = [];
@@ -172,16 +173,16 @@ function createBoard(board, disabled = false) {
 
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(index.toString())
+          .setCustomId(String(index))
           .setLabel(board[index] ? board[index] : '⬜')
           .setStyle(
             board[index] === 'X'
               ? ButtonStyle.Danger
               : board[index] === 'O'
-              ? ButtonStyle.Success
-              : ButtonStyle.Secondary
+                ? ButtonStyle.Success
+                : ButtonStyle.Secondary
           )
-          .setDisabled(disabled || board[index])
+          .setDisabled(Boolean(disabled || board[index]))
       );
     }
 
@@ -191,23 +192,14 @@ function createBoard(board, disabled = false) {
   return rows;
 }
 
-function updateEmbed(embed, p1, p2, current, aiMode = false) {
-  return EmbedBuilder.from(embed)
-    .setDescription(
-      `❌ **${p1.tag}**\n` +
-      `⭕ **${p2.tag}**\n\n` +
-      `Current Turn: **${current.tag}**`
-    );
-}
-
 function checkWinner(board) {
   const wins = [
-    [0,1,2],[3,4,5],[6,7,8],
-    [0,3,6],[1,4,7],[2,5,8],
-    [0,4,8],[2,4,6]
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6]
   ];
 
-  for (const [a,b,c] of wins) {
+  for (const [a, b, c] of wins) {
     if (board[a] && board[a] === board[b] && board[a] === board[c]) {
       return board[a];
     }
@@ -216,55 +208,12 @@ function checkWinner(board) {
   return null;
 }
 
-function minimax(newBoard, player) {
-  const availSpots = newBoard
-    .map((v,i) => v === null ? i : null)
-    .filter(v => v !== null);
+function getBestMove(board) {
+  const open = board
+    .map((value, index) => (value === null ? index : null))
+    .filter(index => index !== null);
 
-  const winner = checkWinner(newBoard);
+  if (open.includes(4)) return 4;
 
-  if (winner === 'X') return { score: -10 };
-  if (winner === 'O') return { score: 10 };
-  if (availSpots.length === 0) return { score: 0 };
-
-  const moves = [];
-
-  for (let i = 0; i < availSpots.length; i++) {
-    const move = {};
-    move.index = availSpots[i];
-
-    newBoard[availSpots[i]] = player;
-
-    if (player === 'O') {
-      const result = minimax(newBoard, 'X');
-      move.score = result.score;
-    } else {
-      const result = minimax(newBoard, 'O');
-      move.score = result.score;
-    }
-
-    newBoard[availSpots[i]] = null;
-    moves.push(move);
-  }
-
-  let bestMove;
-  if (player === 'O') {
-    let bestScore = -10000;
-    for (let i = 0; i < moves.length; i++) {
-      if (moves[i].score > bestScore) {
-        bestScore = moves[i].score;
-        bestMove = i;
-      }
-    }
-  } else {
-    let bestScore = 10000;
-    for (let i = 0; i < moves.length; i++) {
-      if (moves[i].score < bestScore) {
-        bestScore = moves[i].score;
-        bestMove = i;
-      }
-    }
-  }
-
-  return moves[bestMove];
+  return open[Math.floor(Math.random() * open.length)];
 }

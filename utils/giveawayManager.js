@@ -2,7 +2,6 @@ const { query } = require('../database');
 const {
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
   Collection,
   EmbedBuilder
 } = require('discord.js');
@@ -38,19 +37,21 @@ module.exports = {
   createGiveaway: async (client, data) => {
 
     await query(
-      `INSERT INTO giveaways 
-      (id, guild_id, channel_id, message_id, prize, winners, end_time, required_role, title, ended)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      `INSERT INTO giveaways
+      (id, guild_id, channel_id, message_id, host_id, prize, winners, end_time, required_role, title, extra_entries, ended)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         data.id,
         data.guildId,
         data.channelId,
         data.messageId,
+        data.hostId,
         data.prize,
         data.winners,
         data.endTime,
         data.requiredRole || null,
-        data.title || null
+        data.title || null,
+        data.bonusRole ? JSON.stringify({ bonusRoleId: data.bonusRole, multiplier: 2 }) : null
       ]
     );
 
@@ -59,11 +60,13 @@ module.exports = {
       guild_id: data.guildId,
       channel_id: data.channelId,
       message_id: data.messageId,
+      host_id: data.hostId,
       prize: data.prize,
       winners: data.winners,
       end_time: data.endTime,
       required_role: data.requiredRole,
       title: data.title,
+      extra_entries: data.bonusRole ? JSON.stringify({ bonusRoleId: data.bonusRole, multiplier: 2 }) : null,
       ended: 0
     };
 
@@ -93,16 +96,13 @@ module.exports = {
     if (!giveaway.ended) throw new Error('Giveaway has not ended yet');
 
     const entries = await query(
-      `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
+      `SELECT user_id, entry_count FROM giveaway_entries WHERE giveaway_id = ?`,
       [giveawayId]
     );
 
     if (!entries.length) throw new Error('No participants to reroll');
 
-    const winners = pickWinners(
-      entries.map(e => e.user_id),
-      giveaway.winners
-    );
+    const winners = pickWeightedWinners(entries, Number(giveaway.winners));
 
     const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
     if (!channel) return;
@@ -136,19 +136,13 @@ module.exports = {
   listActiveGiveaways: async (guildId) => {
 
     return await query(
-      `SELECT * FROM giveaways 
+      `SELECT * FROM giveaways
        WHERE guild_id = ? AND ended = 0
        ORDER BY end_time ASC`,
       [guildId]
     );
   }
 };
-
-//
-// ─────────────────────────────
-// INTERNALS
-// ─────────────────────────────
-//
 
 async function getGiveaway(id) {
   const rows = await query(`SELECT * FROM giveaways WHERE id = ?`, [id]);
@@ -157,7 +151,7 @@ async function getGiveaway(id) {
 
 function scheduleEnd(client, giveaway) {
 
-  const delay = giveaway.end_time - Date.now();
+  const delay = Number(giveaway.end_time) - Date.now();
 
   if (delay <= 0) {
     concludeGiveaway(client, giveaway);
@@ -183,14 +177,11 @@ async function concludeGiveaway(client, giveaway) {
   activeGiveaways.delete(giveaway.id);
 
   const entries = await query(
-    `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
+    `SELECT user_id, entry_count FROM giveaway_entries WHERE giveaway_id = ?`,
     [giveaway.id]
   );
 
-  const winners = pickWinners(
-    entries.map(e => e.user_id),
-    giveaway.winners
-  );
+  const winners = pickWeightedWinners(entries, Number(giveaway.winners));
 
   const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
   if (!channel) return;
@@ -198,11 +189,11 @@ async function concludeGiveaway(client, giveaway) {
   const msg = await channel.messages.fetch(giveaway.message_id).catch(() => null);
 
   if (msg) {
-    const embed = EmbedBuilder.from(msg.embeds[0])
-      .setFooter({ text: '🎉 Giveaway Ended' });
+    const embed = EmbedBuilder.from(msg.embeds[0]);
+    const endedDescription = toEndedDescription(embed.data?.description || '');
 
     await msg.edit({
-      embeds: [embed],
+      embeds: [embed.setDescription(endedDescription)],
       components: disableRow(msg.components)
     }).catch(() => {});
   }
@@ -240,8 +231,50 @@ async function disableButtons(client, giveaway) {
   }).catch(() => {});
 }
 
-function pickWinners(users, amount) {
-  if (!users.length) return [];
-  const shuffled = [...users].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, Math.min(amount, users.length));
+function pickWeightedWinners(entries, amount) {
+  if (!entries.length || amount <= 0) return [];
+
+  const pool = entries
+    .map(entry => ({ userId: entry.user_id, weight: Math.max(1, Number(entry.entry_count || 1)) }))
+    .filter(entry => entry.weight > 0);
+
+  const winners = [];
+
+  while (pool.length > 0 && winners.length < amount) {
+    const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    let random = Math.random() * totalWeight;
+
+    let selectedIndex = 0;
+
+    for (let i = 0; i < pool.length; i++) {
+      random -= pool[i].weight;
+      if (random <= 0) {
+        selectedIndex = i;
+        break;
+      }
+    }
+
+    winners.push(pool[selectedIndex].userId);
+    pool.splice(selectedIndex, 1);
+  }
+
+  return winners;
+}
+
+
+function toEndedDescription(description) {
+  if (!description) return 'This giveaway has **ended**!';
+
+  if (description.includes('This giveaway has **ended**!')) {
+    return description;
+  }
+
+  const updated = description
+    .split('\n')
+    .map(line => line.startsWith('This giveaway will end in ') ? 'This giveaway has **ended**!' : line)
+    .join('\n');
+
+  if (updated !== description) return updated;
+
+  return `${description}\nThis giveaway has **ended**!`;
 }

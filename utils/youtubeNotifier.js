@@ -1,0 +1,115 @@
+const { query } = require('../database');
+
+const CHECK_INTERVAL_MS = 5 * 60 * 1000;
+let notifierInterval = null;
+
+module.exports = {
+  initYouTubeNotifier(client) {
+    if (notifierInterval) clearInterval(notifierInterval);
+
+    runCheck(client).catch(err => {
+      console.error('❌ Initial YouTube notifier check failed:', err);
+    });
+
+    notifierInterval = setInterval(() => {
+      runCheck(client).catch(err => {
+        console.error('❌ YouTube notifier check failed:', err);
+      });
+    }, CHECK_INTERVAL_MS);
+
+    console.log('✅ YouTube notifier initialized.');
+  }
+};
+
+async function runCheck(client) {
+  const subscriptions = await query(
+    `SELECT guild_id, discord_channel_id, youtube_channel_id, ping_role_id, last_video_id
+     FROM youtube_subscriptions`
+  );
+
+  for (const sub of subscriptions) {
+    try {
+      const latest = await fetchLatestVideo(sub.youtube_channel_id);
+      if (!latest) continue;
+
+      if (!sub.last_video_id) {
+        await query(
+          `UPDATE youtube_subscriptions
+           SET last_video_id = ?, last_checked_at = ?
+           WHERE guild_id = ? AND youtube_channel_id = ?`,
+          [latest.videoId, Date.now(), sub.guild_id, sub.youtube_channel_id]
+        );
+        continue;
+      }
+
+      if (sub.last_video_id === latest.videoId) {
+        await query(
+          `UPDATE youtube_subscriptions
+           SET last_checked_at = ?
+           WHERE guild_id = ? AND youtube_channel_id = ?`,
+          [Date.now(), sub.guild_id, sub.youtube_channel_id]
+        );
+        continue;
+      }
+
+      const channel = await client.channels.fetch(sub.discord_channel_id).catch(() => null);
+      if (!channel) continue;
+
+      const ping = sub.ping_role_id ? `<@&${sub.ping_role_id}> ` : '';
+
+      await channel.send({
+        content: `${ping}📺 **New YouTube upload!**\n**${latest.title}**\n${latest.url}`,
+        allowedMentions: sub.ping_role_id ? { parse: [], roles: [sub.ping_role_id] } : { parse: [] }
+      });
+
+      await query(
+        `UPDATE youtube_subscriptions
+         SET last_video_id = ?, last_checked_at = ?
+         WHERE guild_id = ? AND youtube_channel_id = ?`,
+        [latest.videoId, Date.now(), sub.guild_id, sub.youtube_channel_id]
+      );
+
+    } catch (err) {
+      console.error(`❌ YouTube notifier failed for ${sub.youtube_channel_id}:`, err.message || err);
+    }
+  }
+}
+
+async function fetchLatestVideo(channelId) {
+  const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`);
+  if (!res.ok) return null;
+
+  const xml = await res.text();
+
+  const entryMatch = xml.match(/<entry>([\s\S]*?)<\/entry>/i);
+  if (!entryMatch) return null;
+
+  const entry = entryMatch[1];
+  const videoId = readTag(entry, 'yt:videoId');
+  const title = readTag(entry, 'title');
+  const url = readAttr(entry, 'link', 'href') || `https://www.youtube.com/watch?v=${videoId}`;
+
+  if (!videoId || !title) return null;
+
+  return { videoId, title, url };
+}
+
+function readTag(xml, tag) {
+  const match = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return match ? decodeXml(match[1].trim()) : null;
+}
+
+function readAttr(xml, tag, attr) {
+  const regex = new RegExp(`<${tag}[^>]*${attr}="([^"]+)"[^>]*>`, 'i');
+  const match = xml.match(regex);
+  return match ? decodeXml(match[1].trim()) : null;
+}
+
+function decodeXml(str) {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
