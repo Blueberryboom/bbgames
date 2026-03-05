@@ -94,7 +94,7 @@ module.exports = async (interaction) => {
       }
 
       const existing = await query(
-        `SELECT 1 FROM giveaway_entries 
+        `SELECT 1 FROM giveaway_entries
          WHERE giveaway_id = ? AND user_id = ?`,
         [giveawayId, interaction.user.id]
       );
@@ -102,24 +102,26 @@ module.exports = async (interaction) => {
       let feedback;
 
       if (existing.length > 0) {
-
         await query(
-          `DELETE FROM giveaway_entries 
+          `DELETE FROM giveaway_entries
            WHERE giveaway_id = ? AND user_id = ?`,
           [giveawayId, interaction.user.id]
         );
 
-        feedback = '✅ You have left the giveaway.';
-
+        feedback = '✅ You have left the giveaway and all of your entries were removed.';
       } else {
+        const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+        const entryCount = getEntryCount(member, giveaway.extra_entries);
 
         await query(
-          `INSERT INTO giveaway_entries (giveaway_id, user_id) 
-           VALUES (?, ?)`,
-          [giveawayId, interaction.user.id]
+          `INSERT INTO giveaway_entries (giveaway_id, user_id, entry_count)
+           VALUES (?, ?, ?)`,
+          [giveawayId, interaction.user.id, entryCount]
         );
 
-        feedback = '✅ You have joined the giveaway!';
+        feedback = entryCount === 2
+          ? '✅ You have joined the giveaway with **2 entries**!'
+          : '✅ You have joined the giveaway!';
       }
 
       await refreshParticipantButton(interaction, giveawayId);
@@ -143,6 +145,29 @@ module.exports = async (interaction) => {
     }
   }
 };
+
+function getEntryCount(member, extraEntriesRaw) {
+  if (!member || !extraEntriesRaw) return 1;
+
+  let parsed = extraEntriesRaw;
+
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return 1;
+    }
+  }
+
+  const roleId = parsed?.bonusRoleId;
+  const multiplier = Number(parsed?.multiplier || 1);
+
+  if (roleId && multiplier > 1 && member.roles.cache.has(roleId)) {
+    return multiplier;
+  }
+
+  return 1;
+}
 
 async function refreshParticipantButton(interaction, giveawayId) {
   const countRows = await query(

@@ -37,9 +37,9 @@ module.exports = {
   createGiveaway: async (client, data) => {
 
     await query(
-      `INSERT INTO giveaways 
-      (id, guild_id, channel_id, message_id, host_id, prize, winners, end_time, required_role, title, ended)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      `INSERT INTO giveaways
+      (id, guild_id, channel_id, message_id, host_id, prize, winners, end_time, required_role, title, extra_entries, ended)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         data.id,
         data.guildId,
@@ -50,7 +50,8 @@ module.exports = {
         data.winners,
         data.endTime,
         data.requiredRole || null,
-        data.title || null
+        data.title || null,
+        data.bonusRole ? JSON.stringify({ bonusRoleId: data.bonusRole, multiplier: 2 }) : null
       ]
     );
 
@@ -65,6 +66,7 @@ module.exports = {
       end_time: data.endTime,
       required_role: data.requiredRole,
       title: data.title,
+      extra_entries: data.bonusRole ? JSON.stringify({ bonusRoleId: data.bonusRole, multiplier: 2 }) : null,
       ended: 0
     };
 
@@ -94,16 +96,13 @@ module.exports = {
     if (!giveaway.ended) throw new Error('Giveaway has not ended yet');
 
     const entries = await query(
-      `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
+      `SELECT user_id, entry_count FROM giveaway_entries WHERE giveaway_id = ?`,
       [giveawayId]
     );
 
     if (!entries.length) throw new Error('No participants to reroll');
 
-    const winners = pickWinners(
-      entries.map(e => e.user_id),
-      Number(giveaway.winners)
-    );
+    const winners = pickWeightedWinners(entries, Number(giveaway.winners));
 
     const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
     if (!channel) return;
@@ -137,19 +136,13 @@ module.exports = {
   listActiveGiveaways: async (guildId) => {
 
     return await query(
-      `SELECT * FROM giveaways 
+      `SELECT * FROM giveaways
        WHERE guild_id = ? AND ended = 0
        ORDER BY end_time ASC`,
       [guildId]
     );
   }
 };
-
-//
-// ─────────────────────────────
-// INTERNALS
-// ─────────────────────────────
-//
 
 async function getGiveaway(id) {
   const rows = await query(`SELECT * FROM giveaways WHERE id = ?`, [id]);
@@ -184,14 +177,11 @@ async function concludeGiveaway(client, giveaway) {
   activeGiveaways.delete(giveaway.id);
 
   const entries = await query(
-    `SELECT user_id FROM giveaway_entries WHERE giveaway_id = ?`,
+    `SELECT user_id, entry_count FROM giveaway_entries WHERE giveaway_id = ?`,
     [giveaway.id]
   );
 
-  const winners = pickWinners(
-    entries.map(e => e.user_id),
-    Number(giveaway.winners)
-  );
+  const winners = pickWeightedWinners(entries, Number(giveaway.winners));
 
   const channel = await client.channels.fetch(giveaway.channel_id).catch(() => null);
   if (!channel) return;
@@ -241,8 +231,32 @@ async function disableButtons(client, giveaway) {
   }).catch(() => {});
 }
 
-function pickWinners(users, amount) {
-  if (!users.length) return [];
-  const shuffled = [...users].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, Math.min(amount, users.length));
+function pickWeightedWinners(entries, amount) {
+  if (!entries.length || amount <= 0) return [];
+
+  const pool = entries
+    .map(entry => ({ userId: entry.user_id, weight: Math.max(1, Number(entry.entry_count || 1)) }))
+    .filter(entry => entry.weight > 0);
+
+  const winners = [];
+
+  while (pool.length > 0 && winners.length < amount) {
+    const totalWeight = pool.reduce((sum, entry) => sum + entry.weight, 0);
+    let random = Math.random() * totalWeight;
+
+    let selectedIndex = 0;
+
+    for (let i = 0; i < pool.length; i++) {
+      random -= pool[i].weight;
+      if (random <= 0) {
+        selectedIndex = i;
+        break;
+      }
+    }
+
+    winners.push(pool[selectedIndex].userId);
+    pool.splice(selectedIndex, 1);
+  }
+
+  return winners;
 }
