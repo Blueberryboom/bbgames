@@ -1,6 +1,6 @@
 {
   "name": "bbgames",
-  "version": "2026.3.3 BETA",
+  "version": "2026.3.5 BETA",
   "main": "shard.js",
 
   "scripts": {
