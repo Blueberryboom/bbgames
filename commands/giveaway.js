@@ -73,9 +73,12 @@ module.exports = {
 
       const descriptionLines = [
         customDescription,
+        ` `,
         `**🎉 Prize:** ${prize}`,
         `**🏆 Winners:** ${winners}`,
+        ` `,
         `This giveaway will end in **<t:${Math.floor(endTime / 1000)}:R>**!`,
+        ` `,
         roleLine
       ].filter(Boolean);
 
