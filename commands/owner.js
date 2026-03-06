@@ -34,6 +34,27 @@ module.exports = {
           .setDescription('Message')
           .setRequired(true)
        )
+       .addBooleanOption(o =>
+         o.setName('force')
+          .setDescription('Send even when system announcements are disabled')
+          .setRequired(false)
+       )
+    )
+
+
+    .addSubcommand(s =>
+      s.setName('support_reply')
+       .setDescription('Reply to a support request user via DM')
+       .addStringOption(o =>
+         o.setName('user')
+          .setDescription('User ID')
+          .setRequired(true)
+       )
+       .addStringOption(o =>
+         o.setName('message')
+          .setDescription('Reply message to send')
+          .setRequired(true)
+       )
     )
 
     .addSubcommand(s =>
@@ -332,13 +353,20 @@ module.exports = {
     if (sub === "announce") {
 
       const messageText = interaction.options.getString("message");
+      const force = interaction.options.getBoolean("force") ?? false;
 
       await interaction.deferReply({ ephemeral: true });
 
       let rows;
 
       try {
-        rows = await pool.query("SELECT guild_id, channel_id FROM counting");
+        rows = await pool.query(
+          `SELECT guild_id, channel_id
+           FROM counting
+           WHERE channel_id IS NOT NULL
+             AND (? = 1 OR announcements_enabled = 1)`,
+          [force ? 1 : 0]
+        );
       } catch (err) {
         console.error(err);
         return interaction.editReply("❌ Database error.");
@@ -378,7 +406,68 @@ module.exports = {
         return interaction.editReply("❌ Shard error.");
       }
 
-      return interaction.editReply(`✅ Sent to ${totalSent} counting channels.`);
+      return interaction.editReply(`✅ Sent to ${totalSent} counting channels${force ? " (forced)." : "."}`);
+    }
+
+
+    // ======================================================
+    // ================= SUPPORT REPLY ======================
+    // ======================================================
+
+    if (sub === "support_reply") {
+
+      const userId = interaction.options.getString("user", true);
+      const replyText = interaction.options.getString("message", true);
+
+      await interaction.deferReply({ ephemeral: true });
+
+      let request;
+
+      try {
+        const rows = await pool.query(
+          `SELECT id
+           FROM support_requests
+           WHERE user_id = ?
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [userId]
+        );
+
+        request = rows[0] || null;
+      } catch (err) {
+        console.error(err);
+        return interaction.editReply("❌ Database error.");
+      }
+
+      if (!request)
+        return interaction.editReply("❌ No support request found for that user ID.");
+
+      let user;
+
+      try {
+        user = await interaction.client.users.fetch(userId);
+      } catch {
+        return interaction.editReply("❌ Could not fetch that user.");
+      }
+
+      try {
+        await user.send(`📬 **Support Response**\n${replyText}`);
+      } catch {
+        return interaction.editReply("❌ Could not DM that user (their DMs may be closed).");
+      }
+
+      try {
+        await pool.query(
+          `UPDATE support_requests
+           SET owner_reply = ?, replied_at = ?
+           WHERE id = ?`,
+          [replyText, Date.now(), request.id]
+        );
+      } catch (err) {
+        console.error(err);
+      }
+
+      return interaction.editReply(`✅ Sent support reply to ${user.tag} (\`${user.id}\`).`);
     }
 
     // ======================================================
