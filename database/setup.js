@@ -102,6 +102,11 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    await pool.query(`
+      ALTER TABLE counting
+      ADD COLUMN IF NOT EXISTS announcements_enabled BOOLEAN NOT NULL DEFAULT 1
+    `);
+
     // ─── BLACKLIST ─────────────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blacklist (
