@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const pool = require('../database');
+const checkPerms = require('../utils/checkEventPerms');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -18,6 +19,10 @@ module.exports = {
   async execute(interaction) {
     if (!interaction.guildId) {
       return interaction.reply({ content: '❌ Server only command.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (!await checkPerms(interaction)) {
+      return interaction.reply({ content: '❌ No permission', flags: MessageFlags.Ephemeral });
     }
 
     const state = interaction.options.getString('state', true);
