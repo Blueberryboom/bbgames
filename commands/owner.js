@@ -41,6 +41,22 @@ module.exports = {
        )
     )
 
+
+    .addSubcommand(s =>
+      s.setName('support_reply')
+       .setDescription('Reply to a support request user via DM')
+       .addStringOption(o =>
+         o.setName('user')
+          .setDescription('User ID')
+          .setRequired(true)
+       )
+       .addStringOption(o =>
+         o.setName('message')
+          .setDescription('Reply message to send')
+          .setRequired(true)
+       )
+    )
+
     .addSubcommand(s =>
       s.setName('moderate')
        .setDescription('Leave or blacklist a server')
@@ -391,6 +407,67 @@ module.exports = {
       }
 
       return interaction.editReply(`✅ Sent to ${totalSent} counting channels${force ? " (forced)." : "."}`);
+    }
+
+
+    // ======================================================
+    // ================= SUPPORT REPLY ======================
+    // ======================================================
+
+    if (sub === "support_reply") {
+
+      const userId = interaction.options.getString("user", true);
+      const replyText = interaction.options.getString("message", true);
+
+      await interaction.deferReply({ ephemeral: true });
+
+      let request;
+
+      try {
+        const rows = await pool.query(
+          `SELECT id
+           FROM support_requests
+           WHERE user_id = ?
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [userId]
+        );
+
+        request = rows[0] || null;
+      } catch (err) {
+        console.error(err);
+        return interaction.editReply("❌ Database error.");
+      }
+
+      if (!request)
+        return interaction.editReply("❌ No support request found for that user ID.");
+
+      let user;
+
+      try {
+        user = await interaction.client.users.fetch(userId);
+      } catch {
+        return interaction.editReply("❌ Could not fetch that user.");
+      }
+
+      try {
+        await user.send(`📬 **Support Response**\n${replyText}`);
+      } catch {
+        return interaction.editReply("❌ Could not DM that user (their DMs may be closed).");
+      }
+
+      try {
+        await pool.query(
+          `UPDATE support_requests
+           SET owner_reply = ?, replied_at = ?
+           WHERE id = ?`,
+          [replyText, Date.now(), request.id]
+        );
+      } catch (err) {
+        console.error(err);
+      }
+
+      return interaction.editReply(`✅ Sent support reply to ${user.tag} (\`${user.id}\`).`);
     }
 
     // ======================================================

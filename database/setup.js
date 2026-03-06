@@ -84,6 +84,29 @@ module.exports = async () => {
       ADD COLUMN IF NOT EXISTS announcements_enabled BOOLEAN NOT NULL DEFAULT 1
     `);
 
+
+    // ─── SUPPORT REQUESTS ───────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS support_requests (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        user_id VARCHAR(32) NOT NULL,
+        guild_id VARCHAR(32) NOT NULL,
+        category VARCHAR(32) NOT NULL,
+        message TEXT NOT NULL,
+        owner_reply TEXT NULL,
+        replied_at BIGINT NULL,
+        created_at BIGINT NOT NULL,
+        PRIMARY KEY (id),
+        INDEX idx_support_user (user_id),
+        INDEX idx_support_created (created_at)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE counting
+      ADD COLUMN IF NOT EXISTS announcements_enabled BOOLEAN NOT NULL DEFAULT 1
+    `);
+
     // ─── BLACKLIST ─────────────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blacklist (
