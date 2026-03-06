@@ -34,6 +34,11 @@ module.exports = {
           .setDescription('Message')
           .setRequired(true)
        )
+       .addBooleanOption(o =>
+         o.setName('force')
+          .setDescription('Send even when system announcements are disabled')
+          .setRequired(false)
+       )
     )
 
     .addSubcommand(s =>
@@ -332,13 +337,20 @@ module.exports = {
     if (sub === "announce") {
 
       const messageText = interaction.options.getString("message");
+      const force = interaction.options.getBoolean("force") ?? false;
 
       await interaction.deferReply({ ephemeral: true });
 
       let rows;
 
       try {
-        rows = await pool.query("SELECT guild_id, channel_id FROM counting");
+        rows = await pool.query(
+          `SELECT guild_id, channel_id
+           FROM counting
+           WHERE channel_id IS NOT NULL
+             AND (? = 1 OR announcements_enabled = 1)`,
+          [force ? 1 : 0]
+        );
       } catch (err) {
         console.error(err);
         return interaction.editReply("❌ Database error.");
@@ -378,7 +390,7 @@ module.exports = {
         return interaction.editReply("❌ Shard error.");
       }
 
-      return interaction.editReply(`✅ Sent to ${totalSent} counting channels.`);
+      return interaction.editReply(`✅ Sent to ${totalSent} counting channels${force ? " (forced)." : "."}`);
     }
 
     // ======================================================

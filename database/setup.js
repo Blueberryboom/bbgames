@@ -74,8 +74,14 @@ module.exports = async () => {
         guild_id VARCHAR(32) PRIMARY KEY,
         channel_id VARCHAR(32),
         current INT DEFAULT 0,
-        last_user VARCHAR(32)
+        last_user VARCHAR(32),
+        announcements_enabled BOOLEAN NOT NULL DEFAULT 1
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE counting
+      ADD COLUMN IF NOT EXISTS announcements_enabled BOOLEAN NOT NULL DEFAULT 1
     `);
 
     // ─── BLACKLIST ─────────────────────────
