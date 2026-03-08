@@ -2,35 +2,12 @@ const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'
 
 const RECOMMENDED_SERVERS = [
   {
-    host: 'play.hypixel.net',
-    location: 'North America / Europe',
-    players: '60,000+',
-    description: 'Huge minigame network with SkyBlock, BedWars, and more.'
+    host: 'play.blueberrynet.uk',
+    location: 'United Kingdom',
+    players: '5+',
+    description: 'This command is still in development!'
   },
-  {
-    host: 'play.cubecraft.net',
-    location: 'Europe / North America',
-    players: '8,000+',
-    description: 'Fast-paced minigames and seasonal events.'
-  },
-  {
-    host: 'mp.mineplex.com',
-    location: 'North America',
-    players: '2,000+',
-    description: 'Classic minigames and casual arcade modes.'
-  },
-  {
-    host: 'play.manacube.com',
-    location: 'Europe',
-    players: '3,000+',
-    description: 'Popular parkour, survival, and skyblock community.'
-  },
-  {
-    host: 'org.mccentral.org',
-    location: 'North America / Europe',
-    players: '1,000+',
-    description: 'Faction and prison-focused server network.'
-  }
+  
 ];
 
 module.exports = {
