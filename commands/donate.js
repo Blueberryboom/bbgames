@@ -17,13 +17,24 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(0xF59E0B)
       .setTitle('💛 Support BBGames')
-      .setDescription('Your donation will help us keep BBGames online, improve features faster, and bring more fun updates to your server. Every coffee directly supports development, hosting, and future modules.');
+      .setDescription(
+        'Hello! We would greatly appreciate it if you could donate, every donation **helps us out massively**! Your donation will be used to:
+        > - Keep this bot online and in active developement :D
+        > - Fund the Blueberry Network https://blueberrynet.uk
+        > - Help us run giveaways and events in the discord!
+        > - Other developement stuff
+        Our goal is £10 per month in donations! Help us reach it below!'
+      );
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setLabel('Buy Me A Coffee')
         .setStyle(ButtonStyle.Link)
-        .setURL(DONATE_URL)
+        .setURL(DONATE_URL),
+      new ButtonBuilder()
+        .setLabel('Our Discord')
+        .setStyle(ButtonStyle.Link)
+        .setURL('https://blueberrynet.uk/discord')
     );
 
     await interaction.reply({ embeds: [embed], components: [row] });
