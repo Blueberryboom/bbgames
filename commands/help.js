@@ -31,7 +31,7 @@ module.exports = {
             '`/config` | Permissions + message settings',
             '`/about` | About the bot',
             '`/status` | Bot health status',
-            '`/donate` | Support development'
+            '`/donate` | Support development :D'
           ].join('\n')
         }
       );
