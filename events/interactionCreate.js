@@ -18,7 +18,7 @@ const HELP_MODULES = {
   },
   fun: {
     name: 'Fun',
-    value: 'Commands: `/coinflip`, `/dadjoke`, `/TicTacToe`.'
+    value: 'Commands: `/coinflip`, `/dadjoke`, `/tictactoe`.'
   },
   youtube: {
     name: 'YouTube',
@@ -26,7 +26,7 @@ const HELP_MODULES = {
   },
   misc: {
     name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`.'
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`.'
   }
 };
 
@@ -66,6 +66,26 @@ module.exports = async (interaction) => {
       .setDescription(moduleData.value);
 
     return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === 'config_menu') {
+    const key = interaction.values[0];
+
+    if (key === 'permissions') {
+      return interaction.reply({
+        content: 'Use `/config admin_role` to set who can manage sensitive bot commands.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (key === 'messages') {
+      return interaction.reply({
+        content: 'Use `/config system_messages` to enable or disable system announcements.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    return interaction.reply({ content: '❌ Unknown config menu.', flags: MessageFlags.Ephemeral });
   }
 
   if (!interaction.isButton()) return;
@@ -148,16 +168,7 @@ module.exports = async (interaction) => {
       });
     }
 
-    if (interaction.customId.startsWith('help_run_')) {
-      const commandName = interaction.customId.replace('help_run_', '');
-      const command = interaction.client.commands.get(commandName);
 
-      if (!command) {
-        return interaction.reply({ content: '❌ That command is unavailable right now.', flags: MessageFlags.Ephemeral });
-      }
-
-      return command.execute(interaction);
-    }
 
     const parts = interaction.customId.split('_');
     if (parts.length < 3 || parts[0] !== 'giveaway') return;

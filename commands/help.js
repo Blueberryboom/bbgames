@@ -7,16 +7,34 @@ const {
   ButtonStyle
 } = require('discord.js');
 
+const SUPPORT_URL = 'https://www.buymeacoffee.com/blueberryboom';
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('Show help categories and quick actions'),
+    .setDescription('Show help categories and command list'),
 
   async execute(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('Help')
-      .setDescription('Please select a category below!');
+      .setDescription('Please select a category below!')
+      .addFields(
+        {
+          name: 'Command | Description',
+          value: [
+            '`/counting_channel` | Set counting channel',
+            '`/count` | Show current count',
+            '`/giveaway` | Giveaway management tools',
+            '`/youtube` | YouTube notifications',
+            '`/minecraft` | Find/status Minecraft servers',
+            '`/config` | Permissions + message settings',
+            '`/about` | About the bot',
+            '`/status` | Bot health status',
+            '`/donate` | Support development'
+          ].join('\n')
+        }
+      );
 
     const dropdown = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
@@ -31,12 +49,13 @@ module.exports = {
         )
     );
 
-    const buttons = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('help_run_about').setLabel('/about').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('help_run_status').setLabel('/status').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('help_run_donate').setLabel('/donate').setStyle(ButtonStyle.Success)
+    const supportButton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setLabel('Support Us')
+        .setStyle(ButtonStyle.Link)
+        .setURL(SUPPORT_URL)
     );
 
-    await interaction.reply({ embeds: [embed], components: [dropdown, buttons] });
+    await interaction.reply({ embeds: [embed], components: [dropdown, supportButton] });
   }
 };

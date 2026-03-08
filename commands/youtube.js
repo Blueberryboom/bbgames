@@ -58,7 +58,7 @@ module.exports = {
   async execute(interaction) {
     if (!await canManageYouTube(interaction)) {
       return interaction.reply({
-        content: '❌ You need one of the configured admin roles to use this command.',
+        content: '❌ You need administrator or the configured admin role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -196,20 +196,7 @@ module.exports = {
 };
 
 async function canManageYouTube(interaction) {
-  if (await checkPerms(interaction)) {
-    const allowedRoles = await query(
-      'SELECT role_id FROM admin_roles WHERE guild_id = ?',
-      [interaction.guildId]
-    );
-
-    if (!allowedRoles.length) {
-      return false;
-    }
-
-    return allowedRoles.some(r => interaction.member.roles.cache.has(r.role_id));
-  }
-
-  return false;
+  return checkPerms(interaction);
 }
 
 async function resolveYouTubeChannelId(input) {

@@ -17,7 +17,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setColor(0xF59E0B)
       .setTitle('💛 Support BBGames')
-      .setDescription('If you enjoy BBGames, you can support development below. Thank you!');
+      .setDescription('Your donation will help us keep BBGames online, improve features faster, and bring more fun updates to your server. Every coffee directly supports development, hosting, and future modules.');
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()

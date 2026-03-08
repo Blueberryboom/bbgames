@@ -1,11 +1,36 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 
 const RECOMMENDED_SERVERS = [
-  'play.hypixel.net',
-  'play.cubecraft.net',
-  'mp.mineplex.com',
-  'play.manacube.com',
-  'org.mccentral.org'
+  {
+    host: 'play.hypixel.net',
+    location: 'North America / Europe',
+    players: '60,000+',
+    description: 'Huge minigame network with SkyBlock, BedWars, and more.'
+  },
+  {
+    host: 'play.cubecraft.net',
+    location: 'Europe / North America',
+    players: '8,000+',
+    description: 'Fast-paced minigames and seasonal events.'
+  },
+  {
+    host: 'mp.mineplex.com',
+    location: 'North America',
+    players: '2,000+',
+    description: 'Classic minigames and casual arcade modes.'
+  },
+  {
+    host: 'play.manacube.com',
+    location: 'Europe',
+    players: '3,000+',
+    description: 'Popular parkour, survival, and skyblock community.'
+  },
+  {
+    host: 'org.mccentral.org',
+    location: 'North America / Europe',
+    players: '1,000+',
+    description: 'Faction and prison-focused server network.'
+  }
 ];
 
 module.exports = {
@@ -33,7 +58,14 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor(0x2ECC71)
         .setTitle('🧭 Sponsored Minecraft Servers')
-        .setDescription(RECOMMENDED_SERVERS.map((server, i) => `${i + 1}. \`${server}\``).join('\n'));
+        .setDescription(
+          RECOMMENDED_SERVERS.map((server, i) =>
+            `**${i + 1}. \`${server.host}\`**\n` +
+            `• Description: ${server.description}\n` +
+            `• Location: ${server.location}\n` +
+            `• Players: ${server.players}`
+          ).join('\n\n')
+        );
 
       return interaction.reply({ embeds: [embed] });
     }
@@ -51,7 +83,6 @@ module.exports = {
       const online = Boolean(data.online);
       const playersOnline = data.players?.online ?? 0;
       const playersMax = data.players?.max ?? 0;
-      const version = Array.isArray(data.version) ? data.version.join(', ') : (data.version || 'Unknown');
       const motd = Array.isArray(data.motd?.clean) ? data.motd.clean.join(' ') : (data.motd?.clean || 'No MOTD');
 
       const embed = new EmbedBuilder()
@@ -60,11 +91,10 @@ module.exports = {
         .addFields(
           { name: 'Status', value: online ? '🟢 Online' : '🔴 Offline', inline: true },
           { name: 'Players', value: `${playersOnline}/${playersMax}`, inline: true },
-          { name: 'Version', value: String(version), inline: true },
           { name: 'MOTD', value: String(motd).slice(0, 1024), inline: false }
         );
 
-      return interaction.reply({ embeds: [embed] });
+      return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     } catch {
       return interaction.reply({ content: '❌ Could not check that server. Please try again.', flags: MessageFlags.Ephemeral });
     }

@@ -1,29 +1,18 @@
 const pool = require('../database');
 
-// ─── ⭐ GLOBAL BOT OWNERS ─────────────────────
-// These users bypass ALL permission checks
-const GLOBAL_OWNERS = [
-  "1056523021894029372"
-];
-
 module.exports = async (interaction) => {
+  if (!interaction.guildId || !interaction.member) {
+    return false;
+  }
 
-  // ─── GLOBAL OVERRIDE ───────────────────────
-  if (GLOBAL_OWNERS.includes(interaction.user.id)) {
+  if (interaction.member.permissions.has('Administrator')) {
     return true;
   }
 
-  // ─── SERVER ADMINS ALWAYS ALLOWED ──────────
-  if (interaction.member.permissions.has("Administrator"))
-    return true;
-
-  // ─── CHECK DB ROLES ────────────────────────
   const allowedRoles = await pool.query(
-    "SELECT role_id FROM admin_roles WHERE guild_id = ?",
+    'SELECT role_id FROM admin_roles WHERE guild_id = ?',
     [interaction.guildId]
   );
 
-  return allowedRoles.some(r =>
-    interaction.member.roles.cache.has(r.role_id)
-  );
+  return allowedRoles.some(r => interaction.member.roles.cache.has(r.role_id));
 };
