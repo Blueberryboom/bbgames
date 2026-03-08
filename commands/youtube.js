@@ -2,11 +2,17 @@ const {
   SlashCommandBuilder,
   EmbedBuilder,
   MessageFlags,
-  ChannelType
+  ChannelType,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require('discord.js');
 
 const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
+const youtubeSetupState = require('../utils/youtubeSetupState');
+
+const MAX_YOUTUBE_SUBSCRIPTIONS = 5;
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,14 +29,9 @@ module.exports = {
         )
         .addChannelOption(o =>
           o.setName('target_channel')
-            .setDescription('Discord channel to post notifications (recommended)')
-            .addChannelTypes(ChannelType.GuildText)
-            .setRequired(false)
-        )
-        .addStringOption(o =>
-          o.setName('target_channel_text')
-            .setDescription('Discord channel mention, ID, or exact name')
-            .setRequired(false)
+            .setDescription('Discord channel to post notifications')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            .setRequired(true)
         )
         .addRoleOption(o =>
           o.setName('ping_role')
@@ -55,9 +56,9 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    if (!await checkPerms(interaction)) {
+    if (!await canManageYouTube(interaction)) {
       return interaction.reply({
-        content: '❌ You do not have permission to use this.',
+        content: '❌ You need one of the configured admin roles to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -65,38 +66,85 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'add') {
-      const channelInput = interaction.options.getString('channel').trim();
-      const targetChannelOption = interaction.options.getChannel('target_channel');
-      const targetChannelText = interaction.options.getString('target_channel_text');
-      const pingRole = interaction.options.getRole('ping_role');
+      try {
+        const channelInput = interaction.options.getString('channel').trim();
+        const targetChannel = interaction.options.getChannel('target_channel');
+        const pingRole = interaction.options.getRole('ping_role');
 
-      const targetChannel = targetChannelOption || resolveGuildTextChannel(interaction.guild, targetChannelText);
-      if (!targetChannel) {
+        if (!targetChannel || targetChannel.guildId !== interaction.guildId) {
+          return interaction.reply({
+            content: '❌ Please pick a valid channel from this server.',
+            flags: MessageFlags.Ephemeral
+          });
+        }
+
+        const existingRows = await query(
+          `SELECT youtube_channel_id FROM youtube_subscriptions WHERE guild_id = ?`,
+          [interaction.guildId]
+        );
+
+        if (existingRows.length >= MAX_YOUTUBE_SUBSCRIPTIONS) {
+          return interaction.reply({
+            content: `❌ You can only configure up to ${MAX_YOUTUBE_SUBSCRIPTIONS} YouTube channels per server.`,
+            flags: MessageFlags.Ephemeral
+          });
+        }
+
+        const resolved = await resolveYouTubeChannelId(channelInput);
+        if (!resolved) {
+          return interaction.reply({
+            content: '❌ Could not find that YouTube channel. Try @handle, channel ID (UC...), username, or URL.',
+            flags: MessageFlags.Ephemeral
+          });
+        }
+
+        const alreadyConfigured = existingRows.some(row => row.youtube_channel_id === resolved.channelId);
+        if (alreadyConfigured) {
+          return interaction.reply({
+            content: '❌ That YouTube channel is already configured in this server.',
+            flags: MessageFlags.Ephemeral
+          });
+        }
+
+        const token = youtubeSetupState.create({
+          guildId: interaction.guildId,
+          userId: interaction.user.id,
+          youtubeChannelId: resolved.channelId,
+          youtubeDisplay: resolved.display,
+          targetChannelId: targetChannel.id,
+          pingRoleId: pingRole?.id || null
+        });
+
+        const previewEmbed = new EmbedBuilder()
+          .setColor('#ff0000')
+          .setTitle('Review YouTube Notification Setup')
+          .setDescription('Confirm the settings below, or run a test message first.')
+          .addFields(
+            { name: 'YouTube Channel', value: `${resolved.display} (\`${resolved.channelId}\`)` },
+            { name: 'Discord Channel', value: `<#${targetChannel.id}>`, inline: true },
+            { name: 'Ping Role', value: pingRole ? `<@&${pingRole.id}>` : 'None', inline: true }
+          )
+          .setFooter({ text: 'This preview expires in 10 minutes.' });
+
+        const controls = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`youtube_test_${token}`)
+            .setLabel('Send Test')
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId(`youtube_confirm_${token}`)
+            .setLabel('Confirm & Create')
+            .setStyle(ButtonStyle.Success)
+        );
+
         return interaction.reply({
-          content: '❌ Please provide a valid Discord text channel using selector, mention, ID, or exact name.',
+          embeds: [previewEmbed],
+          components: [controls],
           flags: MessageFlags.Ephemeral
         });
+      } catch {
+        return interaction.reply({ content: '❌ Could not prepare this YouTube setup.', flags: MessageFlags.Ephemeral });
       }
-
-      const resolved = await resolveYouTubeChannelId(channelInput);
-      if (!resolved) {
-        return interaction.reply({
-          content: '❌ Could not resolve that YouTube channel. Try channel ID (`UC...`), @handle, username, or full URL.',
-          flags: MessageFlags.Ephemeral
-        });
-      }
-
-      await query(
-        `REPLACE INTO youtube_subscriptions
-         (guild_id, youtube_channel_id, discord_channel_id, ping_role_id, updated_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [interaction.guild.id, resolved.channelId, targetChannel.id, pingRole?.id || null, Date.now()]
-      );
-
-      return interaction.reply({
-        content: `✅ YouTube notifications configured for **${resolved.display}** (\`${resolved.channelId}\`) in ${targetChannel}${pingRole ? ` (ping ${pingRole})` : ''}.`,
-        flags: MessageFlags.Ephemeral
-      });
     }
 
     if (sub === 'remove') {
@@ -105,7 +153,7 @@ module.exports = {
 
       if (!resolved) {
         return interaction.reply({
-          content: '❌ Could not resolve that YouTube channel. Try channel ID (`UC...`), @handle, username, or full URL.',
+          content: '❌ Could not find that YouTube channel. Try @handle, channel ID (UC...), username, or URL.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -136,7 +184,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor('#ff0000')
-      .setTitle('📺 YouTube Subscriptions')
+      .setTitle(`📺 YouTube Subscriptions (${rows.length}/${MAX_YOUTUBE_SUBSCRIPTIONS})`)
       .setDescription(
         rows.map(row =>
           `• \`${row.youtube_channel_id}\` → <#${row.discord_channel_id}>${row.ping_role_id ? ` (ping <@&${row.ping_role_id}>)` : ''}`
@@ -147,29 +195,29 @@ module.exports = {
   }
 };
 
-function resolveGuildTextChannel(guild, input) {
-  if (!input) return null;
+async function canManageYouTube(interaction) {
+  if (await checkPerms(interaction)) {
+    const allowedRoles = await query(
+      'SELECT role_id FROM admin_roles WHERE guild_id = ?',
+      [interaction.guildId]
+    );
 
-  const trimmed = input.trim();
-  const mention = trimmed.match(/^<#(\d+)>$/);
-  const id = mention ? mention[1] : (/^\d+$/.test(trimmed) ? trimmed : null);
+    if (!allowedRoles.length) {
+      return false;
+    }
 
-  if (id) {
-    const byId = guild.channels.cache.get(id);
-    return byId?.type === ChannelType.GuildText ? byId : null;
+    return allowedRoles.some(r => interaction.member.roles.cache.has(r.role_id));
   }
 
-  const normalized = trimmed.toLowerCase().replace(/^#/, '');
-  return guild.channels.cache.find(channel =>
-    channel.type === ChannelType.GuildText && channel.name.toLowerCase() === normalized
-  ) || null;
+  return false;
 }
 
 async function resolveYouTubeChannelId(input) {
   const raw = input.trim();
 
   if (/^UC[\w-]{10,}$/.test(raw)) {
-    return { channelId: raw, display: raw };
+    const display = await fetchChannelTitleFromFeed(raw);
+    return { channelId: raw, display: display || raw };
   }
 
   const candidates = new Set();
@@ -213,9 +261,22 @@ async function resolveFromUrl(url) {
     if (!channelId) return null;
 
     const titleMatch = html.match(/<meta property="og:title" content="([^"]+)"\s*\/?>/i);
-    const title = titleMatch?.[1] || channelId;
+    const title = titleMatch?.[1] || (await fetchChannelTitleFromFeed(channelId)) || channelId;
 
     return { channelId, display: decodeHtml(title) };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchChannelTitleFromFeed(channelId) {
+  try {
+    const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`);
+    if (!res.ok) return null;
+
+    const xml = await res.text();
+    const title = xml.match(/<title>([^<]+)<\/title>/i)?.[1];
+    return title ? decodeHtml(title) : null;
   } catch {
     return null;
   }
