@@ -4,7 +4,9 @@ const {
   Collection,
   REST,
   Routes,
-  MessageFlags
+  MessageFlags,
+  EmbedBuilder,
+  AuditLogEvent
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
@@ -100,6 +102,51 @@ client.on('messageCreate', async message => {
   }
 });
 
+
+
+
+// ─── GUILD JOIN/LEAVE AUTOMATION ───────────
+client.on('guildCreate', async guild => {
+  try {
+    let targetUser = guild.ownerId ? await client.users.fetch(guild.ownerId).catch(() => null) : null;
+
+    try {
+      const me = guild.members.me || await guild.members.fetchMe().catch(() => null);
+      if (me?.permissions.has('ViewAuditLog')) {
+        const logs = await guild.fetchAuditLogs({ type: AuditLogEvent.BotAdd, limit: 6 }).catch(() => null);
+        const entry = logs?.entries?.find(e => e.target?.id === client.user.id);
+        if (entry?.executor?.id) {
+          targetUser = await client.users.fetch(entry.executor.id).catch(() => targetUser);
+        }
+      }
+    } catch {}
+
+    if (!targetUser) return;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('Thanks for adding BBGames!')
+      .setDescription('Quick start: use `/config panel` first, then set your admin role with `/config admin_role`.')
+      .addFields(
+        { name: 'Recommended Setup', value: '`/counting_channel` to start counting\n`/giveaway create` to run giveaways\n`/youtube add` for upload alerts' },
+        { name: 'Useful Commands', value: '`/help`, `/about`, `/status`, `/minecraft`, `/donate`' }
+      );
+
+    await targetUser.send({ embeds: [embed] }).catch(() => {});
+  } catch (err) {
+    console.error('❌ guildCreate handler error:', err);
+  }
+});
+
+client.on('guildDelete', async guild => {
+  try {
+    const { clearGuildData } = require('./utils/guildCleanup');
+    await clearGuildData(guild.id);
+    console.log(`🧹 Cleaned guild data for ${guild.id}`);
+  } catch (err) {
+    console.error('❌ guildDelete cleanup error:', err);
+  }
+});
 
 // ─── INTERACTIONS ──────────────────────────
 const interactionHandler = require('./events/interactionCreate');

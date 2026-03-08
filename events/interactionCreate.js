@@ -2,16 +2,37 @@ const { query } = require('../database/index');
 const {
   ActionRowBuilder,
   ButtonBuilder,
-  MessageFlags
+  MessageFlags,
+  EmbedBuilder
 } = require('discord.js');
+const youtubeSetupState = require('../utils/youtubeSetupState');
+
+const HELP_MODULES = {
+  counting: {
+    name: 'Counting',
+    value: 'Commands: `/counting_channel`, `/count`, `/counting_leaderboard`, `/counting_removechannel`, `/counting_reset`.'
+  },
+  giveaways: {
+    name: 'Giveaways',
+    value: 'Command: `/giveaway` to start and manage giveaways with role options.'
+  },
+  fun: {
+    name: 'Fun',
+    value: 'Commands: `/coinflip`, `/dadjoke`, `/tictactoe`.'
+  },
+  youtube: {
+    name: 'YouTube',
+    value: 'Command: `/youtube` with add/remove/list for upload notifications.'
+  },
+  misc: {
+    name: 'Misc',
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`.'
+  }
+};
 
 module.exports = async (interaction) => {
 
-  // ─────────────────────────────
-  // 💬 SLASH COMMANDS
-  // ─────────────────────────────
   if (interaction.isChatInputCommand()) {
-
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;
 
@@ -31,13 +52,123 @@ module.exports = async (interaction) => {
     return;
   }
 
+  if (interaction.isStringSelectMenu() && interaction.customId === 'help_category') {
+    const key = interaction.values[0];
+    const moduleData = HELP_MODULES[key];
 
-  // ─────────────────────────────
-  // 🎉 BUTTONS (Giveaways)
-  // ─────────────────────────────
+    if (!moduleData) {
+      return interaction.reply({ content: '❌ Unknown help category.', flags: MessageFlags.Ephemeral });
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(`Help • ${moduleData.name}`)
+      .setDescription(moduleData.value);
+
+    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === 'config_menu') {
+    const key = interaction.values[0];
+
+    if (key === 'permissions') {
+      return interaction.reply({
+        content: 'Use `/config admin_role` to set who can manage sensitive bot commands.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (key === 'messages') {
+      return interaction.reply({
+        content: 'Use `/config system_messages` to enable or disable system announcements.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    return interaction.reply({ content: '❌ Unknown config menu.', flags: MessageFlags.Ephemeral });
+  }
+
   if (!interaction.isButton()) return;
 
   try {
+    if (interaction.customId.startsWith('youtube_test_') || interaction.customId.startsWith('youtube_confirm_')) {
+      const [, action, token] = interaction.customId.split('_');
+      const pendingConfig = youtubeSetupState.get(token);
+
+      if (!pendingConfig) {
+        return interaction.reply({
+          content: '❌ This setup preview expired. Please run `/youtube add` again.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      if (pendingConfig.userId !== interaction.user.id || pendingConfig.guildId !== interaction.guildId) {
+        return interaction.reply({
+          content: '❌ This setup preview belongs to a different user or server.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const channel = await interaction.guild.channels.fetch(pendingConfig.targetChannelId).catch(() => null);
+      if (!channel) {
+        return interaction.reply({ content: '❌ The selected channel no longer exists.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (action === 'test') {
+        const ping = pendingConfig.pingRoleId ? `<@&${pendingConfig.pingRoleId}> ` : '';
+        await channel.send({
+          content: `${ping}**${pendingConfig.youtubeDisplay}** just uploaded a video on **YouTube**! Check it out!`,
+          embeds: [
+            new EmbedBuilder()
+              .setColor('#ff0000')
+              .setTitle('Test Notification')
+              .setDescription('This is a preview test message. No subscription was created yet.')
+          ],
+          allowedMentions: pendingConfig.pingRoleId ? { parse: [], roles: [pendingConfig.pingRoleId] } : { parse: [] }
+        });
+
+        return interaction.reply({ content: '✅ Test message sent.', flags: MessageFlags.Ephemeral });
+      }
+
+      const existingRows = await query(
+        `SELECT youtube_channel_id FROM youtube_subscriptions WHERE guild_id = ?`,
+        [interaction.guildId]
+      );
+
+      if (existingRows.length >= 5) {
+        return interaction.reply({
+          content: '❌ This server already has 5 YouTube channels configured.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const duplicate = existingRows.some(row => row.youtube_channel_id === pendingConfig.youtubeChannelId);
+      if (duplicate) {
+        return interaction.reply({ content: '❌ This YouTube channel is already configured.', flags: MessageFlags.Ephemeral });
+      }
+
+      await query(
+        `REPLACE INTO youtube_subscriptions
+         (guild_id, youtube_channel_id, discord_channel_id, ping_role_id, updated_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          pendingConfig.guildId,
+          pendingConfig.youtubeChannelId,
+          pendingConfig.targetChannelId,
+          pendingConfig.pingRoleId,
+          Date.now()
+        ]
+      );
+
+      youtubeSetupState.consume(token);
+
+      return interaction.reply({
+        content: `✅ Created notification for **${pendingConfig.youtubeDisplay}** in <#${pendingConfig.targetChannelId}>.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+
 
     const parts = interaction.customId.split('_');
     if (parts.length < 3 || parts[0] !== 'giveaway') return;
@@ -80,9 +211,7 @@ module.exports = async (interaction) => {
       });
     }
 
-    // ─── JOIN BUTTON ───
     if (action === 'join') {
-
       if (giveaway.required_role) {
         const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         if (!member || !member.roles.cache.has(giveaway.required_role)) {
@@ -135,7 +264,7 @@ module.exports = async (interaction) => {
     }
 
   } catch (err) {
-    console.error('❌ Giveaway button interaction error:', err);
+    console.error('❌ Button interaction error:', err);
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({

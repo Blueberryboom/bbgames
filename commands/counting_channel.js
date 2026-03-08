@@ -8,14 +8,9 @@ module.exports = {
     .setDescription('Set the counting channel')
     .addChannelOption(o =>
       o.setName('channel')
-        .setDescription('Channel for counting (recommended)')
+        .setDescription('Channel for counting')
         .addChannelTypes(ChannelType.GuildText)
-        .setRequired(false)
-    )
-    .addStringOption(o =>
-      o.setName('channel_text')
-        .setDescription('Channel mention, ID, or name')
-        .setRequired(false)
+        .setRequired(true)
     ),
 
   async execute(interaction) {
@@ -23,14 +18,11 @@ module.exports = {
       return interaction.reply({ content: '❌ No permission', flags: MessageFlags.Ephemeral });
     }
 
-    const channelOption = interaction.options.getChannel('channel');
-    const channelText = interaction.options.getString('channel_text');
+    const channel = interaction.options.getChannel('channel');
 
-    const channel = channelOption || resolveGuildTextChannel(interaction.guild, channelText);
-
-    if (!channel) {
+    if (!channel || channel.guildId !== interaction.guildId || channel.type !== ChannelType.GuildText) {
       return interaction.reply({
-        content: '❌ Please provide a valid text channel using the selector, mention, ID, or exact channel name.',
+        content: '❌ Please select a valid text channel from this server.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -45,22 +37,3 @@ module.exports = {
     await interaction.reply(`✅ Counting channel set to ${channel}`);
   }
 };
-
-function resolveGuildTextChannel(guild, input) {
-  if (!input) return null;
-
-  const trimmed = input.trim();
-  const mention = trimmed.match(/^<#(\d+)>$/);
-  const id = mention ? mention[1] : (/^\d+$/.test(trimmed) ? trimmed : null);
-
-  if (id) {
-    const byId = guild.channels.cache.get(id);
-    return byId?.type === ChannelType.GuildText ? byId : null;
-  }
-
-  const normalized = trimmed.toLowerCase().replace(/^#/, '');
-
-  return guild.channels.cache.find(channel =>
-    channel.type === ChannelType.GuildText && channel.name.toLowerCase() === normalized
-  ) || null;
-}
