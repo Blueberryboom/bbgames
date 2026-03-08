@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require('discord.js');
 const { query } = require('../database');
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -53,12 +54,21 @@ async function runCheck(client) {
       }
 
       const channel = await client.channels.fetch(sub.discord_channel_id).catch(() => null);
-      if (!channel) continue;
+      if (!channel || !channel.isTextBased()) continue;
 
       const ping = sub.ping_role_id ? `<@&${sub.ping_role_id}> ` : '';
 
+      const embed = new EmbedBuilder()
+        .setColor('#ff0000')
+        .setTitle(latest.title)
+        .setURL(latest.url)
+        .setDescription('Watch now on YouTube.')
+        .setImage(`https://i.ytimg.com/vi/${latest.videoId}/maxresdefault.jpg`)
+        .setFooter({ text: `YouTube • ${latest.channelName}` });
+
       await channel.send({
-        content: `${ping}📺 **New YouTube upload!**\n**${latest.title}**\n${latest.url}`,
+        content: `${ping}**${latest.channelName}** just uploaded a video on **YouTube**! Check it out!`,
+        embeds: [embed],
         allowedMentions: sub.ping_role_id ? { parse: [], roles: [sub.ping_role_id] } : { parse: [] }
       });
 
@@ -88,10 +98,11 @@ async function fetchLatestVideo(channelId) {
   const videoId = readTag(entry, 'yt:videoId');
   const title = readTag(entry, 'title');
   const url = readAttr(entry, 'link', 'href') || `https://www.youtube.com/watch?v=${videoId}`;
+  const channelName = readTag(xml, 'name') || channelId;
 
   if (!videoId || !title) return null;
 
-  return { videoId, title, url };
+  return { videoId, title, url, channelName };
 }
 
 function readTag(xml, tag) {
