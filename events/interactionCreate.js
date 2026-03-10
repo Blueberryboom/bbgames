@@ -6,6 +6,13 @@ const {
   EmbedBuilder
 } = require('discord.js');
 const youtubeSetupState = require('../utils/youtubeSetupState');
+const {
+  resolveRequiredPermissions,
+  getMissingPermissions,
+  replyMissingPermissions,
+  isMissingPermissionsError,
+  DEFAULT_REQUIRED_PERMISSIONS
+} = require('../utils/permissionGuard');
 
 const HELP_MODULES = {
   counting: {
@@ -36,9 +43,31 @@ module.exports = async (interaction) => {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;
 
+    const isGuildInteraction = interaction.inGuild();
+    const requiredPermissions = isGuildInteraction
+      ? resolveRequiredPermissions(command, interaction)
+      : [];
+    const missingPermissions = isGuildInteraction
+      ? getMissingPermissions(interaction, requiredPermissions)
+      : [];
+
+    if (missingPermissions.length) {
+      await replyMissingPermissions(interaction, missingPermissions);
+      return;
+    }
+
     try {
       await command.execute(interaction);
     } catch (err) {
+      if (isMissingPermissionsError(err) && isGuildInteraction) {
+        const fallbackMissing = getMissingPermissions(interaction, requiredPermissions);
+        await replyMissingPermissions(
+          interaction,
+          fallbackMissing.length ? fallbackMissing : requiredPermissions
+        );
+        return;
+      }
+
       console.error('❌ Slash command error:', err);
 
       if (!interaction.replied && !interaction.deferred) {
@@ -264,6 +293,15 @@ module.exports = async (interaction) => {
     }
 
   } catch (err) {
+    if (isMissingPermissionsError(err)) {
+      const missingPermissions = getMissingPermissions(interaction, DEFAULT_REQUIRED_PERMISSIONS);
+      await replyMissingPermissions(
+        interaction,
+        missingPermissions.length ? missingPermissions : DEFAULT_REQUIRED_PERMISSIONS
+      );
+      return;
+    }
+
     console.error('❌ Button interaction error:', err);
 
     if (!interaction.replied && !interaction.deferred) {
