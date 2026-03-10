@@ -35,6 +35,10 @@ function resolveRequiredPermissions(command, interaction) {
 }
 
 function getBotPermissionsInChannel(interaction) {
+  if (!interaction.inGuild()) {
+    return null;
+  }
+
   if (interaction.appPermissions) {
     return interaction.appPermissions;
   }

@@ -43,8 +43,13 @@ module.exports = async (interaction) => {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;
 
-    const requiredPermissions = resolveRequiredPermissions(command, interaction);
-    const missingPermissions = getMissingPermissions(interaction, requiredPermissions);
+    const isGuildInteraction = interaction.inGuild();
+    const requiredPermissions = isGuildInteraction
+      ? resolveRequiredPermissions(command, interaction)
+      : [];
+    const missingPermissions = isGuildInteraction
+      ? getMissingPermissions(interaction, requiredPermissions)
+      : [];
 
     if (missingPermissions.length) {
       await replyMissingPermissions(interaction, missingPermissions);
@@ -54,7 +59,7 @@ module.exports = async (interaction) => {
     try {
       await command.execute(interaction);
     } catch (err) {
-      if (isMissingPermissionsError(err)) {
+      if (isMissingPermissionsError(err) && isGuildInteraction) {
         const fallbackMissing = getMissingPermissions(interaction, requiredPermissions);
         await replyMissingPermissions(
           interaction,
