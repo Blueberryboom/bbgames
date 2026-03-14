@@ -6,6 +6,8 @@ const {
   EmbedBuilder
 } = require('discord.js');
 const youtubeSetupState = require('../utils/youtubeSetupState');
+const welcomeSetupState = require('../utils/welcomeSetupState');
+const { buildWelcomePayload } = require('../utils/welcomeSystem');
 const {
   resolveRequiredPermissions,
   getMissingPermissions,
@@ -195,6 +197,67 @@ module.exports = async (interaction) => {
 
       return interaction.reply({
         content: `✅ Created notification for **${pendingConfig.youtubeDisplay}** in <#${pendingConfig.targetChannelId}>.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+
+    if (interaction.customId.startsWith('welcome_test_') || interaction.customId.startsWith('welcome_confirm_')) {
+      const [, action, token] = interaction.customId.split('_');
+      const pendingConfig = welcomeSetupState.get(token);
+
+      if (!pendingConfig) {
+        return interaction.reply({
+          content: '❌ This welcome setup preview expired. Please run `/welcome` again.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      if (pendingConfig.userId !== interaction.user.id || pendingConfig.guildId !== interaction.guildId) {
+        return interaction.reply({
+          content: '❌ This setup preview belongs to a different user or server.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const channel = await interaction.guild.channels.fetch(pendingConfig.channelId).catch(() => null);
+      if (!channel) {
+        return interaction.reply({ content: '❌ The selected channel no longer exists.', flags: MessageFlags.Ephemeral });
+      }
+
+      const payload = buildWelcomePayload(interaction.member, interaction.guild, {
+        message_key: pendingConfig.messageKey,
+        image_enabled: pendingConfig.imageEnabled,
+        button_label: pendingConfig.buttonLabel,
+        button_url: pendingConfig.buttonUrl
+      }, { isTest: true });
+
+      if (action === 'test') {
+        await channel.send(payload);
+
+        return interaction.reply({ content: '✅ Test welcome message sent.', flags: MessageFlags.Ephemeral });
+      }
+
+      await query(
+        `REPLACE INTO welcome_settings
+         (guild_id, channel_id, message_key, image_enabled, button_label, button_url, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          pendingConfig.guildId,
+          pendingConfig.channelId,
+          pendingConfig.messageKey,
+          pendingConfig.imageEnabled ? 1 : 0,
+          pendingConfig.buttonLabel,
+          pendingConfig.buttonUrl,
+          interaction.user.id,
+          Date.now()
+        ]
+      );
+
+      welcomeSetupState.consume(token);
+
+      return interaction.reply({
+        content: `✅ Welcome system saved for <#${pendingConfig.channelId}>.`,
         flags: MessageFlags.Ephemeral
       });
     }

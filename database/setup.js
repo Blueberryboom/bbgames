@@ -59,6 +59,21 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── WELCOME SETTINGS ─────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS welcome_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        channel_id VARCHAR(32) NOT NULL,
+        message_key VARCHAR(32) NOT NULL,
+        image_enabled BOOLEAN NOT NULL DEFAULT 1,
+        button_label VARCHAR(80) NULL,
+        button_url TEXT NULL,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_welcome_channel (channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── EVENT ADMIN ROLES ──────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_roles (
