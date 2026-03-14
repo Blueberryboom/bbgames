@@ -52,6 +52,24 @@ module.exports = {
       );
     }
 
+    // Add premium-instance guilds to status totals when viewing on the normal bot.
+    if (!client.isPremiumInstance && client.premiumManager) {
+      if (client.shard) {
+        const premiumStats = await client.shard.broadcastEval(c =>
+          c.premiumManager?.getPremiumAggregateCounts
+            ? c.premiumManager.getPremiumAggregateCounts()
+            : { serverCount: 0, memberCount: 0 }
+        );
+
+        serverCount += premiumStats.reduce((acc, row) => acc + (Number(row.serverCount) || 0), 0);
+        memberCount += premiumStats.reduce((acc, row) => acc + (Number(row.memberCount) || 0), 0);
+      } else {
+        const premiumStats = client.premiumManager.getPremiumAggregateCounts();
+        serverCount += Number(premiumStats.serverCount) || 0;
+        memberCount += Number(premiumStats.memberCount) || 0;
+      }
+    }
+
     // ─── SHARD INFO X / Y ────────────────────
     let shardDisplay = 'Standalone';
 
@@ -65,7 +83,9 @@ module.exports = {
     // ─── PREMIUM STATUS ──────────────────────
     let premiumDisplay = 'No';
 
-    if (!interaction.inGuild()) {
+    if (client.isPremiumInstance) {
+      premiumDisplay = 'Yes';
+    } else if (!interaction.inGuild()) {
       if (client.shard) {
         const userId = interaction.user.id;
         const results = await client.shard.broadcastEval(

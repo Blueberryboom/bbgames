@@ -183,14 +183,36 @@ module.exports = {
 
       try {
         const results = await interaction.client.shard.broadcastEval(
-          client => client.guilds.cache.map(g => ({
-            name: g.name,
-            id: g.id,
-            members: g.memberCount
-          }))
+          client => {
+            const normalGuilds = client.guilds.cache.map(g => ({
+              name: g.name,
+              id: g.id,
+              members: g.memberCount,
+              premium: false
+            }));
+
+            const premiumGuilds = client.premiumManager?.getPremiumGuildsSnapshot
+              ? client.premiumManager.getPremiumGuildsSnapshot()
+              : [];
+
+            return [...premiumGuilds, ...normalGuilds];
+          }
         );
 
-        guilds = results.flat().sort((a, b) => b.members - a.members);
+        const seen = new Set();
+        guilds = results
+          .flat()
+          .filter(g => {
+            if (seen.has(g.id)) return false;
+            seen.add(g.id);
+            return true;
+          })
+          .sort((a, b) => {
+            if (Boolean(b.premium) !== Boolean(a.premium)) {
+              return Number(Boolean(b.premium)) - Number(Boolean(a.premium));
+            }
+            return (b.members || 0) - (a.members || 0);
+          });
 
       } catch (err) {
         console.error(err);
@@ -211,7 +233,7 @@ module.exports = {
           .setTitle(`🌍 Total Servers: ${guilds.length}`)
           .setDescription(
             slice.map(g =>
-              `**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
+              `${g.premium ? '💎 ' : ''}**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
             ).join("\n\n")
           )
           .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
@@ -227,7 +249,7 @@ module.exports = {
           .addOptions(
             slice.map(g => ({
               label: g.name.substring(0, 100),
-              description: `Members: ${g.members}`,
+              description: `${g.premium ? 'Premium • ' : ''}Members: ${g.members}`,
               value: g.id
             }))
           );

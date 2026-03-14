@@ -361,6 +361,33 @@ function hasInstanceForUser(ownerId) {
   return activeInstances.has(ownerId);
 }
 
+
+function getPremiumGuildsSnapshot() {
+  const guilds = [];
+
+  for (const [ownerId, instance] of activeInstances.entries()) {
+    for (const guild of instance.client.guilds.cache.values()) {
+      guilds.push({
+        name: guild.name,
+        id: guild.id,
+        members: guild.memberCount || 0,
+        ownerId,
+        premium: true
+      });
+    }
+  }
+
+  return guilds;
+}
+
+function getPremiumAggregateCounts() {
+  const guilds = getPremiumGuildsSnapshot();
+  return {
+    serverCount: guilds.length,
+    memberCount: guilds.reduce((acc, g) => acc + (g.members || 0), 0)
+  };
+}
+
 module.exports = {
   startPremiumInstance,
   stopPremiumInstance,
@@ -369,5 +396,7 @@ module.exports = {
   hasInstanceForUserGlobal,
   getInstanceStatus,
   hasPremiumInGuild,
-  hasInstanceForUser
+  hasInstanceForUser,
+  getPremiumGuildsSnapshot,
+  getPremiumAggregateCounts
 };
