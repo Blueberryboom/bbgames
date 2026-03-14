@@ -83,7 +83,9 @@ module.exports = {
           [interaction.guildId]
         );
 
-        if (existingRows.length >= MAX_YOUTUBE_SUBSCRIPTIONS) {
+        const isPremiumClient = Boolean(interaction.client?.isPremiumInstance);
+
+        if (!isPremiumClient && existingRows.length >= MAX_YOUTUBE_SUBSCRIPTIONS) {
           return interaction.reply({
             content: `❌ You can only configure up to ${MAX_YOUTUBE_SUBSCRIPTIONS} YouTube channels per server.`,
             flags: MessageFlags.Ephemeral
