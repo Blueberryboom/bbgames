@@ -1,8 +1,87 @@
-const { Client, GatewayIntentBits } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  REST,
+  Routes,
+  MessageFlags
+} = require('discord.js');
+const fs = require('fs');
 const { query } = require('../database');
 
 const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
+
+
+function loadCommandData(client) {
+  client.commands = new Collection();
+
+  const commands = [];
+  const commandFiles = fs
+    .readdirSync('./commands')
+    .filter(file => file.endsWith('.js'));
+
+  for (const file of commandFiles) {
+    const command = require(`../commands/${file}`);
+    client.commands.set(command.data.name, command);
+    commands.push(command.data.toJSON());
+  }
+
+  return commands;
+}
+
+async function initPremiumRuntime(premiumClient, token) {
+  premiumClient.isPremiumInstance = true;
+
+  const commands = loadCommandData(premiumClient);
+
+  const countingHandler = require('../events/countingMessage');
+  premiumClient.on('messageCreate', async message => {
+    try {
+      await countingHandler(message);
+    } catch (err) {
+      console.error('❌ Premium counting handler error:', err);
+    }
+  });
+
+  const interactionHandler = require('../events/interactionCreate');
+  premiumClient.on('interactionCreate', async interaction => {
+    try {
+      await interactionHandler(interaction);
+    } catch (err) {
+      console.error('❌ Premium interaction handler error:', err);
+
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          content: '❌ Something went wrong.',
+          flags: MessageFlags.Ephemeral
+        }).catch(() => {});
+      }
+    }
+  });
+
+  premiumClient.once('clientReady', async () => {
+    try {
+      const { initGiveawaySystem } = require('./giveawayManager');
+      await initGiveawaySystem(premiumClient);
+
+      const { initYouTubeNotifier } = require('./youtubeNotifier');
+      initYouTubeNotifier(premiumClient);
+
+      require('../status')(premiumClient);
+
+      const rest = new REST({ version: '10' }).setToken(token);
+      await rest.put(
+        Routes.applicationCommands(premiumClient.user.id),
+        { body: commands }
+      );
+
+      console.log(`✅ Premium runtime ready for ${premiumClient.user.tag}`);
+    } catch (error) {
+      console.error('❌ Premium runtime setup failed:', error);
+    }
+  });
+}
 
 function buildPremiumClient() {
   return new Client({
@@ -98,6 +177,7 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
   }
 
   const premiumClient = buildPremiumClient();
+  await initPremiumRuntime(premiumClient, token);
   let started = false;
 
   const cleanupInstance = () => {
