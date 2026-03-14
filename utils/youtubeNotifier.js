@@ -2,23 +2,25 @@ const { EmbedBuilder } = require('discord.js');
 const { query } = require('../database');
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
-let notifierInterval = null;
+const notifierIntervals = new WeakMap();
 
 module.exports = {
   initYouTubeNotifier(client) {
-    if (notifierInterval) clearInterval(notifierInterval);
+    const existingInterval = notifierIntervals.get(client);
+    if (existingInterval) clearInterval(existingInterval);
 
     runCheck(client).catch(err => {
       console.error('❌ Initial YouTube notifier check failed:', err);
     });
 
-    notifierInterval = setInterval(() => {
+    const interval = setInterval(() => {
       runCheck(client).catch(err => {
         console.error('❌ YouTube notifier check failed:', err);
       });
     }, CHECK_INTERVAL_MS);
 
-    console.log('✅ YouTube notifier initialized.');
+    notifierIntervals.set(client, interval);
+    console.log(`✅ YouTube notifier initialized for ${client.user?.tag || 'client'}.`);
   }
 };
 
@@ -30,6 +32,9 @@ async function runCheck(client) {
 
   for (const sub of subscriptions) {
     try {
+      const guild = client.guilds.cache.get(sub.guild_id);
+      if (!guild) continue;
+
       const latest = await fetchLatestVideo(sub.youtube_channel_id);
       if (!latest) continue;
 
@@ -53,7 +58,7 @@ async function runCheck(client) {
         continue;
       }
 
-      const channel = await client.channels.fetch(sub.discord_channel_id).catch(() => null);
+      const channel = guild.channels.cache.get(sub.discord_channel_id) || await client.channels.fetch(sub.discord_channel_id).catch(() => null);
       if (!channel || !channel.isTextBased()) continue;
 
       const ping = sub.ping_role_id ? `<@&${sub.ping_role_id}> ` : '';
@@ -80,7 +85,7 @@ async function runCheck(client) {
       );
 
     } catch (err) {
-      console.error(`❌ YouTube notifier failed for ${sub.youtube_channel_id}:`, err.message || err);
+      console.error(`❌ YouTube notifier failed for ${sub.youtube_channel_id} in guild ${sub.guild_id}:`, err.message || err);
     }
   }
 }

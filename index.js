@@ -10,6 +10,9 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
+const premiumManager = require('./utils/premiumManager');
+const { startGuildCleanupScheduler, scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./utils/guildCleanup');
+const { initPremiumAccessManager } = require('./utils/premiumAccessManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -29,6 +32,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+client.premiumManager = premiumManager;
 
 
 // ─── LOAD COMMAND FILES ─────────────────────
@@ -62,6 +66,15 @@ client.once('clientReady', async () => {
     // Init YouTube notifier
     const { initYouTubeNotifier } = require('./utils/youtubeNotifier');
     initYouTubeNotifier(client);
+
+    // Restore premium bot instances (shard 0 only)
+    await premiumManager.restorePremiumInstances(client);
+
+    // Premium access via subscription roles + expiry checks.
+    initPremiumAccessManager(client);
+
+    // Delayed guild data cleanup worker (shard 0 only).
+    startGuildCleanupScheduler(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
@@ -108,6 +121,22 @@ client.on('messageCreate', async message => {
 // ─── GUILD JOIN/LEAVE AUTOMATION ───────────
 client.on('guildCreate', async guild => {
   try {
+    await cancelGuildDataDeletion(guild.id);
+
+    let premiumGuildConflict = premiumManager.hasPremiumInGuild(guild.id);
+
+    if (!premiumGuildConflict && client.shard) {
+      const results = await client.shard.broadcastEval(
+        (shardClient, context) => shardClient.premiumManager?.hasPremiumInGuild(context.guildId) || false,
+        { context: { guildId: guild.id } }
+      );
+      premiumGuildConflict = results.some(Boolean);
+    }
+
+    if (premiumGuildConflict) {
+      await guild.leave().catch(() => null);
+      return;
+    }
     let targetUser = guild.ownerId ? await client.users.fetch(guild.ownerId).catch(() => null) : null;
 
     try {
@@ -140,9 +169,8 @@ client.on('guildCreate', async guild => {
 
 client.on('guildDelete', async guild => {
   try {
-    const { clearGuildData } = require('./utils/guildCleanup');
-    await clearGuildData(guild.id);
-    console.log(`🧹 Cleaned guild data for ${guild.id}`);
+    await scheduleGuildDataDeletion(guild.id, 'main_left');
+    console.log(`🕒 Scheduled guild data cleanup for ${guild.id} in 3 days`);
   } catch (err) {
     console.error('❌ guildDelete cleanup error:', err);
   }

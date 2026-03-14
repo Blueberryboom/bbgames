@@ -52,6 +52,24 @@ module.exports = {
       );
     }
 
+    // Add premium-instance guilds to status totals when viewing on the normal bot.
+    if (!client.isPremiumInstance && client.premiumManager) {
+      if (client.shard) {
+        const premiumStats = await client.shard.broadcastEval(c =>
+          c.premiumManager?.getPremiumAggregateCounts
+            ? c.premiumManager.getPremiumAggregateCounts()
+            : { serverCount: 0, memberCount: 0 }
+        );
+
+        serverCount += premiumStats.reduce((acc, row) => acc + (Number(row.serverCount) || 0), 0);
+        memberCount += premiumStats.reduce((acc, row) => acc + (Number(row.memberCount) || 0), 0);
+      } else {
+        const premiumStats = client.premiumManager.getPremiumAggregateCounts();
+        serverCount += Number(premiumStats.serverCount) || 0;
+        memberCount += Number(premiumStats.memberCount) || 0;
+      }
+    }
+
     // ─── SHARD INFO X / Y ────────────────────
     let shardDisplay = 'Standalone';
 
@@ -62,20 +80,22 @@ module.exports = {
       shardDisplay = `Shard **${current} / ${total}**`;
     }
 
-    // ─── PREMIUM TIER FROM ENV ───────────────
-    const premiumRaw =
-      String(process.env.PREMIUM_SERVER || '').toLowerCase();
+    // ─── PREMIUM STATUS ──────────────────────
+    let premiumDisplay = 'No';
 
-    let premiumDisplay = 'Standard Bot (premium only for custom profiles as of now)';
-
-    if (premiumRaw === 'true_1' || premiumRaw === 'true') {
-      premiumDisplay = 'Tier 1';
-    }
-    else if (premiumRaw === 'true_2') {
-      premiumDisplay = 'Tier 2';
-    }
-    else if (premiumRaw === 'true_3') {
-      premiumDisplay = 'Tier 3 - Customized Profile';
+    if (client.isPremiumInstance) {
+      premiumDisplay = 'Yes';
+    } else if (!interaction.inGuild()) {
+      if (client.shard) {
+        const userId = interaction.user.id;
+        const results = await client.shard.broadcastEval(
+          (c, context) => c.premiumManager?.hasInstanceForUser(context.userId) || false,
+          { context: { userId } }
+        );
+        premiumDisplay = results.some(Boolean) ? 'Yes' : 'No';
+      } else {
+        premiumDisplay = client.premiumManager?.hasInstanceForUser(interaction.user.id) ? 'Yes' : 'No';
+      }
     }
 
     // ─── BUILD EMBED ─────────────────────────
@@ -107,7 +127,7 @@ module.exports = {
         },
 
         {
-          name: '💎 Premium Tier',
+          name: '💎 Premium',
           value: premiumDisplay,
           inline: true
         },

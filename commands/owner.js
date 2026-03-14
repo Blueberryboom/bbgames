@@ -74,6 +74,26 @@ module.exports = {
           )
           .setRequired(true)
        )
+    )
+
+    .addSubcommand(s =>
+      s.setName('premium_access')
+       .setDescription('Manage premium allowlist users')
+       .addStringOption(o =>
+         o.setName('action')
+          .setDescription('Action')
+          .addChoices(
+            { name: 'Add', value: 'add' },
+            { name: 'Remove', value: 'remove' },
+            { name: 'List', value: 'list' }
+          )
+          .setRequired(true)
+       )
+       .addStringOption(o =>
+         o.setName('user')
+          .setDescription('User ID (required for add/remove)')
+          .setRequired(false)
+       )
     ),
 
   async execute(interaction) {
@@ -85,6 +105,78 @@ module.exports = {
       return interaction.reply({ content: "❌ Not allowed.", ephemeral: true });
 
     const sub = interaction.options.getSubcommand();
+
+    if (sub === 'premium_access') {
+      const action = interaction.options.getString('action', true);
+      const userId = interaction.options.getString('user', false)?.trim();
+
+      if (action !== 'list' && (!userId || !/^\d{17,20}$/.test(userId))) {
+        return interaction.reply({
+          content: '❌ Please provide a valid Discord user ID for add/remove.',
+          ephemeral: true
+        });
+      }
+
+      if (action === 'add') {
+        await pool.query(
+          `REPLACE INTO premium_allowed_users (user_id, added_at, source, expires_at, notified_at)
+           VALUES (?, ?, 'manual', NULL, NULL)`,
+          [userId, Date.now()]
+        );
+
+        return interaction.reply({
+          content: `✅ Added \`${userId}\` to premium allowlist.`,
+          ephemeral: true
+        });
+      }
+
+      if (action === 'remove') {
+        await pool.query(
+          `DELETE FROM premium_allowed_users
+           WHERE user_id = ?`,
+          [userId]
+        );
+
+        return interaction.reply({
+          content: `✅ Removed \`${userId}\` from premium allowlist.`,
+          ephemeral: true
+        });
+      }
+
+      const rows = await pool.query(
+        `SELECT user_id, added_at, source, expires_at
+         FROM premium_allowed_users
+         ORDER BY added_at DESC
+         LIMIT 50`
+      );
+
+      if (!rows.length) {
+        return interaction.reply({
+          content: 'ℹ️ Premium allowlist is empty.',
+          ephemeral: true
+        });
+      }
+
+      const description = rows
+        .map(r => {
+          const source = r.source || 'manual';
+          const expiryText = Number(r.expires_at) > Date.now()
+            ? ` • expires <t:${Math.floor(Number(r.expires_at) / 1000)}:R>`
+            : '';
+
+          return `• \`${r.user_id}\` (${source}) <t:${Math.floor(Number(r.added_at) / 1000)}:R>${expiryText}`;
+        })
+        .join('\n');
+
+      const embed = new EmbedBuilder()
+        .setTitle('💎 Premium Allowlist')
+        .setDescription(description);
+
+      return interaction.reply({
+        embeds: [embed],
+        ephemeral: true
+      });
+    }
 
     // ======================================================
     // ================= SERVERS ============================
@@ -98,14 +190,36 @@ module.exports = {
 
       try {
         const results = await interaction.client.shard.broadcastEval(
-          client => client.guilds.cache.map(g => ({
-            name: g.name,
-            id: g.id,
-            members: g.memberCount
-          }))
+          client => {
+            const normalGuilds = client.guilds.cache.map(g => ({
+              name: g.name,
+              id: g.id,
+              members: g.memberCount,
+              premium: false
+            }));
+
+            const premiumGuilds = client.premiumManager?.getPremiumGuildsSnapshot
+              ? client.premiumManager.getPremiumGuildsSnapshot()
+              : [];
+
+            return [...premiumGuilds, ...normalGuilds];
+          }
         );
 
-        guilds = results.flat().sort((a, b) => b.members - a.members);
+        const seen = new Set();
+        guilds = results
+          .flat()
+          .filter(g => {
+            if (seen.has(g.id)) return false;
+            seen.add(g.id);
+            return true;
+          })
+          .sort((a, b) => {
+            if (Boolean(b.premium) !== Boolean(a.premium)) {
+              return Number(Boolean(b.premium)) - Number(Boolean(a.premium));
+            }
+            return (b.members || 0) - (a.members || 0);
+          });
 
       } catch (err) {
         console.error(err);
@@ -126,7 +240,7 @@ module.exports = {
           .setTitle(`🌍 Total Servers: ${guilds.length}`)
           .setDescription(
             slice.map(g =>
-              `**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
+              `${g.premium ? '💎 ' : ''}**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
             ).join("\n\n")
           )
           .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
@@ -142,7 +256,7 @@ module.exports = {
           .addOptions(
             slice.map(g => ({
               label: g.name.substring(0, 100),
-              description: `Members: ${g.members}`,
+              description: `${g.premium ? 'Premium • ' : ''}Members: ${g.members}`,
               value: g.id
             }))
           );
@@ -375,32 +489,61 @@ module.exports = {
       let totalSent = 0;
 
       try {
-        const results = await interaction.client.shard.broadcastEval(
-          async (client, { rows, messageText }) => {
+        if (interaction.client.shard) {
+          const results = await interaction.client.shard.broadcastEval(
+            async (client, { rows, messageText }) => {
 
-            let sent = 0;
+              let sent = 0;
 
-            for (const row of rows) {
+              for (const row of rows) {
+                const guild = client.guilds.cache.get(row.guild_id);
+                if (!guild) continue;
 
-              const guild = client.guilds.cache.get(row.guild_id);
-              if (!guild) continue;
+                const channel = guild.channels.cache.get(row.channel_id);
+                if (!channel || !channel.isTextBased()) continue;
 
-              const channel = guild.channels.cache.get(row.channel_id);
-              if (!channel || !channel.isTextBased()) continue;
+                try {
+                  await channel.send(`📢 **Announcement:**
+${messageText}`);
+                  sent++;
+                } catch {}
+              }
 
-              try {
-                await channel.send(`📢 **Announcement:**\n${messageText}`);
-                sent++;
-              } catch {}
-            }
+              return sent;
+            },
+            { context: { rows, messageText } }
+          );
 
-            return sent;
-          },
-          { context: { rows, messageText } }
-        );
+          totalSent += results.reduce((a, b) => a + b, 0);
 
-        totalSent = results.reduce((a, b) => a + b, 0);
+          const premiumResults = await interaction.client.shard.broadcastEval(
+            (client, { rows, messageText }) =>
+              client.premiumManager?.sendAnnouncementToCountingChannels
+                ? client.premiumManager.sendAnnouncementToCountingChannels(rows, messageText)
+                : 0,
+            { context: { rows, messageText } }
+          );
 
+          totalSent += premiumResults.reduce((a, b) => a + b, 0);
+        } else {
+          for (const row of rows) {
+            const guild = interaction.client.guilds.cache.get(row.guild_id);
+            if (!guild) continue;
+
+            const channel = guild.channels.cache.get(row.channel_id);
+            if (!channel || !channel.isTextBased()) continue;
+
+            try {
+              await channel.send(`📢 **Announcement:**
+${messageText}`);
+              totalSent++;
+            } catch {}
+          }
+
+          if (interaction.client.premiumManager?.sendAnnouncementToCountingChannels) {
+            totalSent += await interaction.client.premiumManager.sendAnnouncementToCountingChannels(rows, messageText);
+          }
+        }
       } catch (err) {
         console.error(err);
         return interaction.editReply("❌ Shard error.");
@@ -408,6 +551,7 @@ module.exports = {
 
       return interaction.editReply(`✅ Sent to ${totalSent} counting channels${force ? " (forced)." : "."}`);
     }
+
 
 
     // ======================================================
