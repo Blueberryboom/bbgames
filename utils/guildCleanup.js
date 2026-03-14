@@ -1,22 +1,85 @@
 const { query } = require('../database');
 
-module.exports = {
-  async clearGuildData(guildId) {
-    if (!guildId) return;
+const GUILD_DATA_DELETE_DELAY_MS = 3 * 24 * 60 * 60 * 1000;
+let cleanupInterval = null;
 
-    await query(
-      `DELETE ge FROM giveaway_entries ge
-       INNER JOIN giveaways g ON ge.giveaway_id = g.id
-       WHERE g.guild_id = ?`,
-      [guildId]
-    );
+async function clearGuildData(guildId) {
+  if (!guildId) return;
 
-    await query('DELETE FROM giveaways WHERE guild_id = ?', [guildId]);
-    await query('DELETE FROM youtube_subscriptions WHERE guild_id = ?', [guildId]);
-    await query('DELETE FROM admin_roles WHERE guild_id = ?', [guildId]);
-    await query('DELETE FROM counting WHERE guild_id = ?', [guildId]);
-    await query('DELETE FROM counting_leaderboard WHERE guild_id = ?', [guildId]);
-    await query('DELETE FROM support_requests WHERE guild_id = ?', [guildId]);
-    await query('DELETE FROM blacklist WHERE guild_id = ?', [guildId]);
+  await query(
+    `DELETE ge FROM giveaway_entries ge
+     INNER JOIN giveaways g ON ge.giveaway_id = g.id
+     WHERE g.guild_id = ?`,
+    [guildId]
+  );
+
+  await query('DELETE FROM giveaways WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM youtube_subscriptions WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM admin_roles WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM counting WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM counting_leaderboard WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM support_requests WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM blacklist WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
+}
+
+async function scheduleGuildDataDeletion(guildId, reason = 'bot_removed', delayMs = GUILD_DATA_DELETE_DELAY_MS) {
+  if (!guildId) return;
+
+  const now = Date.now();
+  await query(
+    `REPLACE INTO guild_deletion_queue (guild_id, delete_after, reason, queued_at)
+     VALUES (?, ?, ?, ?)`,
+    [guildId, now + delayMs, reason, now]
+  );
+}
+
+async function cancelGuildDataDeletion(guildId) {
+  if (!guildId) return;
+  await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
+}
+
+async function processPendingGuildDeletions() {
+  const now = Date.now();
+  const rows = await query(
+    `SELECT guild_id
+     FROM guild_deletion_queue
+     WHERE delete_after <= ?`,
+    [now]
+  );
+
+  for (const row of rows) {
+    try {
+      await clearGuildData(row.guild_id);
+      console.log(`🧹 Deleted delayed guild data for ${row.guild_id}`);
+    } catch (error) {
+      console.error(`❌ Failed delayed guild cleanup for ${row.guild_id}:`, error.message || error);
+    }
   }
+}
+
+function startGuildCleanupScheduler(client) {
+  const shardId = client.shard?.ids?.[0] ?? 0;
+  if (client.shard && shardId !== 0) return;
+
+  if (cleanupInterval) clearInterval(cleanupInterval);
+
+  processPendingGuildDeletions().catch(err => {
+    console.error('❌ Initial delayed guild cleanup check failed:', err);
+  });
+
+  cleanupInterval = setInterval(() => {
+    processPendingGuildDeletions().catch(err => {
+      console.error('❌ Delayed guild cleanup check failed:', err);
+    });
+  }, 60 * 60 * 1000);
+}
+
+module.exports = {
+  GUILD_DATA_DELETE_DELAY_MS,
+  clearGuildData,
+  scheduleGuildDataDeletion,
+  cancelGuildDataDeletion,
+  processPendingGuildDeletions,
+  startGuildCleanupScheduler
 };
