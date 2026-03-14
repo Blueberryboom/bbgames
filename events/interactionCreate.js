@@ -164,7 +164,9 @@ module.exports = async (interaction) => {
         [interaction.guildId]
       );
 
-      if (existingRows.length >= 5) {
+      const isPremiumClient = Boolean(interaction.client?.isPremiumInstance);
+
+      if (!isPremiumClient && existingRows.length >= 5) {
         return interaction.reply({
           content: '❌ This server already has 5 YouTube channels configured.',
           flags: MessageFlags.Ephemeral

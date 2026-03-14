@@ -10,6 +10,7 @@ const {
 } = require('discord.js');
 require('dotenv').config();
 const fs = require('fs');
+const premiumManager = require('./utils/premiumManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -29,6 +30,7 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+client.premiumManager = premiumManager;
 
 
 // ─── LOAD COMMAND FILES ─────────────────────
@@ -62,6 +64,9 @@ client.once('clientReady', async () => {
     // Init YouTube notifier
     const { initYouTubeNotifier } = require('./utils/youtubeNotifier');
     initYouTubeNotifier(client);
+
+    // Restore premium bot instances (shard 0 only)
+    await premiumManager.restorePremiumInstances(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
@@ -108,6 +113,20 @@ client.on('messageCreate', async message => {
 // ─── GUILD JOIN/LEAVE AUTOMATION ───────────
 client.on('guildCreate', async guild => {
   try {
+    let premiumGuildConflict = premiumManager.hasPremiumInGuild(guild.id);
+
+    if (!premiumGuildConflict && client.shard) {
+      const results = await client.shard.broadcastEval(
+        (shardClient, context) => shardClient.premiumManager?.hasPremiumInGuild(context.guildId) || false,
+        { context: { guildId: guild.id } }
+      );
+      premiumGuildConflict = results.some(Boolean);
+    }
+
+    if (premiumGuildConflict) {
+      await guild.leave().catch(() => null);
+      return;
+    }
     let targetUser = guild.ownerId ? await client.users.fetch(guild.ownerId).catch(() => null) : null;
 
     try {
