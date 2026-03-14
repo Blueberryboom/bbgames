@@ -107,6 +107,25 @@ module.exports = async () => {
       ADD COLUMN IF NOT EXISTS announcements_enabled BOOLEAN NOT NULL DEFAULT 1
     `);
 
+
+    // ─── PREMIUM ACCESS CONTROL ────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS premium_allowed_users (
+        user_id VARCHAR(32) PRIMARY KEY,
+        added_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    // ─── PREMIUM INSTANCES ─────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS premium_instances (
+        owner_id VARCHAR(32) PRIMARY KEY,
+        token TEXT NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── BLACKLIST ─────────────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blacklist (

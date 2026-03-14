@@ -62,20 +62,20 @@ module.exports = {
       shardDisplay = `Shard **${current} / ${total}**`;
     }
 
-    // ─── PREMIUM TIER FROM ENV ───────────────
-    const premiumRaw =
-      String(process.env.PREMIUM_SERVER || '').toLowerCase();
+    // ─── PREMIUM STATUS ──────────────────────
+    let premiumDisplay = 'No';
 
-    let premiumDisplay = 'Standard Bot (premium only for custom profiles as of now)';
-
-    if (premiumRaw === 'true_1' || premiumRaw === 'true') {
-      premiumDisplay = 'Tier 1';
-    }
-    else if (premiumRaw === 'true_2') {
-      premiumDisplay = 'Tier 2';
-    }
-    else if (premiumRaw === 'true_3') {
-      premiumDisplay = 'Tier 3 - Customized Profile';
+    if (!interaction.inGuild()) {
+      if (client.shard) {
+        const userId = interaction.user.id;
+        const results = await client.shard.broadcastEval(
+          (c, context) => c.premiumManager?.hasInstanceForUser(context.userId) || false,
+          { context: { userId } }
+        );
+        premiumDisplay = results.some(Boolean) ? 'Yes' : 'No';
+      } else {
+        premiumDisplay = client.premiumManager?.hasInstanceForUser(interaction.user.id) ? 'Yes' : 'No';
+      }
     }
 
     // ─── BUILD EMBED ─────────────────────────
@@ -107,7 +107,7 @@ module.exports = {
         },
 
         {
-          name: '💎 Premium Tier',
+          name: '💎 Premium',
           value: premiumDisplay,
           inline: true
         },
