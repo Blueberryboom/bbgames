@@ -14,6 +14,18 @@ const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
 let mainClientRef = null;
 
+const MAX_PREMIUM_GUILDS_PER_BOT = 1;
+
+async function leaveExtraGuilds(client, keepGuildIds = new Set()) {
+  const guilds = [...client.guilds.cache.values()];
+  const extras = guilds.filter(g => !keepGuildIds.has(g.id));
+
+  for (const guild of extras) {
+    await guild.leave().catch(() => null);
+  }
+
+  return extras.map(g => g.id);
+}
 
 function loadCommandData(client) {
   client.commands = new Collection();
@@ -219,13 +231,15 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
       const existingOwner = guildOwners.get(guild.id);
       const premiumConflict = await hasPremiumInGuildGlobal(mainClient, guild.id);
 
-      if (mainGuildIds.has(guild.id) || (existingOwner && existingOwner !== ownerId) || premiumConflict) {
+      const instance = activeInstances.get(ownerId);
+      const hasGuildLimitReached = instance && instance.guildIds.size >= MAX_PREMIUM_GUILDS_PER_BOT && !instance.guildIds.has(guild.id);
+
+      if (mainGuildIds.has(guild.id) || (existingOwner && existingOwner !== ownerId) || premiumConflict || hasGuildLimitReached) {
         await guild.leave().catch(() => null);
         return;
       }
 
       guildOwners.set(guild.id, ownerId);
-      const instance = activeInstances.get(ownerId);
       instance?.guildIds.add(guild.id);
       await cancelGuildDataDeletion(guild.id);
     } catch (error) {
@@ -246,6 +260,13 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
     started = true;
 
     const premiumGuildIds = [...premiumClient.guilds.cache.keys()];
+
+    if (premiumGuildIds.length > MAX_PREMIUM_GUILDS_PER_BOT) {
+      const keepGuildId = premiumGuildIds[0];
+      const removedGuildIds = await leaveExtraGuilds(premiumClient, new Set([keepGuildId]));
+      throw new Error(`Premium bots can only be in 1 server. Left ${removedGuildIds.length} extra server(s); please keep only one and try again.`);
+    }
+
     const mainGuildIds = await getMainGuildIds(mainClient);
 
     const overlapWithMain = premiumGuildIds.filter(guildId => mainGuildIds.has(guildId));
