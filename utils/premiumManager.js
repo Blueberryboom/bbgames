@@ -8,6 +8,7 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const { query } = require('../database');
+const { scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./guildCleanup');
 
 const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
@@ -146,8 +147,12 @@ function getOtherPremiumOverlapGuilds(ownerId, guildIds) {
 
 async function isPremiumAllowedUser(userId) {
   const rows = await query(
-    'SELECT 1 FROM premium_allowed_users WHERE user_id = ? LIMIT 1',
-    [userId]
+    `SELECT 1
+     FROM premium_allowed_users
+     WHERE user_id = ?
+       AND (expires_at IS NULL OR expires_at > ?)
+     LIMIT 1`,
+    [userId, Date.now()]
   );
 
   return rows.length > 0;
@@ -173,6 +178,7 @@ async function setPremiumInstanceEnabled(ownerId, enabled) {
 
 async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
   const { persist = true } = options;
+  mainClientRef = mainClient;
 
   if (activeInstances.has(ownerId)) {
     throw new Error('You already have an active premium bot instance. Stop it first.');
@@ -203,6 +209,8 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
     if (guildOwners.get(guild.id) === ownerId) {
       guildOwners.delete(guild.id);
     }
+
+    scheduleGuildDataDeletion(guild.id, 'premium_left').catch(() => null);
   });
 
   premiumClient.on('guildCreate', async guild => {
@@ -219,6 +227,7 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
       guildOwners.set(guild.id, ownerId);
       const instance = activeInstances.get(ownerId);
       instance?.guildIds.add(guild.id);
+      await cancelGuildDataDeletion(guild.id);
     } catch (error) {
       console.error('❌ Premium guildCreate check failed:', error);
     }
@@ -262,6 +271,7 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
 
     for (const guildId of premiumGuildIds) {
       guildOwners.set(guildId, ownerId);
+      await cancelGuildDataDeletion(guildId);
     }
 
     activeInstances.set(ownerId, {
@@ -308,6 +318,8 @@ async function stopPremiumInstance(ownerId, options = {}) {
     if (guildOwners.get(guildId) === ownerId) {
       guildOwners.delete(guildId);
     }
+
+    await scheduleGuildDataDeletion(guildId, 'premium_stopped');
   }
 
   await instance.client.destroy();

@@ -112,8 +112,26 @@ module.exports = async () => {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS premium_allowed_users (
         user_id VARCHAR(32) PRIMARY KEY,
-        added_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+        added_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        source VARCHAR(16) NOT NULL DEFAULT 'manual',
+        expires_at BIGINT NULL,
+        notified_at BIGINT NULL
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_allowed_users
+      ADD COLUMN IF NOT EXISTS source VARCHAR(16) NOT NULL DEFAULT 'manual'
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_allowed_users
+      ADD COLUMN IF NOT EXISTS expires_at BIGINT NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_allowed_users
+      ADD COLUMN IF NOT EXISTS notified_at BIGINT NULL
     `);
 
     // ─── PREMIUM INSTANCES ─────────────────
@@ -123,6 +141,17 @@ module.exports = async () => {
         token TEXT NOT NULL,
         enabled BOOLEAN NOT NULL DEFAULT 1,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    // ─── GUILD DATA DELETION QUEUE ─────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS guild_deletion_queue (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        delete_after BIGINT NOT NULL,
+        reason VARCHAR(32) NULL,
+        queued_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_delete_after (delete_after)
       ) ENGINE=InnoDB;
     `);
 

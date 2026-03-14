@@ -119,8 +119,8 @@ module.exports = {
 
       if (action === 'add') {
         await pool.query(
-          `REPLACE INTO premium_allowed_users (user_id, added_at)
-           VALUES (?, ?)`,
+          `REPLACE INTO premium_allowed_users (user_id, added_at, source, expires_at, notified_at)
+           VALUES (?, ?, 'manual', NULL, NULL)`,
           [userId, Date.now()]
         );
 
@@ -144,7 +144,7 @@ module.exports = {
       }
 
       const rows = await pool.query(
-        `SELECT user_id, added_at
+        `SELECT user_id, added_at, source, expires_at
          FROM premium_allowed_users
          ORDER BY added_at DESC
          LIMIT 50`
@@ -158,7 +158,14 @@ module.exports = {
       }
 
       const description = rows
-        .map(r => `• \`${r.user_id}\` <t:${Math.floor(Number(r.added_at) / 1000)}:R>`)
+        .map(r => {
+          const source = r.source || 'manual';
+          const expiryText = Number(r.expires_at) > Date.now()
+            ? ` • expires <t:${Math.floor(Number(r.expires_at) / 1000)}:R>`
+            : '';
+
+          return `• \`${r.user_id}\` (${source}) <t:${Math.floor(Number(r.added_at) / 1000)}:R>${expiryText}`;
+        })
         .join('\n');
 
       const embed = new EmbedBuilder()
