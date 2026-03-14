@@ -74,6 +74,26 @@ module.exports = {
           )
           .setRequired(true)
        )
+    )
+
+    .addSubcommand(s =>
+      s.setName('premium_access')
+       .setDescription('Manage premium allowlist users')
+       .addStringOption(o =>
+         o.setName('action')
+          .setDescription('Action')
+          .addChoices(
+            { name: 'Add', value: 'add' },
+            { name: 'Remove', value: 'remove' },
+            { name: 'List', value: 'list' }
+          )
+          .setRequired(true)
+       )
+       .addStringOption(o =>
+         o.setName('user')
+          .setDescription('User ID (required for add/remove)')
+          .setRequired(false)
+       )
     ),
 
   async execute(interaction) {
@@ -85,6 +105,71 @@ module.exports = {
       return interaction.reply({ content: "❌ Not allowed.", ephemeral: true });
 
     const sub = interaction.options.getSubcommand();
+
+    if (sub === 'premium_access') {
+      const action = interaction.options.getString('action', true);
+      const userId = interaction.options.getString('user', false)?.trim();
+
+      if (action !== 'list' && (!userId || !/^\d{17,20}$/.test(userId))) {
+        return interaction.reply({
+          content: '❌ Please provide a valid Discord user ID for add/remove.',
+          ephemeral: true
+        });
+      }
+
+      if (action === 'add') {
+        await pool.query(
+          `REPLACE INTO premium_allowed_users (user_id, added_at)
+           VALUES (?, ?)`,
+          [userId, Date.now()]
+        );
+
+        return interaction.reply({
+          content: `✅ Added \`${userId}\` to premium allowlist.`,
+          ephemeral: true
+        });
+      }
+
+      if (action === 'remove') {
+        await pool.query(
+          `DELETE FROM premium_allowed_users
+           WHERE user_id = ?`,
+          [userId]
+        );
+
+        return interaction.reply({
+          content: `✅ Removed \`${userId}\` from premium allowlist.`,
+          ephemeral: true
+        });
+      }
+
+      const rows = await pool.query(
+        `SELECT user_id, added_at
+         FROM premium_allowed_users
+         ORDER BY added_at DESC
+         LIMIT 50`
+      );
+
+      if (!rows.length) {
+        return interaction.reply({
+          content: 'ℹ️ Premium allowlist is empty.',
+          ephemeral: true
+        });
+      }
+
+      const description = rows
+        .map(r => `• \`${r.user_id}\` <t:${Math.floor(Number(r.added_at) / 1000)}:R>`)
+        .join('\n');
+
+      const embed = new EmbedBuilder()
+        .setTitle('💎 Premium Allowlist')
+        .setDescription(description);
+
+      return interaction.reply({
+        embeds: [embed],
+        ephemeral: true
+      });
+    }
 
     // ======================================================
     // ================= SERVERS ============================
@@ -98,14 +183,36 @@ module.exports = {
 
       try {
         const results = await interaction.client.shard.broadcastEval(
-          client => client.guilds.cache.map(g => ({
-            name: g.name,
-            id: g.id,
-            members: g.memberCount
-          }))
+          client => {
+            const normalGuilds = client.guilds.cache.map(g => ({
+              name: g.name,
+              id: g.id,
+              members: g.memberCount,
+              premium: false
+            }));
+
+            const premiumGuilds = client.premiumManager?.getPremiumGuildsSnapshot
+              ? client.premiumManager.getPremiumGuildsSnapshot()
+              : [];
+
+            return [...premiumGuilds, ...normalGuilds];
+          }
         );
 
-        guilds = results.flat().sort((a, b) => b.members - a.members);
+        const seen = new Set();
+        guilds = results
+          .flat()
+          .filter(g => {
+            if (seen.has(g.id)) return false;
+            seen.add(g.id);
+            return true;
+          })
+          .sort((a, b) => {
+            if (Boolean(b.premium) !== Boolean(a.premium)) {
+              return Number(Boolean(b.premium)) - Number(Boolean(a.premium));
+            }
+            return (b.members || 0) - (a.members || 0);
+          });
 
       } catch (err) {
         console.error(err);
@@ -126,7 +233,7 @@ module.exports = {
           .setTitle(`🌍 Total Servers: ${guilds.length}`)
           .setDescription(
             slice.map(g =>
-              `**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
+              `${g.premium ? '💎 ' : ''}**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
             ).join("\n\n")
           )
           .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
@@ -142,7 +249,7 @@ module.exports = {
           .addOptions(
             slice.map(g => ({
               label: g.name.substring(0, 100),
-              description: `Members: ${g.members}`,
+              description: `${g.premium ? 'Premium • ' : ''}Members: ${g.members}`,
               value: g.id
             }))
           );
