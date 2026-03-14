@@ -11,6 +11,7 @@ const { query } = require('../database');
 
 const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
+let mainClientRef = null;
 
 
 function loadCommandData(client) {
@@ -32,6 +33,7 @@ function loadCommandData(client) {
 
 async function initPremiumRuntime(premiumClient, token) {
   premiumClient.isPremiumInstance = true;
+  premiumClient.premiumManager = module.exports;
 
   const commands = loadCommandData(premiumClient);
 
@@ -318,6 +320,8 @@ async function stopPremiumInstance(ownerId, options = {}) {
 }
 
 async function restorePremiumInstances(mainClient) {
+  mainClientRef = mainClient;
+
   const shardId = mainClient.shard?.ids?.[0] ?? 0;
   if (mainClient.shard && shardId !== 0) {
     return;
@@ -388,6 +392,41 @@ function getPremiumAggregateCounts() {
   };
 }
 
+async function getMainAggregateCounts() {
+  if (!mainClientRef) {
+    return { serverCount: 0, memberCount: 0 };
+  }
+
+  if (mainClientRef.shard) {
+    const guildCounts = await mainClientRef.shard.fetchClientValues('guilds.cache.size');
+    const memberCounts = await mainClientRef.shard.broadcastEval(client =>
+      client.guilds.cache.reduce((acc, guild) => acc + (guild.memberCount || 0), 0)
+    );
+
+    return {
+      serverCount: guildCounts.reduce((acc, count) => acc + count, 0),
+      memberCount: memberCounts.reduce((acc, count) => acc + count, 0)
+    };
+  }
+
+  return {
+    serverCount: mainClientRef.guilds.cache.size,
+    memberCount: mainClientRef.guilds.cache.reduce((acc, guild) => acc + (guild.memberCount || 0), 0)
+  };
+}
+
+async function getNetworkAggregateCounts() {
+  const [mainStats, premiumStats] = await Promise.all([
+    getMainAggregateCounts(),
+    Promise.resolve(getPremiumAggregateCounts())
+  ]);
+
+  return {
+    serverCount: (Number(mainStats.serverCount) || 0) + (Number(premiumStats.serverCount) || 0),
+    memberCount: (Number(mainStats.memberCount) || 0) + (Number(premiumStats.memberCount) || 0)
+  };
+}
+
 
 async function sendAnnouncementToCountingChannels(rows, messageText) {
   let sent = 0;
@@ -422,5 +461,6 @@ module.exports = {
   hasInstanceForUser,
   getPremiumGuildsSnapshot,
   getPremiumAggregateCounts,
+  getNetworkAggregateCounts,
   sendAnnouncementToCountingChannels
 };

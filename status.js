@@ -39,7 +39,7 @@ module.exports = (client) => {
       );
     }
 
-    // Include premium-instance totals on the normal bot presence.
+    // Main bot: include premium-instance totals in presence.
     if (!client.isPremiumInstance && client.premiumManager?.getPremiumAggregateCounts) {
       if (client.shard) {
         const premiumStats = await client.shard.broadcastEval(c =>
@@ -55,6 +55,13 @@ module.exports = (client) => {
         guildCount += Number(premiumStats.serverCount) || 0;
         memberCount += Number(premiumStats.memberCount) || 0;
       }
+    }
+
+    // Premium bot: mirror the main bot's full network totals in presence.
+    if (client.isPremiumInstance && client.premiumManager?.getNetworkAggregateCounts) {
+      const networkStats = await client.premiumManager.getNetworkAggregateCounts();
+      guildCount = Number(networkStats.serverCount) || guildCount;
+      memberCount = Number(networkStats.memberCount) || memberCount;
     }
 
     // ─── SET PRESENCE ─────────────────────────────────
