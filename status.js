@@ -39,6 +39,24 @@ module.exports = (client) => {
       );
     }
 
+    // Include premium-instance totals on the normal bot presence.
+    if (!client.isPremiumInstance && client.premiumManager?.getPremiumAggregateCounts) {
+      if (client.shard) {
+        const premiumStats = await client.shard.broadcastEval(c =>
+          c.premiumManager?.getPremiumAggregateCounts
+            ? c.premiumManager.getPremiumAggregateCounts()
+            : { serverCount: 0, memberCount: 0 }
+        );
+
+        guildCount += premiumStats.reduce((acc, row) => acc + (Number(row.serverCount) || 0), 0);
+        memberCount += premiumStats.reduce((acc, row) => acc + (Number(row.memberCount) || 0), 0);
+      } else {
+        const premiumStats = client.premiumManager.getPremiumAggregateCounts();
+        guildCount += Number(premiumStats.serverCount) || 0;
+        memberCount += Number(premiumStats.memberCount) || 0;
+      }
+    }
+
     // ─── SET PRESENCE ─────────────────────────────────
     client.user.setPresence({
       activities: [{

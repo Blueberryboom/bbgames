@@ -482,32 +482,61 @@ module.exports = {
       let totalSent = 0;
 
       try {
-        const results = await interaction.client.shard.broadcastEval(
-          async (client, { rows, messageText }) => {
+        if (interaction.client.shard) {
+          const results = await interaction.client.shard.broadcastEval(
+            async (client, { rows, messageText }) => {
 
-            let sent = 0;
+              let sent = 0;
 
-            for (const row of rows) {
+              for (const row of rows) {
+                const guild = client.guilds.cache.get(row.guild_id);
+                if (!guild) continue;
 
-              const guild = client.guilds.cache.get(row.guild_id);
-              if (!guild) continue;
+                const channel = guild.channels.cache.get(row.channel_id);
+                if (!channel || !channel.isTextBased()) continue;
 
-              const channel = guild.channels.cache.get(row.channel_id);
-              if (!channel || !channel.isTextBased()) continue;
+                try {
+                  await channel.send(`📢 **Announcement:**
+${messageText}`);
+                  sent++;
+                } catch {}
+              }
 
-              try {
-                await channel.send(`📢 **Announcement:**\n${messageText}`);
-                sent++;
-              } catch {}
-            }
+              return sent;
+            },
+            { context: { rows, messageText } }
+          );
 
-            return sent;
-          },
-          { context: { rows, messageText } }
-        );
+          totalSent += results.reduce((a, b) => a + b, 0);
 
-        totalSent = results.reduce((a, b) => a + b, 0);
+          const premiumResults = await interaction.client.shard.broadcastEval(
+            (client, { rows, messageText }) =>
+              client.premiumManager?.sendAnnouncementToCountingChannels
+                ? client.premiumManager.sendAnnouncementToCountingChannels(rows, messageText)
+                : 0,
+            { context: { rows, messageText } }
+          );
 
+          totalSent += premiumResults.reduce((a, b) => a + b, 0);
+        } else {
+          for (const row of rows) {
+            const guild = interaction.client.guilds.cache.get(row.guild_id);
+            if (!guild) continue;
+
+            const channel = guild.channels.cache.get(row.channel_id);
+            if (!channel || !channel.isTextBased()) continue;
+
+            try {
+              await channel.send(`📢 **Announcement:**
+${messageText}`);
+              totalSent++;
+            } catch {}
+          }
+
+          if (interaction.client.premiumManager?.sendAnnouncementToCountingChannels) {
+            totalSent += await interaction.client.premiumManager.sendAnnouncementToCountingChannels(rows, messageText);
+          }
+        }
       } catch (err) {
         console.error(err);
         return interaction.editReply("❌ Shard error.");
@@ -515,6 +544,7 @@ module.exports = {
 
       return interaction.editReply(`✅ Sent to ${totalSent} counting channels${force ? " (forced)." : "."}`);
     }
+
 
 
     // ======================================================

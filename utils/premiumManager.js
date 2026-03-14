@@ -388,6 +388,29 @@ function getPremiumAggregateCounts() {
   };
 }
 
+
+async function sendAnnouncementToCountingChannels(rows, messageText) {
+  let sent = 0;
+
+  for (const instance of activeInstances.values()) {
+    for (const row of rows) {
+      const guild = instance.client.guilds.cache.get(row.guild_id);
+      if (!guild) continue;
+
+      const channel = guild.channels.cache.get(row.channel_id);
+      if (!channel || !channel.isTextBased()) continue;
+
+      try {
+        await channel.send(`📢 **Announcement:**
+${messageText}`);
+        sent++;
+      } catch {}
+    }
+  }
+
+  return sent;
+}
+
 module.exports = {
   startPremiumInstance,
   stopPremiumInstance,
@@ -398,5 +421,6 @@ module.exports = {
   hasPremiumInGuild,
   hasInstanceForUser,
   getPremiumGuildsSnapshot,
-  getPremiumAggregateCounts
+  getPremiumAggregateCounts,
+  sendAnnouncementToCountingChannels
 };
