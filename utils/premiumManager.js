@@ -8,6 +8,7 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const { query } = require('../database');
+const { buildWelcomePayload } = require('./welcomeSystem');
 const { scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./guildCleanup');
 
 const activeInstances = new Map(); // ownerId -> instance
@@ -56,6 +57,29 @@ async function initPremiumRuntime(premiumClient, token) {
       await countingHandler(message);
     } catch (err) {
       console.error('❌ Premium counting handler error:', err);
+    }
+  });
+
+  premiumClient.on('guildMemberAdd', async member => {
+    try {
+      const rows = await query(
+        `SELECT channel_id, message_key, image_enabled, button_label, button_url
+         FROM welcome_settings
+         WHERE guild_id = ?
+         LIMIT 1`,
+        [member.guild.id]
+      );
+
+      if (!rows.length) return;
+
+      const config = rows[0];
+      const targetChannel = await member.guild.channels.fetch(config.channel_id).catch(() => null);
+      if (!targetChannel?.isTextBased()) return;
+
+      const payload = buildWelcomePayload(member, member.guild, config);
+      await targetChannel.send(payload);
+    } catch (err) {
+      console.error('❌ Premium welcome system error:', err);
     }
   });
 
