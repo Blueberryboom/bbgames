@@ -8,12 +8,25 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const { query } = require('../database');
+const { buildWelcomePayload } = require('./welcomeSystem');
 const { scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./guildCleanup');
 
 const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
 let mainClientRef = null;
 
+const MAX_PREMIUM_GUILDS_PER_BOT = 1;
+
+async function leaveExtraGuilds(client, keepGuildIds = new Set()) {
+  const guilds = [...client.guilds.cache.values()];
+  const extras = guilds.filter(g => !keepGuildIds.has(g.id));
+
+  for (const guild of extras) {
+    await guild.leave().catch(() => null);
+  }
+
+  return extras.map(g => g.id);
+}
 
 function loadCommandData(client) {
   client.commands = new Collection();
@@ -44,6 +57,29 @@ async function initPremiumRuntime(premiumClient, token) {
       await countingHandler(message);
     } catch (err) {
       console.error('❌ Premium counting handler error:', err);
+    }
+  });
+
+  premiumClient.on('guildMemberAdd', async member => {
+    try {
+      const rows = await query(
+        `SELECT channel_id, message_key, image_enabled, button_label, button_url
+         FROM welcome_settings
+         WHERE guild_id = ?
+         LIMIT 1`,
+        [member.guild.id]
+      );
+
+      if (!rows.length) return;
+
+      const config = rows[0];
+      const targetChannel = await member.guild.channels.fetch(config.channel_id).catch(() => null);
+      if (!targetChannel?.isTextBased()) return;
+
+      const payload = buildWelcomePayload(member, member.guild, config);
+      await targetChannel.send(payload);
+    } catch (err) {
+      console.error('❌ Premium welcome system error:', err);
     }
   });
 
@@ -219,13 +255,15 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
       const existingOwner = guildOwners.get(guild.id);
       const premiumConflict = await hasPremiumInGuildGlobal(mainClient, guild.id);
 
-      if (mainGuildIds.has(guild.id) || (existingOwner && existingOwner !== ownerId) || premiumConflict) {
+      const instance = activeInstances.get(ownerId);
+      const hasGuildLimitReached = instance && instance.guildIds.size >= MAX_PREMIUM_GUILDS_PER_BOT && !instance.guildIds.has(guild.id);
+
+      if (mainGuildIds.has(guild.id) || (existingOwner && existingOwner !== ownerId) || premiumConflict || hasGuildLimitReached) {
         await guild.leave().catch(() => null);
         return;
       }
 
       guildOwners.set(guild.id, ownerId);
-      const instance = activeInstances.get(ownerId);
       instance?.guildIds.add(guild.id);
       await cancelGuildDataDeletion(guild.id);
     } catch (error) {
@@ -246,6 +284,13 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
     started = true;
 
     const premiumGuildIds = [...premiumClient.guilds.cache.keys()];
+
+    if (premiumGuildIds.length > MAX_PREMIUM_GUILDS_PER_BOT) {
+      const keepGuildId = premiumGuildIds[0];
+      const removedGuildIds = await leaveExtraGuilds(premiumClient, new Set([keepGuildId]));
+      throw new Error(`Premium bots can only be in 1 server. Left ${removedGuildIds.length} extra server(s); please keep only one and try again.`);
+    }
+
     const mainGuildIds = await getMainGuildIds(mainClient);
 
     const overlapWithMain = premiumGuildIds.filter(guildId => mainGuildIds.has(guildId));

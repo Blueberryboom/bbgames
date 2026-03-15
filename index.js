@@ -13,6 +13,8 @@ const fs = require('fs');
 const premiumManager = require('./utils/premiumManager');
 const { startGuildCleanupScheduler, scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./utils/guildCleanup');
 const { initPremiumAccessManager } = require('./utils/premiumAccessManager');
+const { query } = require('./database');
+const { buildWelcomePayload } = require('./utils/welcomeSystem');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -173,6 +175,29 @@ client.on('guildDelete', async guild => {
     console.log(`🕒 Scheduled guild data cleanup for ${guild.id} in 3 days`);
   } catch (err) {
     console.error('❌ guildDelete cleanup error:', err);
+  }
+});
+
+client.on('guildMemberAdd', async member => {
+  try {
+    const rows = await query(
+      `SELECT channel_id, message_key, image_enabled, button_label, button_url
+       FROM welcome_settings
+       WHERE guild_id = ?
+       LIMIT 1`,
+      [member.guild.id]
+    );
+
+    if (!rows.length) return;
+
+    const config = rows[0];
+    const targetChannel = await member.guild.channels.fetch(config.channel_id).catch(() => null);
+    if (!targetChannel?.isTextBased()) return;
+
+    const payload = buildWelcomePayload(member, member.guild, config);
+    await targetChannel.send(payload);
+  } catch (err) {
+    console.error('❌ Welcome system error:', err);
   }
 });
 
