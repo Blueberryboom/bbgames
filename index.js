@@ -181,7 +181,7 @@ client.on('guildDelete', async guild => {
 client.on('guildMemberAdd', async member => {
   try {
     const rows = await query(
-      `SELECT channel_id, message_key, image_enabled, button_label, button_url
+      `SELECT channel_id, message_key, button_label, button_url
        FROM welcome_settings
        WHERE guild_id = ?
        LIMIT 1`,

@@ -227,10 +227,9 @@ module.exports = async (interaction) => {
 
       const payload = buildWelcomePayload(interaction.member, interaction.guild, {
         message_key: pendingConfig.messageKey,
-        image_enabled: pendingConfig.imageEnabled,
         button_label: pendingConfig.buttonLabel,
         button_url: pendingConfig.buttonUrl
-      }, { isTest: true });
+      });
 
       if (action === 'test') {
         await channel.send(payload);
@@ -240,13 +239,12 @@ module.exports = async (interaction) => {
 
       await query(
         `REPLACE INTO welcome_settings
-         (guild_id, channel_id, message_key, image_enabled, button_label, button_url, updated_by, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (guild_id, channel_id, message_key, button_label, button_url, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           pendingConfig.guildId,
           pendingConfig.channelId,
           pendingConfig.messageKey,
-          pendingConfig.imageEnabled ? 1 : 0,
           pendingConfig.buttonLabel,
           pendingConfig.buttonUrl,
           interaction.user.id,

@@ -9,6 +9,7 @@ const {
   ButtonStyle
 } = require('discord.js');
 
+const { query } = require('../database');
 const welcomeSetupState = require('../utils/welcomeSetupState');
 const { MESSAGE_TEMPLATES } = require('../utils/welcomeSystem');
 
@@ -30,18 +31,12 @@ module.exports = {
         .setDescription('Pick one of the pre-made welcome messages')
         .setRequired(true)
         .addChoices(
-          { name: '👋 Welcome @usermention! You\'re member #number on the server! :)', value: 'classic' },
-          { name: 'Welcome to serverName, @usermention!', value: 'server_name' },
-          { name: '🎉 Hype welcome (#number)', value: 'hype' },
-          { name: '✨ Cozy welcome', value: 'cozy' },
-          { name: '🕹️ Gamer welcome (#number)', value: 'gamer' }
+          { name: '👋 Example: Welcome @usermention! You\'re member **#number** on the server! :)', value: 'classic' },
+          { name: '🎈 Example: Welcome to **serverName**, @usermention!', value: 'server_name' },
+          { name: '🎉 Example: Hey @usermention, you\'re our **#number** member in **serverName**!', value: 'hype' },
+          { name: '✨ Example: Make yourself at home, @usermention. Welcome to **serverName**!', value: 'cozy' },
+          { name: '🕹️ Example: @usermention joined the lobby! Member **#number** in **serverName**.', value: 'gamer' }
         )
-    )
-    .addBooleanOption(option =>
-      option
-        .setName('image')
-        .setDescription('Include a welcome image card')
-        .setRequired(true)
     )
     .addStringOption(option =>
       option
@@ -67,7 +62,6 @@ module.exports = {
 
     const channel = interaction.options.getChannel('channel', true);
     const messageKey = interaction.options.getString('message', true);
-    const imageEnabled = interaction.options.getBoolean('image', true);
     const buttonLabel = interaction.options.getString('link_button_name');
     const buttonUrl = interaction.options.getString('link_button');
 
@@ -91,12 +85,19 @@ module.exports = {
       }
     }
 
+    const existingRows = await query(
+      `SELECT channel_id, message_key
+       FROM welcome_settings
+       WHERE guild_id = ?
+       LIMIT 1`,
+      [interaction.guildId]
+    );
+
     const token = welcomeSetupState.create({
       guildId: interaction.guildId,
       userId: interaction.user.id,
       channelId: channel.id,
       messageKey,
-      imageEnabled,
       buttonLabel: buttonLabel || null,
       buttonUrl: buttonUrl || null
     });
@@ -104,14 +105,20 @@ module.exports = {
     const settingsSummary = new EmbedBuilder()
       .setColor(0x4F8BFF)
       .setTitle('Review Welcome Setup')
-      .setDescription('You can send a test message first, then confirm to save this configuration.')
+      .setDescription('You can send a test message first, then confirm to save this configuration.\n⚠️ **Only one welcome configuration is stored per server. Confirming will overwrite any previous setup.**')
       .addFields(
         { name: 'Channel', value: `<#${channel.id}>`, inline: true },
-        { name: 'Image', value: imageEnabled ? 'Yes' : 'No', inline: true },
         { name: 'Message', value: MESSAGE_TEMPLATES[messageKey] || MESSAGE_TEMPLATES.classic },
         { name: 'Link Button', value: buttonLabel && buttonUrl ? `[${buttonLabel}](${buttonUrl})` : 'Not set' }
       )
       .setFooter({ text: 'This preview expires in 10 minutes.' });
+
+    if (existingRows.length) {
+      settingsSummary.addFields({
+        name: 'Current Config (will be replaced)',
+        value: `Channel: <#${existingRows[0].channel_id}>\nMessage key: \`${existingRows[0].message_key}\``
+      });
+    }
 
     const controls = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
