@@ -26,6 +26,9 @@ Hello! We would greatly appreciate it if you could donate, every donation **help
 > - Other development stuff
 
 Our goal is **£10 per month** in donations! Help us reach it below!
+
+We also offer a premium version of BBGames, it can be purchased from our Buy Me A Coffee page (Blueberry Premium). 
+Please note that to use BBGames Premium you must join our discord server!
       `);
 
     const row = new ActionRowBuilder().addComponents(
