@@ -9,7 +9,7 @@ const MESSAGE_TEMPLATES = {
   server_name: 'Welcome to **serverName**, @usermention!',
   hype: '🎉 Hey @usermention, great to have you in **serverName**! You\'re our **#number** member!',
   cozy: '✨ Make yourself at home, @usermention. Welcome to **serverName**!',
-  gamer: '🕹️ @usermention joined the lobby! Welcome to **serverName** — member **#number**.'
+  gamer: '🕹️ @usermention joined the lobby! Welcome to **serverName**: member **#number**.'
 };
 
 function resolveTemplateMessage(templateKey, member, guild) {
