@@ -167,7 +167,7 @@ module.exports = {
       const number = interaction.options.getInteger('number', true);
       if (number > 100000) {
         await interaction.reply({
-          content: '❌ Counts above **100000** require approval. Please open a support ticket in my Discord to request a higher limit.',
+          content: '❌ Counts above **100000** require approval. Please open a support ticket in my Discord if you are switching from an existing bot and have a count of 100000+.',
           flags: MessageFlags.Ephemeral
         });
         return;
