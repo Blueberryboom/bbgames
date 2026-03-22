@@ -165,20 +165,46 @@ module.exports = {
       }
 
       const number = interaction.options.getInteger('number', true);
+      if (number > 100000) {
+        await interaction.reply({
+          content: '❌ Counts above **100000** require approval. Please open a support ticket in my Discord to request a higher limit.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
 
       const [existing] = await pool.query(
         'SELECT channel_id FROM counting WHERE guild_id = ?',
         [interaction.guildId]
       );
+      const countingChannelId = existing?.channel_id;
+
+      if (!countingChannelId) {
+        await interaction.reply({
+          content: '❌ You need to set a counting channel first with `/count channel` before setting the number.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      const countingChannel = await interaction.guild.channels.fetch(countingChannelId).catch(() => null);
+      if (!countingChannel || !countingChannel.isTextBased()) {
+        await interaction.reply({
+          content: '❌ The configured counting channel could not be found. Please run `/count channel` again.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
 
       await pool.query(
         `INSERT INTO counting (guild_id, channel_id, current)
          VALUES (?, ?, ?)
          ON DUPLICATE KEY UPDATE current = VALUES(current)`,
-        [interaction.guildId, existing?.channel_id ?? null, number]
+        [interaction.guildId, countingChannelId, number]
       );
 
-      await interaction.reply(`✅ Current count set to **${number}**.`);
+      await countingChannel.send(`${interaction.user} has set the count to **${number}**!`);
+      await interaction.reply({ content: `✅ Current count set to **${number}**.`, flags: MessageFlags.Ephemeral });
     }
   }
 };
