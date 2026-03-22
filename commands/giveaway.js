@@ -25,7 +25,11 @@ module.exports = {
         .addStringOption(o => o.setName('title').setDescription('Optional custom giveaway title').setRequired(false))
         .addStringOption(o => o.setName('description').setDescription('Optional giveaway description').setRequired(false))
         .addRoleOption(o => o.setName('required_role').setDescription('Role required to enter').setRequired(false))
-        .addRoleOption(o => o.setName('bonus_role').setDescription('Role that gets 2 entries').setRequired(false))
+        .addRoleOption(o => o.setName('bonus_role').setDescription('Bonus role #1 (+1 extra entry)').setRequired(false))
+        .addRoleOption(o => o.setName('bonus_role_2').setDescription('Bonus role #2 (+1 extra entry)').setRequired(false))
+        .addRoleOption(o => o.setName('bonus_role_3').setDescription('Bonus role #3 (+1 extra entry)').setRequired(false))
+        .addRoleOption(o => o.setName('bonus_role_4').setDescription('Bonus role #4 (+1 extra entry)').setRequired(false))
+        .addRoleOption(o => o.setName('bonus_role_5').setDescription('Bonus role #5 (+1 extra entry)').setRequired(false))
         .addRoleOption(o => o.setName('ping_role').setDescription('Role to ping when giveaway is created').setRequired(false))
     )
     .addSubcommand(sub => sub.setName('list').setDescription('List active giveaways'))
@@ -50,8 +54,16 @@ module.exports = {
       const title = interaction.options.getString('title');
       const customDescription = interaction.options.getString('description')?.trim() || null;
       const requiredRole = interaction.options.getRole('required_role');
-      const bonusRole = interaction.options.getRole('bonus_role');
+      const bonusRoles = [
+        interaction.options.getRole('bonus_role'),
+        interaction.options.getRole('bonus_role_2'),
+        interaction.options.getRole('bonus_role_3'),
+        interaction.options.getRole('bonus_role_4'),
+        interaction.options.getRole('bonus_role_5')
+      ].filter(Boolean);
       const pingRole = interaction.options.getRole('ping_role');
+
+      const uniqueBonusRoles = [...new Map(bonusRoles.map(role => [role.id, role])).values()];
 
       if (winners < 1 || winners > 20) {
         return interaction.reply({ content: '❌ Winners must be between 1 and 20.', flags: MessageFlags.Ephemeral });
@@ -69,7 +81,7 @@ module.exports = {
 
       const endTime = Date.now() + durationMs;
       const id = uuidv4();
-      const roleLine = buildRoleLine(requiredRole, bonusRole);
+      const roleLine = buildRoleLine(requiredRole, uniqueBonusRoles);
 
       const descriptionLines = [
         customDescription,
@@ -111,7 +123,7 @@ module.exports = {
         winners,
         endTime,
         requiredRole: requiredRole?.id || null,
-        bonusRole: bonusRole?.id || null,
+        bonusRoles: uniqueBonusRoles.map(role => role.id),
         title
       });
 
@@ -167,17 +179,21 @@ function parseDuration(input) {
   return ((days * 24 + hours) * 60 + minutes) * 60 * 1000;
 }
 
-function buildRoleLine(requiredRole, bonusRole) {
-  if (requiredRole && bonusRole) {
-    return `The <@&${requiredRole.id}> role is required to enter this giveaway, and if you have <@&${bonusRole.id}> you will get X2 entries!`;
+function buildRoleLine(requiredRole, bonusRoles) {
+  if (!Array.isArray(bonusRoles)) bonusRoles = [];
+
+  const bonusMentions = bonusRoles.map(role => `<@&${role.id}>`).join(', ');
+
+  if (requiredRole && bonusRoles.length) {
+    return `The <@&${requiredRole.id}> role is required to enter. Bonus roles (${bonusMentions}) grant +1 extra entry each.`;
   }
 
   if (requiredRole) {
     return `The <@&${requiredRole.id}> role is required to enter this giveaway.`;
   }
 
-  if (bonusRole) {
-    return `<@&${bonusRole.id}> will get X2 entries to this giveaway!`;
+  if (bonusRoles.length) {
+    return `Bonus roles (${bonusMentions}) grant +1 extra entry each.`;
   }
 
   return null;

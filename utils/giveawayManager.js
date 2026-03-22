@@ -51,7 +51,7 @@ module.exports = {
         data.endTime,
         data.requiredRole || null,
         data.title || null,
-        data.bonusRole ? JSON.stringify({ bonusRoleId: data.bonusRole, multiplier: 2 }) : null
+        serializeBonusRoles(data.bonusRoles)
       ]
     );
 
@@ -66,7 +66,7 @@ module.exports = {
       end_time: data.endTime,
       required_role: data.requiredRole,
       title: data.title,
-      extra_entries: data.bonusRole ? JSON.stringify({ bonusRoleId: data.bonusRole, multiplier: 2 }) : null,
+      extra_entries: serializeBonusRoles(data.bonusRoles),
       ended: 0
     };
 
@@ -277,4 +277,23 @@ function toEndedDescription(description) {
   if (updated !== description) return updated;
 
   return `${description}\nThis giveaway has **ended**!`;
+}
+
+function serializeBonusRoles(bonusRoles) {
+  if (!Array.isArray(bonusRoles) || bonusRoles.length === 0) {
+    return null;
+  }
+
+  const uniqueRoleIds = [...new Set(bonusRoles.filter(Boolean))].slice(0, 5);
+
+  if (!uniqueRoleIds.length) {
+    return null;
+  }
+
+  return JSON.stringify(
+    uniqueRoleIds.map(roleId => ({
+      roleId,
+      multiplier: 2
+    }))
+  );
 }

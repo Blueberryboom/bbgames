@@ -340,8 +340,8 @@ module.exports = async (interaction) => {
           [giveawayId, interaction.user.id, entryCount]
         );
 
-        feedback = entryCount === 2
-          ? '✅ You have joined the giveaway with **2 entries**!'
+        feedback = entryCount > 1
+          ? `✅ You have joined the giveaway with **${entryCount} entries**!`
           : '✅ You have joined the giveaway!';
       }
 
@@ -389,11 +389,26 @@ function getEntryCount(member, extraEntriesRaw) {
     }
   }
 
-  const roleId = parsed?.bonusRoleId;
-  const multiplier = Number(parsed?.multiplier || 1);
+  if (Array.isArray(parsed)) {
+    let entryCount = 1;
 
-  if (roleId && multiplier > 1 && member.roles.cache.has(roleId)) {
-    return multiplier;
+    for (const rule of parsed) {
+      const roleId = rule?.roleId || rule?.bonusRoleId;
+      const multiplier = Number(rule?.multiplier || 1);
+
+      if (roleId && multiplier > 1 && member.roles.cache.has(roleId)) {
+        entryCount += (multiplier - 1);
+      }
+    }
+
+    return Math.max(1, entryCount);
+  }
+
+  const legacyRoleId = parsed?.bonusRoleId;
+  const legacyMultiplier = Number(parsed?.multiplier || 1);
+
+  if (legacyRoleId && legacyMultiplier > 1 && member.roles.cache.has(legacyRoleId)) {
+    return legacyMultiplier;
   }
 
   return 1;
