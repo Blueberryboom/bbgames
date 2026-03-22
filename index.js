@@ -159,7 +159,7 @@ client.on('guildCreate', async guild => {
       .setTitle('Thanks for adding BBGames!')
       .setDescription('Quick start: use `/config panel` first, then set your admin role with `/config admin_role`.')
       .addFields(
-        { name: 'Recommended Setup', value: '`/counting_channel` to start counting\n`/giveaway create` to run giveaways\n`/youtube add` for upload alerts' },
+        { name: 'Recommended Setup', value: '`/count channel` to start counting\n`/giveaway create` to run giveaways\n`/youtube add` for upload alerts' },
         { name: 'Useful Commands', value: '`/help`, `/about`, `/status`, `/minecraft`, `/donate`' }
       );
 

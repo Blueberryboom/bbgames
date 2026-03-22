@@ -19,7 +19,7 @@ const {
 const HELP_MODULES = {
   counting: {
     name: 'Counting',
-    value: 'Commands: `/counting_channel`, `/count`, `/counting_leaderboard`, `/counting_removechannel`, `/counting_reset`.'
+    value: 'Commands: `/count current`, `/count channel`, `/count leaderboard`, `/count removechannel`, `/count reset`, `/count set`.'
   },
   giveaways: {
     name: 'Giveaways',

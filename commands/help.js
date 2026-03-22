@@ -23,8 +23,9 @@ module.exports = {
         {
           name: 'Command | Description',
           value: [
-            '`/counting_channel` | Set counting channel',
-            '`/count` | Show current count',
+            '`/count current` | Show current count',
+            '`/count channel` | Set counting channel',
+            '`/count set` | Set current count',
             '`/giveaway` | Giveaway management tools',
             '`/youtube` | YouTube notifications',
             '`/minecraft` | Find/status Minecraft servers',
