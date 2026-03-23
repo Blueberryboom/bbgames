@@ -38,9 +38,9 @@ module.exports = {
     .addSubcommand(sub => sub.setName('reroll').setDescription('Reroll a finished giveaway').addStringOption(o => o.setName('id').setDescription('The giveaway ID').setRequired(true))),
 
   async execute(interaction) {
-    if (!await checkPerms(interaction)) {
+    if (!await checkPerms(interaction, { scope: 'giveaway' })) {
       return interaction.reply({
-        content: '❌ You do not have permission to use this.',
+        content: '❌ You need administrator, the bot manager role, or the giveaway admin role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }

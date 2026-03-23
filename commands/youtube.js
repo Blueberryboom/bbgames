@@ -58,7 +58,7 @@ module.exports = {
   async execute(interaction) {
     if (!await canManageYouTube(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured admin role to use this command.',
+        content: '❌ You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }

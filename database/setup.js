@@ -83,6 +83,14 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS giveaway_admin_roles (
+        guild_id VARCHAR(32) NOT NULL,
+        role_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (guild_id, role_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── COUNTING SYSTEM ────────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS counting (

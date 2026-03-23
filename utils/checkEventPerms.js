@@ -1,6 +1,8 @@
 const pool = require('../database');
 
-module.exports = async (interaction) => {
+module.exports = async (interaction, options = {}) => {
+  const scope = options.scope || 'global';
+
   if (!interaction.guildId || !interaction.member) {
     return false;
   }
@@ -9,10 +11,29 @@ module.exports = async (interaction) => {
     return true;
   }
 
-  const allowedRoles = await pool.query(
+  const botManagerRoles = await pool.query(
     'SELECT role_id FROM admin_roles WHERE guild_id = ?',
     [interaction.guildId]
   );
 
-  return allowedRoles.some(r => interaction.member.roles.cache.has(r.role_id));
+  const hasBotManagerRole = botManagerRoles.some(role =>
+    interaction.member.roles.cache.has(role.role_id)
+  );
+
+  if (hasBotManagerRole) {
+    return true;
+  }
+
+  if (scope !== 'giveaway') {
+    return false;
+  }
+
+  const giveawayAdminRoles = await pool.query(
+    'SELECT role_id FROM giveaway_admin_roles WHERE guild_id = ?',
+    [interaction.guildId]
+  );
+
+  return giveawayAdminRoles.some(role =>
+    interaction.member.roles.cache.has(role.role_id)
+  );
 };
