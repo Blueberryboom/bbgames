@@ -104,7 +104,7 @@ module.exports = async (interaction) => {
 
     if (key === 'permissions') {
       return interaction.reply({
-        content: 'Use `/config admin_role` to set who can manage sensitive bot commands.',
+        content: 'Use `/config bot_manager_role` for global management access and `/config giveaway_admin_role` for giveaway-only access.',
         flags: MessageFlags.Ephemeral
       });
     }

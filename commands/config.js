@@ -20,10 +20,30 @@ module.exports = {
     .addSubcommand(sub =>
       sub
         .setName('admin_role')
-        .setDescription('Set the admin role for bot management commands')
+        .setDescription('Set the bot manager role (legacy alias)')
         .addRoleOption(o =>
           o.setName('role')
-            .setDescription('Role allowed to manage sensitive bot commands')
+            .setDescription('Role allowed to manage all protected bot commands')
+            .setRequired(true)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('bot_manager_role')
+        .setDescription('Set the bot manager role for protected commands')
+        .addRoleOption(o =>
+          o.setName('role')
+            .setDescription('Role allowed to manage all protected bot commands')
+            .setRequired(true)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('giveaway_admin_role')
+        .setDescription('Set the giveaway admin role (giveaway command only)')
+        .addRoleOption(o =>
+          o.setName('role')
+            .setDescription('Role allowed to manage giveaways only')
             .setRequired(true)
         )
     )
@@ -45,14 +65,14 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured admin role to use this command.',
+        content: '❌ You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
 
     const sub = interaction.options.getSubcommand();
 
-    if (sub === 'admin_role') {
+    if (sub === 'admin_role' || sub === 'bot_manager_role') {
       const role = interaction.options.getRole('role', true);
 
       await pool.query('DELETE FROM admin_roles WHERE guild_id = ?', [interaction.guildId]);
@@ -60,6 +80,18 @@ module.exports = {
 
       return interaction.reply({
         content: `✅ Admin role set to ${role}.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (sub === 'giveaway_admin_role') {
+      const role = interaction.options.getRole('role', true);
+
+      await pool.query('DELETE FROM giveaway_admin_roles WHERE guild_id = ?', [interaction.guildId]);
+      await pool.query('INSERT INTO giveaway_admin_roles (guild_id, role_id) VALUES (?, ?)', [interaction.guildId, role.id]);
+
+      return interaction.reply({
+        content: `✅ Giveaway admin role set to ${role}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -81,9 +113,11 @@ module.exports = {
     }
 
     const roleRows = await pool.query('SELECT role_id FROM admin_roles WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const giveawayRows = await pool.query('SELECT role_id FROM giveaway_admin_roles WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const countRows = await pool.query('SELECT announcements_enabled FROM counting WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
 
     const roleText = roleRows[0]?.role_id ? `<@&${roleRows[0].role_id}>` : 'Not set';
+    const giveawayRoleText = giveawayRows[0]?.role_id ? `<@&${giveawayRows[0].role_id}>` : 'Not set';
     const msgsEnabled = Number(countRows[0]?.announcements_enabled ?? 1) === 1;
 
     const embed = new EmbedBuilder()
@@ -91,7 +125,7 @@ module.exports = {
       .setTitle('Bot Configuration')
       .setDescription('Select a menu below.')
       .addFields(
-        { name: 'Permissions', value: `Admin role: ${roleText}` },
+        { name: 'Permissions', value: `Bot manager role: ${roleText}\nGiveaway admin role: ${giveawayRoleText}` },
         { name: 'Messages', value: `System messages: ${msgsEnabled ? 'On' : 'Off'}` }
       );
 
