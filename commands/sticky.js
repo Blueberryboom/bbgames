@@ -1,0 +1,167 @@
+const {
+  SlashCommandBuilder,
+  MessageFlags,
+  ChannelType
+} = require('discord.js');
+
+const { query } = require('../database');
+const checkPerms = require('../utils/checkEventPerms');
+const { getStickyLimit, DEFAULT_COOLDOWN_MS } = require('../utils/stickyManager');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('sticky')
+    .setDescription('Create and manage sticky messages')
+    .addSubcommand(sub =>
+      sub
+        .setName('create')
+        .setDescription('Create or replace a sticky message in a channel')
+        .addChannelOption(option =>
+          option
+            .setName('channel')
+            .setDescription('Channel for the sticky message')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            .setRequired(true)
+        )
+        .addStringOption(option =>
+          option
+            .setName('message')
+            .setDescription('Text to keep pinned as sticky')
+            .setRequired(true)
+            .setMaxLength(1800)
+        )
+        .addIntegerOption(option =>
+          option
+            .setName('cooldown_seconds')
+            .setDescription('Minimum delay between sticky reposts (2-30 seconds)')
+            .setMinValue(2)
+            .setMaxValue(30)
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('remove')
+        .setDescription('Remove sticky message from a channel')
+        .addChannelOption(option =>
+          option
+            .setName('channel')
+            .setDescription('Channel to remove sticky from')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            .setRequired(true)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('list')
+        .setDescription('List sticky messages configured in this server')
+    ),
+
+  async execute(interaction) {
+    if (!await checkPerms(interaction)) {
+      return interaction.reply({
+        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const sub = interaction.options.getSubcommand();
+
+    if (sub === 'create') {
+      const channel = interaction.options.getChannel('channel', true);
+      const content = interaction.options.getString('message', true).trim();
+      const cooldownSeconds = interaction.options.getInteger('cooldown_seconds') || Math.round(DEFAULT_COOLDOWN_MS / 1000);
+      const cooldownMs = cooldownSeconds * 1000;
+
+      const limit = getStickyLimit(interaction.client);
+
+      const currentRows = await query(
+        `SELECT id, channel_id
+         FROM sticky_messages
+         WHERE guild_id = ?`,
+        [interaction.guildId]
+      );
+
+      const existingForChannel = currentRows.find(row => row.channel_id === channel.id);
+
+      if (!existingForChannel && currentRows.length >= limit) {
+        return interaction.reply({
+          content: `❌ This bot can only have ${limit} sticky messages in a server.`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      await query(
+        `INSERT INTO sticky_messages
+         (guild_id, channel_id, content, enabled, cooldown_ms, updated_by, updated_at)
+         VALUES (?, ?, ?, 1, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           content = VALUES(content),
+           enabled = 1,
+           cooldown_ms = VALUES(cooldown_ms),
+           updated_by = VALUES(updated_by),
+           updated_at = VALUES(updated_at)`,
+        [interaction.guildId, channel.id, content, cooldownMs, interaction.user.id, Date.now()]
+      );
+
+      return interaction.reply({
+        content: `✅ Sticky message saved for ${channel} with a ${cooldownSeconds}s cooldown.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (sub === 'remove') {
+      const channel = interaction.options.getChannel('channel', true);
+
+      const rows = await query(
+        `SELECT last_post_message_id
+         FROM sticky_messages
+         WHERE guild_id = ? AND channel_id = ?
+         LIMIT 1`,
+        [interaction.guildId, channel.id]
+      );
+
+      await query(
+        `DELETE FROM sticky_messages
+         WHERE guild_id = ? AND channel_id = ?`,
+        [interaction.guildId, channel.id]
+      );
+
+      const lastPostMessageId = rows[0]?.last_post_message_id;
+      if (lastPostMessageId && channel.isTextBased()) {
+        await channel.messages.delete(lastPostMessageId).catch(() => null);
+      }
+
+      return interaction.reply({
+        content: `✅ Removed sticky message for ${channel}.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const rows = await query(
+      `SELECT channel_id, cooldown_ms, updated_at
+       FROM sticky_messages
+       WHERE guild_id = ?
+       ORDER BY updated_at DESC`,
+      [interaction.guildId]
+    );
+
+    if (!rows.length) {
+      return interaction.reply({
+        content: 'No sticky messages configured in this server.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const limit = getStickyLimit(interaction.client);
+    const body = rows.map((row, index) => {
+      const cooldownSeconds = Math.round((Number(row.cooldown_ms) || DEFAULT_COOLDOWN_MS) / 1000);
+      return `${index + 1}. <#${row.channel_id}> • cooldown: **${cooldownSeconds}s**`;
+    }).join('\n');
+
+    return interaction.reply({
+      content: `📌 Sticky messages (${rows.length}/${limit})\n${body}`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+};

@@ -1,7 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const pool = require('../database');
+const { BOT_OWNER_ID } = require('../utils/constants');
 
-const BOT_OWNER = '1056523021894029372';
 const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 module.exports = {
@@ -96,7 +96,7 @@ module.exports = {
     }
 
     try {
-      const owner = await interaction.client.users.fetch(BOT_OWNER);
+      const owner = await interaction.client.users.fetch(BOT_OWNER_ID);
       const guildName = interaction.guild?.name || 'Unknown Guild';
 
       await owner.send(

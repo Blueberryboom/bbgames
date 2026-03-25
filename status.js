@@ -1,6 +1,17 @@
 const { ActivityType } = require('discord.js');
 
+const statusIntervals = new WeakMap();
+
+function stopStatus(client) {
+  const interval = statusIntervals.get(client);
+  if (interval) {
+    clearInterval(interval);
+    statusIntervals.delete(client);
+  }
+}
+
 module.exports = (client) => {
+  stopStatus(client);
 
   const updateStatus = async () => {
 
@@ -27,7 +38,7 @@ module.exports = (client) => {
 
       memberCount = memberCounts.reduce((a, b) => a + b, 0);
 
-    } 
+    }
     // ─── SINGLE INSTANCE FALLBACK ─────────────────────
     else {
 
@@ -78,5 +89,11 @@ module.exports = (client) => {
   updateStatus();
 
   // Update every 5 minutes
-  setInterval(updateStatus, 5 * 60 * 1000);
+  const interval = setInterval(updateStatus, 5 * 60 * 1000);
+  statusIntervals.set(client, interval);
+
+  client.once('shardDisconnect', () => stopStatus(client));
+  client.once('invalidated', () => stopStatus(client));
 };
+
+module.exports.stopStatus = stopStatus;

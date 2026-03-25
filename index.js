@@ -108,10 +108,12 @@ client.once('clientReady', async () => {
 
 // ─── COUNTING SYSTEM ────────────────────────
 const countingHandler = require('./events/countingMessage');
+const { handleStickyMessage } = require('./utils/stickyManager');
 
 client.on('messageCreate', async message => {
   try {
     await countingHandler(message);
+    await handleStickyMessage(message);
   } catch (err) {
     console.error('❌ Counting handler error:', err);
   }
@@ -157,7 +159,7 @@ client.on('guildCreate', async guild => {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('Thanks for adding BBGames!')
-      .setDescription('Quick start: use `/config panel` first, then set your admin role with `/config admin_role`.')
+      .setDescription('Quick start: use `/config panel` first, then set your admin role with `/config bot_manager_role`.')
       .addFields(
         { name: 'Recommended Setup', value: '`/count channel` to start counting\n`/giveaway create` to run giveaways\n`/youtube add` for upload alerts' },
         { name: 'Useful Commands', value: '`/help`, `/about`, `/status`, `/minecraft`, `/donate`' }
