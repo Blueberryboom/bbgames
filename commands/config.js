@@ -19,16 +19,6 @@ module.exports = {
     )
     .addSubcommand(sub =>
       sub
-        .setName('admin_role')
-        .setDescription('Set the bot manager role (legacy alias)')
-        .addRoleOption(o =>
-          o.setName('role')
-            .setDescription('Role allowed to manage all protected bot commands')
-            .setRequired(true)
-        )
-    )
-    .addSubcommand(sub =>
-      sub
         .setName('bot_manager_role')
         .setDescription('Set the bot manager role for protected commands')
         .addRoleOption(o =>
@@ -72,7 +62,7 @@ module.exports = {
 
     const sub = interaction.options.getSubcommand();
 
-    if (sub === 'admin_role' || sub === 'bot_manager_role') {
+    if (sub === 'bot_manager_role') {
       const role = interaction.options.getRole('role', true);
 
       await pool.query('DELETE FROM admin_roles WHERE guild_id = ?', [interaction.guildId]);

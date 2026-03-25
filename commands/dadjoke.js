@@ -51,6 +51,21 @@ const jokes = [
   "I used to be a baker… but I couldn’t make enough dough.",
   "Why did the grape stop in the middle of the road? It ran out of juice.",
   "What do you call a dinosaur with an extensive vocabulary? A thesaurus."
+  ,"Why did the dad bring a ladder to the bar? He heard the drinks were on the house."
+  ,"What do you call a can opener that doesn’t work? A can’t opener."
+  ,"Why did the melon jump into the lake? It wanted to be a watermelon."
+  ,"I used to be a banker, but I lost interest."
+  ,"Why did the computer wear glasses? To improve its web sight."
+  ,"Did you hear about the restaurant on the moon? Great food, no atmosphere."
+  ,"Why can’t a leopard hide? Because he’s always spotted."
+  ,"I once swallowed some food coloring. The doctor says I’m okay, but I feel like I’ve dyed a little inside."
+  ,"Why did the invisible man turn down the job offer? He couldn’t see himself doing it."
+  ,"What do you call an alligator in a vest? An investigator."
+  ,"I asked my dog what’s two minus two. He said nothing."
+  ,"Why did the music teacher need a ladder? To reach the high notes."
+  ,"What do you call a boomerang that doesn’t come back? A stick."
+  ,"I’m on a seafood diet. I see food and I eat it."
+  ,"Why did the man put his money in the freezer? He wanted cold hard cash."
 ];
 
 module.exports = {

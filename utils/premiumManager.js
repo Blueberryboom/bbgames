@@ -10,6 +10,9 @@ const fs = require('fs');
 const { query } = require('../database');
 const { buildWelcomePayload } = require('./welcomeSystem');
 const { scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./guildCleanup');
+const { handleStickyMessage } = require('./stickyManager');
+const { stopYouTubeNotifier } = require('./youtubeNotifier');
+const { stopStatus } = require('../status');
 
 const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
@@ -55,6 +58,7 @@ async function initPremiumRuntime(premiumClient, token) {
   premiumClient.on('messageCreate', async message => {
     try {
       await countingHandler(message);
+      await handleStickyMessage(message);
     } catch (err) {
       console.error('❌ Premium counting handler error:', err);
     }
@@ -367,6 +371,8 @@ async function stopPremiumInstance(ownerId, options = {}) {
     await scheduleGuildDataDeletion(guildId, 'premium_stopped');
   }
 
+  stopYouTubeNotifier(instance.client);
+  stopStatus(instance.client);
   await instance.client.destroy();
 
   if (persist) {

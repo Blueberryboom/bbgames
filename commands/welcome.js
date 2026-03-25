@@ -10,6 +10,7 @@ const {
 } = require('discord.js');
 
 const { query } = require('../database');
+const { BOT_OWNER_ID } = require('../utils/constants');
 const welcomeSetupState = require('../utils/welcomeSetupState');
 const { MESSAGE_TEMPLATES } = require('../utils/welcomeSystem');
 
@@ -17,7 +18,6 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('welcome')
     .setDescription('Configure the server welcome system')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .addChannelOption(option =>
       option
         .setName('channel')
@@ -53,7 +53,8 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    const isOwner = interaction.user.id === BOT_OWNER_ID;
+    if (!isOwner && !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
       return interaction.reply({
         content: '❌ You need the **Manage Server** permission to configure welcome messages.',
         flags: MessageFlags.Ephemeral

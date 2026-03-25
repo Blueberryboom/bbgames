@@ -22,6 +22,9 @@ module.exports = {
     const seconds = totalSeconds % 60;
 
     const uptime = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+    const memory = process.memoryUsage();
+    const rssMb = (memory.rss / 1024 / 1024).toFixed(1);
+    const heapUsedMb = (memory.heapUsed / 1024 / 1024).toFixed(1);
 
     // ─── GLOBAL COUNTS (SHARD SAFE) ──────────
     let serverCount = 0;
@@ -112,6 +115,11 @@ module.exports = {
         {
           name: '⏱️ Uptime',
           value: uptime,
+          inline: true
+        },
+        {
+          name: '🧠 RAM',
+          value: `RSS: **${rssMb} MB**\nHeap: **${heapUsedMb} MB**`,
           inline: true
         },
         {

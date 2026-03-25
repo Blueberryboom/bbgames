@@ -7,6 +7,7 @@ const {
 } = require('discord.js');
 const youtubeSetupState = require('../utils/youtubeSetupState');
 const welcomeSetupState = require('../utils/welcomeSetupState');
+const rpsState = require('../utils/rpsState');
 const { buildWelcomePayload } = require('../utils/welcomeSystem');
 const {
   resolveRequiredPermissions,
@@ -27,7 +28,7 @@ const HELP_MODULES = {
   },
   fun: {
     name: 'Fun',
-    value: 'Commands: `/coinflip`, `/dadjoke`, `/tictactoe`.'
+    value: 'Commands: `/coinflip`, `/dadjoke`, `/tictactoe`, `/rps`.'
   },
   youtube: {
     name: 'YouTube',
@@ -35,7 +36,7 @@ const HELP_MODULES = {
   },
   misc: {
     name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`.'
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`.'
   }
 };
 
@@ -168,9 +169,11 @@ module.exports = async (interaction) => {
 
       const isPremiumClient = Boolean(interaction.client?.isPremiumInstance);
 
-      if (!isPremiumClient && existingRows.length >= 5) {
+      const maxSubscriptions = isPremiumClient ? 25 : 5;
+
+      if (existingRows.length >= maxSubscriptions) {
         return interaction.reply({
-          content: '❌ This server already has 5 YouTube channels configured.',
+          content: `❌ This server already has ${maxSubscriptions} YouTube channels configured.`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -261,6 +264,40 @@ module.exports = async (interaction) => {
     }
 
 
+
+    if (interaction.customId.startsWith('rps_pick_')) {
+      const [, , gameId, choice] = interaction.customId.split('_');
+      const game = rpsState.consumeGame(gameId);
+
+      if (!game) {
+        return interaction.reply({
+          content: '❌ This RPS challenge expired. Start a new one with `/rps`.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      if (interaction.guildId !== game.guildId || interaction.user.id !== game.opponentId) {
+        return interaction.reply({
+          content: '❌ Only the challenged user can respond to this game.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const challenger = await interaction.client.users.fetch(game.challengerId).catch(() => null);
+      const firstUser = challenger || `<@${game.challengerId}>`;
+      const secondUser = interaction.user;
+      const result = decideRpsWinner(game.challengerChoice, choice);
+
+      await interaction.update({
+        content: `🪨📄✂️ ${firstUser} picked **${game.challengerChoice}**. ${secondUser} picked **${choice}**.\n${result === 'draw'
+          ? `🤝 It's a draw!`
+          : result === 'first'
+            ? `🏆 ${firstUser} wins!`
+            : `🏆 ${secondUser} wins!`}`,
+        components: []
+      });
+      return;
+    }
 
     const parts = interaction.customId.split('_');
     if (parts.length < 3 || parts[0] !== 'giveaway') return;
@@ -412,6 +449,18 @@ function getEntryCount(member, extraEntriesRaw) {
   }
 
   return 1;
+}
+
+function decideRpsWinner(first, second) {
+  if (first === second) return 'draw';
+  if (
+    (first === 'rock' && second === 'scissors')
+    || (first === 'paper' && second === 'rock')
+    || (first === 'scissors' && second === 'paper')
+  ) {
+    return 'first';
+  }
+  return 'second';
 }
 
 async function refreshParticipantButton(interaction, giveawayId) {

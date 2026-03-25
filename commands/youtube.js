@@ -13,6 +13,11 @@ const checkPerms = require('../utils/checkEventPerms');
 const youtubeSetupState = require('../utils/youtubeSetupState');
 
 const MAX_YOUTUBE_SUBSCRIPTIONS = 5;
+const MAX_YOUTUBE_SUBSCRIPTIONS_PREMIUM = 25;
+
+function getSubscriptionLimit(client) {
+  return client?.isPremiumInstance ? MAX_YOUTUBE_SUBSCRIPTIONS_PREMIUM : MAX_YOUTUBE_SUBSCRIPTIONS;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -83,11 +88,10 @@ module.exports = {
           [interaction.guildId]
         );
 
-        const isPremiumClient = Boolean(interaction.client?.isPremiumInstance);
-
-        if (!isPremiumClient && existingRows.length >= MAX_YOUTUBE_SUBSCRIPTIONS) {
+        const maxSubscriptions = getSubscriptionLimit(interaction.client);
+        if (existingRows.length >= maxSubscriptions) {
           return interaction.reply({
-            content: `❌ You can only configure up to ${MAX_YOUTUBE_SUBSCRIPTIONS} YouTube channels per server.`,
+            content: `❌ You can only configure up to ${maxSubscriptions} YouTube channels per server.`,
             flags: MessageFlags.Ephemeral
           });
         }
@@ -186,7 +190,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor('#ff0000')
-      .setTitle(`📺 YouTube Subscriptions (${rows.length}/${MAX_YOUTUBE_SUBSCRIPTIONS})`)
+      .setTitle(`📺 YouTube Subscriptions (${rows.length}/${getSubscriptionLimit(interaction.client)})`)
       .setDescription(
         rows.map(row =>
           `• \`${row.youtube_channel_id}\` → <#${row.discord_channel_id}>${row.ping_role_id ? ` (ping <@&${row.ping_role_id}>)` : ''}`
