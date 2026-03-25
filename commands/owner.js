@@ -9,7 +9,7 @@ const {
 } = require('discord.js');
 
 const pool = require('../database');
-const BOT_OWNER = "1056523021894029372";
+const { BOT_OWNER_ID } = require('../utils/constants');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -101,7 +101,7 @@ module.exports = {
     if (interaction.guild)
       return interaction.reply({ content: "❌ DM only.", ephemeral: true });
 
-    if (interaction.user.id !== BOT_OWNER)
+    if (interaction.user.id !== BOT_OWNER_ID)
       return interaction.reply({ content: "❌ Not allowed.", ephemeral: true });
 
     const sub = interaction.options.getSubcommand();
@@ -287,7 +287,7 @@ module.exports = {
 
       collector.on('collect', async i => {
 
-        if (i.user.id !== BOT_OWNER)
+        if (i.user.id !== BOT_OWNER_ID)
           return i.reply({ content: "Not for you.", ephemeral: true });
 
         if (i.customId === "next") {
@@ -424,7 +424,7 @@ module.exports = {
 
       collector.on('collect', async i => {
 
-        if (i.user.id !== BOT_OWNER)
+        if (i.user.id !== BOT_OWNER_ID)
           return i.reply({ content: "Not for you.", ephemeral: true });
 
         if (i.customId === "next") {

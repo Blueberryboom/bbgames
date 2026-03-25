@@ -4,10 +4,17 @@ const { query } = require('../database');
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 const notifierIntervals = new WeakMap();
 
+function stopYouTubeNotifier(client) {
+  const existingInterval = notifierIntervals.get(client);
+  if (existingInterval) {
+    clearInterval(existingInterval);
+    notifierIntervals.delete(client);
+  }
+}
+
 module.exports = {
   initYouTubeNotifier(client) {
-    const existingInterval = notifierIntervals.get(client);
-    if (existingInterval) clearInterval(existingInterval);
+    stopYouTubeNotifier(client);
 
     runCheck(client).catch(err => {
       console.error('❌ Initial YouTube notifier check failed:', err);
@@ -20,8 +27,11 @@ module.exports = {
     }, CHECK_INTERVAL_MS);
 
     notifierIntervals.set(client, interval);
+    client.once('shardDisconnect', () => stopYouTubeNotifier(client));
+    client.once('invalidated', () => stopYouTubeNotifier(client));
     console.log(`✅ YouTube notifier initialized for ${client.user?.tag || 'client'}.`);
-  }
+  },
+  stopYouTubeNotifier
 };
 
 async function runCheck(client) {

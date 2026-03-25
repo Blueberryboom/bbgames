@@ -12,30 +12,35 @@ const SUPPORT_URL = 'https://www.buymeacoffee.com/blueberryboom';
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('Show help categories and command list'),
+    .setDescription('Show help categories, permissions, and command list'),
 
   async execute(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle('Help')
-      .setDescription('Please select a category below!')
+      .setTitle('BBGames Help')
+      .setDescription('Select a category below for focused help.\n\n**Quick commands:** `/help`, `/status`, `/about`, `/support`')
       .addFields(
         {
-          name: 'Command | Description',
+          name: 'Setup Essentials',
           value: [
-            '`/count current` | Show current count',
-            '`/count channel` | Set counting channel',
-            '`/count set` | Set current count',
-            '`/giveaway` | Giveaway management tools',
-            '`/youtube` | YouTube notifications',
-            '`/minecraft` | Find/status Minecraft servers',
-            '`/config` | Permissions + message settings',
-            '`/about` | About the bot',
-            '`/status` | Bot health status',
-            '`/donate` | Support development :D'
+            '`/config panel` • Open settings overview',
+            '`/config bot_manager_role` • Assign full bot-manager role',
+            '`/count channel` • Set counting channel',
+            '`/youtube add` • Add upload notifications',
+            '`/sticky create` • Set channel sticky message'
+          ].join('\n')
+        },
+        {
+          name: 'Fun & Utilities',
+          value: [
+            '`/rps` • Rock paper scissors vs bot or users',
+            '`/dadjoke` • Random dad joke',
+            '`/coinflip` • Heads or tails',
+            '`/minecraft` • Query server info/status'
           ].join('\n')
         }
-      );
+      )
+      .setFooter({ text: 'Tip: Bot owner can run protected commands globally.' });
 
     const dropdown = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
@@ -46,7 +51,7 @@ module.exports = {
           { label: 'Giveaways', value: 'giveaways' },
           { label: 'Fun', value: 'fun' },
           { label: 'YouTube', value: 'youtube' },
-          { label: 'misc', value: 'misc' }
+          { label: 'Misc', value: 'misc' }
         )
     );
 

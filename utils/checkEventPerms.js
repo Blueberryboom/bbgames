@@ -1,10 +1,15 @@
 const pool = require('../database');
+const { BOT_OWNER_ID } = require('./constants');
 
 module.exports = async (interaction, options = {}) => {
   const scope = options.scope || 'global';
 
   if (!interaction.guildId || !interaction.member) {
     return false;
+  }
+
+  if (interaction.user?.id === BOT_OWNER_ID) {
+    return true;
   }
 
   if (interaction.member.permissions.has('Administrator')) {

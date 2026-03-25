@@ -74,6 +74,25 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── STICKY MESSAGES ───────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS sticky_messages (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        content TEXT NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        cooldown_ms INT NOT NULL DEFAULT 8000,
+        last_post_message_id VARCHAR(32) NULL,
+        last_post_at BIGINT NULL,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_sticky_channel (guild_id, channel_id),
+        INDEX idx_sticky_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── EVENT ADMIN ROLES ──────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_roles (
