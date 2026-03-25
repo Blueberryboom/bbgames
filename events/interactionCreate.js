@@ -39,6 +39,11 @@ const HELP_MODULES = {
     value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`.'
   }
 };
+const RPS_CHOICE_EMOJI = {
+  rock: '🪨',
+  paper: '📄',
+  scissors: '✂️'
+};
 
 module.exports = async (interaction) => {
 
@@ -288,12 +293,25 @@ module.exports = async (interaction) => {
       const secondUser = interaction.user;
       const result = decideRpsWinner(game.challengerChoice, choice);
 
+      const resultEmoji = result === 'draw' ? '🤝' : result === 'first' ? '🏆' : '💥';
+      const summary = result === 'draw'
+        ? 'It is a draw!'
+        : result === 'first'
+          ? `${firstUser} wins!`
+          : `${secondUser} wins!`;
+
+      const embed = new EmbedBuilder()
+        .setColor(result === 'draw' ? 0xFEE75C : result === 'first' ? 0x57F287 : 0xED4245)
+        .setTitle(`${resultEmoji} Rock Paper Scissors`)
+        .setDescription(
+          `**${firstUser}:** ${RPS_CHOICE_EMOJI[game.challengerChoice] || ''} ${game.challengerChoice}\n` +
+          `**${secondUser}:** ${RPS_CHOICE_EMOJI[choice] || ''} ${choice}\n\n` +
+          `**Result:** ${summary}`
+        );
+
       await interaction.update({
-        content: `🪨📄✂️ ${firstUser} picked **${game.challengerChoice}**. ${secondUser} picked **${choice}**.\n${result === 'draw'
-          ? `🤝 It's a draw!`
-          : result === 'first'
-            ? `🏆 ${firstUser} wins!`
-            : `🏆 ${secondUser} wins!`}`,
+        embeds: [embed],
+        content: '',
         components: []
       });
       return;

@@ -3,12 +3,18 @@ const {
   MessageFlags,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  EmbedBuilder
 } = require('discord.js');
 
 const rpsState = require('../utils/rpsState');
 
 const CHOICES = ['rock', 'paper', 'scissors'];
+const CHOICE_EMOJI = {
+  rock: '🪨',
+  paper: '📄',
+  scissors: '✂️'
+};
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -40,7 +46,14 @@ module.exports = {
       const botChoice = CHOICES[Math.floor(Math.random() * CHOICES.length)];
       const result = decideWinner(choice, botChoice);
 
-      return interaction.reply(`🪨📄✂️ You picked **${choice}**. I picked **${botChoice}**.\n${resultText(result, interaction.user, interaction.client.user)}`);
+      const embed = new EmbedBuilder()
+        .setColor(result === 'draw' ? 0xFEE75C : result === 'first' ? 0x57F287 : 0xED4245)
+        .setTitle(`${resultEmoji(result)} Rock Paper Scissors`)
+        .setDescription(
+          `**You:** ${CHOICE_EMOJI[choice]} ${choice}\n**Me:** ${CHOICE_EMOJI[botChoice]} ${botChoice}\n\n${resultText(result, 'You', 'I')}`
+        );
+
+      return interaction.reply({ embeds: [embed] });
     }
 
     if (opponent.id === interaction.user.id) {
@@ -64,8 +77,18 @@ module.exports = {
       new ButtonBuilder().setCustomId(`rps_pick_${gameId}_scissors`).setLabel('Scissors').setStyle(ButtonStyle.Secondary)
     );
 
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('🎮 Rock Paper Scissors Challenge')
+      .setDescription(
+        `${interaction.user} challenged ${opponent}!\n\n` +
+        `**${interaction.user.username} picked:** ${CHOICE_EMOJI[choice]} ${choice}\n` +
+        `**${opponent.username}, choose your move below.**`
+      )
+      .setFooter({ text: 'Challenge expires in 2 minutes.' });
+
     return interaction.reply({
-      content: `${opponent}, ${interaction.user} challenged you to Rock Paper Scissors! Choose below (expires in 2 minutes).`,
+      embeds: [embed],
       components: [buttons]
     });
   }
@@ -83,11 +106,19 @@ function decideWinner(first, second) {
   return 'second';
 }
 
+function resultEmoji(result) {
+  if (result === 'draw') return '🤝';
+  if (result === 'first') return '🏆';
+  return '💥';
+}
+
 function resultText(result, firstUser, secondUser) {
-  if (result === 'draw') return `🤝 It's a draw!`;
-  if (result === 'first') return `🏆 ${firstUser} wins!`;
-  return `🏆 ${secondUser} wins!`;
+  if (result === 'draw') return `It's a draw!`;
+  if (result === 'first') return `${firstUser} wins!`;
+  return `${secondUser} wins!`;
 }
 
 module.exports.decideWinner = decideWinner;
 module.exports.resultText = resultText;
+module.exports.resultEmoji = resultEmoji;
+module.exports.CHOICE_EMOJI = CHOICE_EMOJI;

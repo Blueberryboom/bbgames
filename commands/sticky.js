@@ -6,7 +6,7 @@ const {
 
 const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
-const { getStickyLimit, DEFAULT_COOLDOWN_MS } = require('../utils/stickyManager');
+const { getStickyLimit, DEFAULT_COOLDOWN_MS, cancelStickySchedule } = require('../utils/stickyManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -126,6 +126,7 @@ module.exports = {
          WHERE guild_id = ? AND channel_id = ?`,
         [interaction.guildId, channel.id]
       );
+      cancelStickySchedule(channel.id);
 
       const lastPostMessageId = rows[0]?.last_post_message_id;
       if (lastPostMessageId && channel.isTextBased()) {
