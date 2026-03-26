@@ -291,23 +291,26 @@ module.exports = async (interaction) => {
       rpsState.consumeGame(gameId);
 
       const challenger = await interaction.client.users.fetch(game.challengerId).catch(() => null);
-      const firstUser = challenger || `<@${game.challengerId}>`;
-      const secondUser = interaction.user;
+      const firstUserMention = challenger ? `<@${challenger.id}>` : `<@${game.challengerId}>`;
+      const secondUserMention = `<@${interaction.user.id}>`;
+      const firstName = challenger?.username || game.challengerId;
+      const secondName = interaction.user.username;
       const result = decideRpsWinner(game.challengerChoice, choice);
 
       const resultEmoji = result === 'draw' ? '🤝' : result === 'first' ? '🏆' : '💥';
       const summary = result === 'draw'
         ? 'It is a draw!'
         : result === 'first'
-          ? `${firstUser} wins!`
-          : `${secondUser} wins!`;
+          ? `${firstName} wins!`
+          : `${secondName} wins!`;
 
       const embed = new EmbedBuilder()
         .setColor(result === 'draw' ? 0xFEE75C : result === 'first' ? 0x57F287 : 0xED4245)
         .setTitle(`${resultEmoji} Rock Paper Scissors`)
         .setDescription(
-          `**${firstUser}:** ${RPS_CHOICE_EMOJI[game.challengerChoice] || ''} ${game.challengerChoice}\n` +
-          `**${secondUser}:** ${RPS_CHOICE_EMOJI[choice] || ''} ${choice}\n\n` +
+          `**${firstName}:** ${RPS_CHOICE_EMOJI[game.challengerChoice] || ''} ${game.challengerChoice}\n` +
+          `**${secondName}:** ${RPS_CHOICE_EMOJI[choice] || ''} ${choice}\n\n` +
+          `${firstUserMention} vs ${secondUserMention}\n` +
           `**Result:** ${summary}`
         );
 
