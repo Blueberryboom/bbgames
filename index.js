@@ -112,14 +112,16 @@ client.once('clientReady', async () => {
 
 // ─── COUNTING SYSTEM ────────────────────────
 const countingHandler = require('./events/countingMessage');
+const levelingHandler = require('./events/levelingMessage');
 const { handleStickyMessage } = require('./utils/stickyManager');
 
 client.on('messageCreate', async message => {
   try {
     await countingHandler(message);
+    await levelingHandler(message);
     await handleStickyMessage(message);
   } catch (err) {
-    console.error('❌ Counting handler error:', err);
+    console.error('❌ Message handler error:', err);
   }
 });
 

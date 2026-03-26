@@ -22,6 +22,10 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM giveaway_admin_roles WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM counting WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM counting_leaderboard WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM leveling_users WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM leveling_role_rewards WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM leveling_xp_events WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM leveling_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM support_requests WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM blacklist WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
@@ -77,6 +81,7 @@ function startGuildCleanupScheduler(client) {
       console.error('❌ Delayed guild cleanup check failed:', err);
     });
   }, 60 * 60 * 1000);
+  cleanupInterval.unref?.();
 }
 
 module.exports = {

@@ -205,6 +205,62 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+
+    // ─── LEVELING SETTINGS ────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leveling_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        levelup_channel_id VARCHAR(32) NULL,
+        difficulty TINYINT NOT NULL DEFAULT 3,
+        boost_role_ids TEXT NULL,
+        channel_mode VARCHAR(16) NULL,
+        channel_ids TEXT NULL,
+        message_with_role VARCHAR(160) NOT NULL DEFAULT 'Level {level}. You unlocked {role}.',
+        message_without_role VARCHAR(160) NOT NULL DEFAULT 'Level {level}. Keep going.',
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_levelup_channel (levelup_channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leveling_users (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        xp BIGINT NOT NULL DEFAULT 0,
+        level INT NOT NULL DEFAULT 0,
+        last_xp_at BIGINT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, user_id),
+        INDEX idx_level_guild (guild_id),
+        INDEX idx_level_rank (guild_id, level, xp)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leveling_role_rewards (
+        guild_id VARCHAR(32) NOT NULL,
+        level_required INT NOT NULL,
+        role_id VARCHAR(32) NOT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, level_required),
+        UNIQUE KEY uniq_leveling_role_once (guild_id, role_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leveling_xp_events (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        xp_gained INT NOT NULL,
+        created_at BIGINT NOT NULL,
+        PRIMARY KEY (id),
+        INDEX idx_xp_guild_time (guild_id, created_at),
+        INDEX idx_xp_user (guild_id, user_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── GUILD DATA DELETION QUEUE ─────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS guild_deletion_queue (

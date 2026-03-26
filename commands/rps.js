@@ -50,7 +50,9 @@ module.exports = {
         .setColor(result === 'draw' ? 0xFEE75C : result === 'first' ? 0x57F287 : 0xED4245)
         .setTitle(`${resultEmoji(result)} Rock Paper Scissors`)
         .setDescription(
-          `**You:** ${CHOICE_EMOJI[choice]} ${choice}\n**Me:** ${CHOICE_EMOJI[botChoice]} ${botChoice}\n\n${resultText(result, 'You', 'I')}`
+          `**${interaction.user.username}:** ${CHOICE_EMOJI[choice]} ${choice}\n` +
+          `**${interaction.client.user.username}:** ${CHOICE_EMOJI[botChoice]} ${botChoice}\n\n` +
+          `${resultText(result, interaction.user.username, interaction.client.user.username)}`
         );
 
       return interaction.reply({ embeds: [embed] });
@@ -81,10 +83,7 @@ module.exports = {
       .setColor(0x5865F2)
       .setTitle('🎮 Rock Paper Scissors Challenge')
       .setDescription(
-        `${interaction.user} challenged ${opponent}!\n\n` +
-        `**${interaction.user.username} has locked in a choice.**\n` +
-        `**${opponent.username}, choose your move below.**\n\n` +
-        `Both choices and the winner will be revealed once ${opponent} picks.`
+        `${interaction.user} challenged ${opponent}.`
       )
       .setFooter({ text: 'Challenge expires in 2 minutes.' });
 

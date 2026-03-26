@@ -1,0 +1,135 @@
+const { query } = require('../database');
+const {
+  getGuildLevelingSettings,
+  difficultyMultiplier,
+  xpForNextLevel,
+  renderLevelMessage
+} = require('../utils/levelingSystem');
+
+const rewardsCache = new Map();
+const REWARD_CACHE_TTL_MS = 60 * 1000;
+
+module.exports = async function handleLevelingMessage(message) {
+  try {
+    if (!message.guild || message.author?.bot || !message.member) return;
+
+    const settings = await getGuildLevelingSettings(message.guild.id);
+
+    if (settings.channelMode === 'whitelist' && settings.channelIds.length && !settings.channelIds.includes(message.channel.id)) {
+      return;
+    }
+
+    if (settings.channelMode === 'blacklist' && settings.channelIds.includes(message.channel.id)) {
+      return;
+    }
+
+    const existingRows = await query(
+      `SELECT xp, level, last_xp_at
+       FROM leveling_users
+       WHERE guild_id = ? AND user_id = ?
+       LIMIT 1`,
+      [message.guild.id, message.author.id]
+    );
+
+    const now = Date.now();
+    const baseXp = 8;
+    const cooldownMs = 18_000;
+
+    const current = existingRows[0] || { xp: 0, level: 0, last_xp_at: 0 };
+    if (Number(current.last_xp_at || 0) + cooldownMs > now) {
+      return;
+    }
+
+    const userHasBoostRole = settings.boostRoleIds.some(roleId => message.member.roles.cache.has(roleId));
+    const boostMultiplier = userHasBoostRole ? 1.7 : 1;
+    const gainedXp = Math.max(1, Math.floor(baseXp * boostMultiplier / difficultyMultiplier(settings.difficulty)));
+
+    let xp = Number(current.xp || 0) + gainedXp;
+    let level = Number(current.level || 0);
+
+    const rewardMap = await getRewardMap(message.guild.id);
+    const newlyEarnedRoles = [];
+    while (xp >= xpForNextLevel(level)) {
+      xp -= xpForNextLevel(level);
+      level += 1;
+      const roleId = rewardMap.get(level);
+      if (roleId) newlyEarnedRoles.push(roleId);
+    }
+
+    await query(
+      `REPLACE INTO leveling_users (guild_id, user_id, xp, level, last_xp_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [message.guild.id, message.author.id, xp, level, now, now]
+    );
+
+    await query(
+      `INSERT INTO leveling_xp_events (guild_id, user_id, xp_gained, created_at)
+       VALUES (?, ?, ?, ?)`,
+      [message.guild.id, message.author.id, gainedXp, now]
+    );
+
+    if (!newlyEarnedRoles.length && level === Number(current.level || 0)) {
+      return;
+    }
+
+    let grantedRoleMention = null;
+    for (const roleId of newlyEarnedRoles) {
+      const role = message.guild.roles.cache.get(roleId);
+      if (!role) continue;
+
+      try {
+        await message.member.roles.add(roleId, `Level reward for level ${level}`);
+        if (!grantedRoleMention) grantedRoleMention = `<@&${roleId}>`;
+      } catch (error) {
+        console.warn('⚠️ Could not assign level reward role:', error?.message || error);
+      }
+    }
+
+    const outputChannel = settings.levelup_channel_id
+      ? await message.guild.channels.fetch(settings.levelup_channel_id).catch(() => null)
+      : message.channel;
+
+    if (!outputChannel?.isTextBased()) return;
+
+    const template = grantedRoleMention ? settings.message_with_role : settings.message_without_role;
+    const rendered = renderLevelMessage(template, {
+      userMention: `<@${message.author.id}>`,
+      level,
+      roleMention: grantedRoleMention
+    });
+
+    await outputChannel.send({
+      content: rendered,
+      allowedMentions: { parse: [], users: [message.author.id], roles: grantedRoleMention ? parseRoleIds(grantedRoleMention) : [] }
+    }).catch(() => null);
+  } catch (error) {
+    console.error('❌ Leveling message handler failed:', error);
+  }
+};
+
+function parseRoleIds(content) {
+  return (content.match(/\d{16,20}/g) || []).slice(0, 1);
+}
+
+async function getRewardMap(guildId) {
+  const now = Date.now();
+  const cached = rewardsCache.get(guildId);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
+  }
+
+  const rows = await query(
+    `SELECT level_required, role_id
+     FROM leveling_role_rewards
+     WHERE guild_id = ?`,
+    [guildId]
+  );
+
+  const rewardMap = new Map();
+  for (const row of rows) {
+    rewardMap.set(Number(row.level_required), row.role_id);
+  }
+
+  rewardsCache.set(guildId, { value: rewardMap, expiresAt: now + REWARD_CACHE_TTL_MS });
+  return rewardMap;
+}
