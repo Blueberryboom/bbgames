@@ -1,7 +1,30 @@
 const { query } = require('../database');
 
-const DEFAULT_WITH_ROLE = 'Level {level}. You unlocked {role}.';
-const DEFAULT_WITHOUT_ROLE = 'Level {level}. Keep going.';
+const LEVELUP_MESSAGE_PRESETS = {
+  classic: {
+    withRole: 'Congrats, {user}, you leveled up to **{level}**! You now have the {role}!',
+    withoutRole: 'Congrats, {user}, you leveled up to **{level}**!'
+  },
+  hype: {
+    withRole: '🎉 Big W, {user}! You reached **level {level}** and unlocked {role}!',
+    withoutRole: '🎉 Big W, {user}! You reached **level {level}**!'
+  },
+  fantasy: {
+    withRole: '🛡️ {user} advanced to **level {level}** and has been granted {role}!',
+    withoutRole: '🛡️ {user} advanced to **level {level}**!'
+  },
+  chill: {
+    withRole: '✨ Nice one, {user} — level **{level}** achieved. New reward: {role}.',
+    withoutRole: '✨ Nice one, {user} — level **{level}** achieved.'
+  },
+  gamer: {
+    withRole: '🕹️ LEVEL UP! {user} is now **level {level}** and unlocked {role}!',
+    withoutRole: '🕹️ LEVEL UP! {user} is now **level {level}**!'
+  }
+};
+const DEFAULT_MESSAGE_PRESET_KEY = 'classic';
+const DEFAULT_WITH_ROLE = LEVELUP_MESSAGE_PRESETS[DEFAULT_MESSAGE_PRESET_KEY].withRole;
+const DEFAULT_WITHOUT_ROLE = LEVELUP_MESSAGE_PRESETS[DEFAULT_MESSAGE_PRESET_KEY].withoutRole;
 const SETTINGS_CACHE_TTL_MS = 60 * 1000;
 const settingsCache = new Map();
 
@@ -20,6 +43,10 @@ function clampMessage(value, fallback) {
   const trimmed = value.trim();
   if (!trimmed) return fallback;
   return trimmed.slice(0, 160);
+}
+
+function getLevelupMessagePreset(presetKey) {
+  return LEVELUP_MESSAGE_PRESETS[presetKey] || LEVELUP_MESSAGE_PRESETS[DEFAULT_MESSAGE_PRESET_KEY];
 }
 
 function renderLevelMessage(template, data) {
@@ -92,11 +119,14 @@ function invalidateGuildLevelingCache(guildId) {
 }
 
 module.exports = {
+  LEVELUP_MESSAGE_PRESETS,
+  DEFAULT_MESSAGE_PRESET_KEY,
   DEFAULT_WITH_ROLE,
   DEFAULT_WITHOUT_ROLE,
   difficultyMultiplier,
   xpForNextLevel,
   clampMessage,
+  getLevelupMessagePreset,
   renderLevelMessage,
   parseCsvIds,
   progressBar,

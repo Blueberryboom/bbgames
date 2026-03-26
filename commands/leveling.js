@@ -11,7 +11,7 @@ const { query } = require('../database');
 const {
   DEFAULT_WITH_ROLE,
   DEFAULT_WITHOUT_ROLE,
-  clampMessage,
+  getLevelupMessagePreset,
   getGuildLevelingSettings,
   invalidateGuildLevelingCache
 } = require('../utils/levelingSystem');
@@ -33,26 +33,26 @@ module.exports = {
           o.setName('channel')
             .setDescription('Channel for level up messages')
             .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-            .setRequired(false)
+            .setRequired(true)
         )
         .addIntegerOption(o =>
           o.setName('difficulty')
             .setDescription('Difficulty from 1 to 5')
             .setMinValue(1)
             .setMaxValue(5)
-            .setRequired(false)
+            .setRequired(true)
         )
         .addStringOption(o =>
-          o.setName('message_with_role')
-            .setDescription('Short levelup message when a role is awarded')
-            .setMaxLength(160)
-            .setRequired(false)
-        )
-        .addStringOption(o =>
-          o.setName('message_without_role')
-            .setDescription('Short levelup message when no role is awarded')
-            .setMaxLength(160)
-            .setRequired(false)
+          o.setName('message')
+            .setDescription('Pick one of the pre-made level up messages')
+            .setRequired(true)
+            .addChoices(
+              { name: '🥳 Congrats @usermention, level **(level)**, role reward included', value: 'classic' },
+              { name: '🎉 Big W @usermention, level **(level)** hype style', value: 'hype' },
+              { name: '🛡️ Adventure style level-up for @usermention', value: 'fantasy' },
+              { name: '✨ Chill style level-up for @usermention', value: 'chill' },
+              { name: '🕹️ Gamer LEVEL UP style for @usermention', value: 'gamer' }
+            )
         )
         .addRoleOption(o => o.setName('boost_role_1').setDescription('Boost role 1').setRequired(false))
         .addRoleOption(o => o.setName('boost_role_2').setDescription('Boost role 2').setRequired(false))
@@ -186,10 +186,10 @@ module.exports = {
 };
 
 async function handleConfig(interaction) {
-  const channel = interaction.options.getChannel('channel');
-  const difficulty = interaction.options.getInteger('difficulty');
-  const withRole = interaction.options.getString('message_with_role');
-  const withoutRole = interaction.options.getString('message_without_role');
+  const channel = interaction.options.getChannel('channel', true);
+  const difficulty = interaction.options.getInteger('difficulty', true);
+  const messagePreset = interaction.options.getString('message', true);
+  const selectedPreset = getLevelupMessagePreset(messagePreset);
   const boostRoleIds = [];
 
   for (let i = 1; i <= 5; i += 1) {
@@ -197,27 +197,9 @@ async function handleConfig(interaction) {
     if (role && !boostRoleIds.includes(role.id)) boostRoleIds.push(role.id);
   }
 
-  const changed = Boolean(channel || difficulty || withRole || withoutRole || boostRoleIds.length);
-  if (!changed) {
-    const settings = await getGuildLevelingSettings(interaction.guildId);
-    const embed = new EmbedBuilder()
-      .setColor(0x4F8BFF)
-      .setTitle('Current Leveling Config')
-      .setDescription('No values were provided, so this is the current setup.')
-      .addFields(
-        { name: 'Levelup Channel', value: settings.levelup_channel_id ? `<#${settings.levelup_channel_id}>` : 'Not set', inline: true },
-        { name: 'Difficulty', value: String(settings.difficulty || 3), inline: true },
-        { name: 'Boost Roles', value: settings.boostRoleIds.length ? settings.boostRoleIds.map(id => `<@&${id}>`).join(', ') : 'None' },
-        { name: 'Message (role)', value: settings.message_with_role },
-        { name: 'Message (no role)', value: settings.message_without_role }
-      );
-
-    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-  }
-
-  const finalDifficulty = difficulty || 3;
-  const finalWithRole = clampMessage(withRole, DEFAULT_WITH_ROLE);
-  const finalWithoutRole = clampMessage(withoutRole, DEFAULT_WITHOUT_ROLE);
+  const finalDifficulty = difficulty;
+  const finalWithRole = selectedPreset.withRole || DEFAULT_WITH_ROLE;
+  const finalWithoutRole = selectedPreset.withoutRole || DEFAULT_WITHOUT_ROLE;
 
   await query(
     `REPLACE INTO leveling_settings
@@ -238,7 +220,7 @@ async function handleConfig(interaction) {
   invalidateGuildLevelingCache(interaction.guildId);
 
   return interaction.reply({
-    content: `✅ Leveling config saved. Difficulty ${finalDifficulty}, channel ${channel ? `<#${channel.id}>` : 'not set'}.`,
+    content: `✅ Leveling config saved. Difficulty ${finalDifficulty}, channel <#${channel.id}>, message preset \`${messagePreset}\`.`,
     flags: MessageFlags.Ephemeral
   });
 }
