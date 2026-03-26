@@ -49,7 +49,7 @@ async function getGuildLevelingSettings(guildId) {
   }
 
   const rows = await query(
-    `SELECT guild_id, levelup_channel_id, difficulty, boost_role_ids, channel_mode, channel_ids,
+    `SELECT guild_id, enabled, levelup_channel_id, difficulty, boost_role_ids, channel_mode, channel_ids,
             message_with_role, message_without_role
      FROM leveling_settings
      WHERE guild_id = ?
@@ -59,6 +59,7 @@ async function getGuildLevelingSettings(guildId) {
 
   if (!rows.length) {
     const fallback = {
+      enabled: false,
       levelup_channel_id: null,
       difficulty: 3,
       boostRoleIds: [],
@@ -74,6 +75,7 @@ async function getGuildLevelingSettings(guildId) {
   const row = rows[0];
   const normalized = {
     ...row,
+    enabled: Boolean(row.enabled),
     boostRoleIds: parseCsvIds(row.boost_role_ids),
     channelMode: row.channel_mode || null,
     channelIds: parseCsvIds(row.channel_ids),

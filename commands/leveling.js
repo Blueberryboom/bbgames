@@ -2,7 +2,8 @@ const {
   SlashCommandBuilder,
   ChannelType,
   MessageFlags,
-  EmbedBuilder
+  EmbedBuilder,
+  PermissionFlagsBits
 } = require('discord.js');
 
 const checkPerms = require('../utils/checkEventPerms');
@@ -15,6 +16,7 @@ const {
   invalidateGuildLevelingCache
 } = require('../utils/levelingSystem');
 const { getPremiumLimit } = require('../utils/premiumPerks');
+const { BOT_OWNER_ID } = require('../utils/constants');
 
 const FREE_ROLE_LIMIT = 15;
 const PREMIUM_ROLE_LIMIT = 50;
@@ -128,6 +130,11 @@ module.exports = {
             .setMinValue(1)
             .setMaxValue(1000)
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('deactivate')
+        .setDescription('Disable leveling and remove all leveling data for this server')
     ),
 
   async execute(interaction) {
@@ -155,6 +162,10 @@ module.exports = {
 
       if (sub === 'level_set') {
         return handleLevelSet(interaction);
+      }
+
+      if (sub === 'deactivate') {
+        return handleDeactivate(interaction);
       }
 
       return handleRolesList(interaction);
@@ -210,9 +221,9 @@ async function handleConfig(interaction) {
 
   await query(
     `REPLACE INTO leveling_settings
-     (guild_id, levelup_channel_id, difficulty, boost_role_ids, channel_mode, channel_ids,
+     (guild_id, enabled, levelup_channel_id, difficulty, boost_role_ids, channel_mode, channel_ids,
       message_with_role, message_without_role, updated_by, updated_at)
-     VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`,
+     VALUES (?, 1, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`,
     [
       interaction.guildId,
       channel?.id || null,
@@ -260,9 +271,9 @@ async function handleChannels(interaction) {
 
   await query(
     `INSERT INTO leveling_settings
-     (guild_id, levelup_channel_id, difficulty, boost_role_ids, channel_mode, channel_ids,
+     (guild_id, enabled, levelup_channel_id, difficulty, boost_role_ids, channel_mode, channel_ids,
       message_with_role, message_without_role, updated_by, updated_at)
-     VALUES (?, NULL, 3, '', ?, ?, ?, ?, ?, ?)
+     VALUES (?, 0, NULL, 3, '', ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
       channel_mode = VALUES(channel_mode),
       channel_ids = VALUES(channel_ids),
@@ -282,6 +293,30 @@ async function handleChannels(interaction) {
 
   return interaction.reply({
     content: `✅ Channel ${mode} saved with ${channelIds.length} channel(s).`,
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function handleDeactivate(interaction) {
+  const isOwner = interaction.user.id === BOT_OWNER_ID;
+  const isAdministrator = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+
+  // This subcommand is intentionally stricter than other /leveling actions.
+  if (!isOwner && !isAdministrator) {
+    return interaction.reply({
+      content: '❌ Only a server administrator can use `/leveling deactivate`.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  await query(`DELETE FROM leveling_users WHERE guild_id = ?`, [interaction.guildId]);
+  await query(`DELETE FROM leveling_xp_events WHERE guild_id = ?`, [interaction.guildId]);
+  await query(`DELETE FROM leveling_role_rewards WHERE guild_id = ?`, [interaction.guildId]);
+  await query(`DELETE FROM leveling_settings WHERE guild_id = ?`, [interaction.guildId]);
+  invalidateGuildLevelingCache(interaction.guildId);
+
+  return interaction.reply({
+    content: '✅ Leveling has been fully deactivated and all leveling data was deleted for this server.',
     flags: MessageFlags.Ephemeral
   });
 }
