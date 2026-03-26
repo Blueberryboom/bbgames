@@ -94,6 +94,36 @@ module.exports = {
           .setDescription('User ID (required for add/remove)')
           .setRequired(false)
        )
+    )
+
+    .addSubcommand(s =>
+      s.setName('premium_codes')
+       .setDescription('Create, delete, and list premium redeem codes')
+       .addStringOption(o =>
+         o.setName('action')
+          .setDescription('Action')
+          .addChoices(
+            { name: 'Create', value: 'create' },
+            { name: 'Delete', value: 'delete' },
+            { name: 'List', value: 'list' }
+          )
+          .setRequired(true)
+       )
+       .addStringOption(o =>
+         o.setName('code')
+          .setDescription('Code value (required for create/delete)')
+          .setRequired(false)
+       )
+       .addStringOption(o =>
+         o.setName('length')
+          .setDescription('License length (required for create)')
+          .addChoices(
+            { name: 'One Month', value: '1_month' },
+            { name: 'One Year', value: '1_year' },
+            { name: 'Lifetime', value: 'lifetime' }
+          )
+          .setRequired(false)
+       )
     ),
 
   async execute(interaction) {
@@ -176,6 +206,110 @@ module.exports = {
         embeds: [embed],
         ephemeral: true
       });
+    }
+
+
+    if (sub === 'premium_codes') {
+      const action = interaction.options.getString('action', true);
+      const codeInput = interaction.options.getString('code', false)?.trim();
+      const length = interaction.options.getString('length', false);
+
+      if ((action === 'create' || action === 'delete') && (!codeInput || codeInput.length < 4 || codeInput.length > 64)) {
+        return interaction.reply({
+          content: '❌ Please provide a valid code between 4 and 64 characters.',
+          ephemeral: true
+        });
+      }
+
+      if (action === 'create') {
+        if (!length) {
+          return interaction.reply({ content: '❌ Please provide a license length.', ephemeral: true });
+        }
+
+        const existing = await pool.query(
+          `SELECT code, deleted_at
+           FROM premium_codes
+           WHERE code = ?
+           LIMIT 1`,
+          [codeInput]
+        );
+
+        if (existing.length && Number(existing[0].deleted_at) === 0) {
+          return interaction.reply({ content: '❌ That premium code already exists.', ephemeral: true });
+        }
+
+        if (existing.length) {
+          await pool.query(
+            `UPDATE premium_codes
+             SET duration_type = ?,
+                 created_by = ?,
+                 created_at = ?,
+                 deleted_at = NULL,
+                 redeemed_by_user_id = NULL,
+                 redeemed_guild_id = NULL,
+                 redeemed_at = NULL,
+                 expires_at = NULL
+             WHERE code = ?`,
+            [length, interaction.user.id, Date.now(), codeInput]
+          );
+        } else {
+          await pool.query(
+            `INSERT INTO premium_codes
+             (code, duration_type, created_by, created_at)
+             VALUES (?, ?, ?, ?)`,
+            [codeInput, length, interaction.user.id, Date.now()]
+          );
+        }
+
+        return interaction.reply({
+          content: `✅ Premium code \`${codeInput}\` created with duration \`${length}\`.`,
+          ephemeral: true
+        });
+      }
+
+      if (action === 'delete') {
+        await pool.query(
+          `UPDATE premium_codes
+           SET deleted_at = ?
+           WHERE code = ?`,
+          [Date.now(), codeInput]
+        );
+
+        return interaction.reply({
+          content: `✅ Premium code \`${codeInput}\` deleted.`,
+          ephemeral: true
+        });
+      }
+
+      const rows = await pool.query(
+        `SELECT code, duration_type, deleted_at, redeemed_by_user_id, redeemed_guild_id, redeemed_at, expires_at
+         FROM premium_codes
+         ORDER BY created_at DESC
+         LIMIT 100`
+      );
+
+      if (!rows.length) {
+        return interaction.reply({ content: 'ℹ️ No premium codes exist yet.', ephemeral: true });
+      }
+
+      const description = rows.map(row => {
+        const state = Number(row.deleted_at) > 0 ? 'deleted' : row.redeemed_by_user_id ? 'redeemed' : 'active';
+        const redeemedText = row.redeemed_by_user_id
+          ? ` • user: \`${row.redeemed_by_user_id}\` • guild: \`${row.redeemed_guild_id || '-'}\``
+          : '';
+        const expiryText = Number(row.expires_at) > 0
+          ? ` • expires <t:${Math.floor(Number(row.expires_at) / 1000)}:R>`
+          : row.duration_type === 'lifetime' ? ' • lifetime' : '';
+        const redeemedAt = Number(row.redeemed_at) > 0 ? ` • redeemed <t:${Math.floor(Number(row.redeemed_at) / 1000)}:R>` : '';
+
+        return `• \`${row.code}\` (${row.duration_type}, ${state})${redeemedText}${redeemedAt}${expiryText}`;
+      }).join('\n');
+
+      const embed = new EmbedBuilder()
+        .setTitle('🎟️ Premium Codes')
+        .setDescription(description);
+
+      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     // ======================================================

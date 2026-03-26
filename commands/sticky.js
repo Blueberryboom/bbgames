@@ -6,7 +6,8 @@ const {
 
 const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
-const { getStickyLimit, DEFAULT_COOLDOWN_MS, cancelStickySchedule } = require('../utils/stickyManager');
+const { DEFAULT_COOLDOWN_MS, cancelStickySchedule } = require('../utils/stickyManager');
+const { getPremiumLimit } = require('../utils/premiumPerks');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -73,7 +74,7 @@ module.exports = {
       const cooldownSeconds = interaction.options.getInteger('cooldown_seconds') || Math.round(DEFAULT_COOLDOWN_MS / 1000);
       const cooldownMs = cooldownSeconds * 1000;
 
-      const limit = getStickyLimit(interaction.client);
+      const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
 
       const currentRows = await query(
         `SELECT id, channel_id
@@ -154,7 +155,7 @@ module.exports = {
       });
     }
 
-    const limit = getStickyLimit(interaction.client);
+    const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
     const body = rows.map((row, index) => {
       const cooldownSeconds = Math.round((Number(row.cooldown_ms) || DEFAULT_COOLDOWN_MS) / 1000);
       return `${index + 1}. <#${row.channel_id}> • cooldown: **${cooldownSeconds}s**`;

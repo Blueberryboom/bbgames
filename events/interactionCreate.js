@@ -9,6 +9,7 @@ const youtubeSetupState = require('../utils/youtubeSetupState');
 const welcomeSetupState = require('../utils/welcomeSetupState');
 const rpsState = require('../utils/rpsState');
 const { buildWelcomePayload } = require('../utils/welcomeSystem');
+const { getPremiumLimit } = require('../utils/premiumPerks');
 const {
   resolveRequiredPermissions,
   getMissingPermissions,
@@ -172,9 +173,7 @@ module.exports = async (interaction) => {
         [interaction.guildId]
       );
 
-      const isPremiumClient = Boolean(interaction.client?.isPremiumInstance);
-
-      const maxSubscriptions = isPremiumClient ? 25 : 5;
+      const maxSubscriptions = await getPremiumLimit(interaction.client, interaction.guildId, 5, 25);
 
       if (existingRows.length >= maxSubscriptions) {
         return interaction.reply({

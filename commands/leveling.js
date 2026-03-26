@@ -14,6 +14,7 @@ const {
   getGuildLevelingSettings,
   invalidateGuildLevelingCache
 } = require('../utils/levelingSystem');
+const { getPremiumLimit } = require('../utils/premiumPerks');
 
 const FREE_ROLE_LIMIT = 15;
 const PREMIUM_ROLE_LIMIT = 50;
@@ -288,8 +289,7 @@ async function handleChannels(interaction) {
 async function handleRoles(interaction) {
   const level = interaction.options.getInteger('level', true);
   const role = interaction.options.getRole('role', true);
-  const isPremium = Boolean(interaction.client?.isPremiumInstance);
-  const limit = isPremium ? PREMIUM_ROLE_LIMIT : FREE_ROLE_LIMIT;
+  const limit = await getPremiumLimit(interaction.client, interaction.guildId, FREE_ROLE_LIMIT, PREMIUM_ROLE_LIMIT);
 
   const rows = await query(
     `SELECT level_required, role_id
