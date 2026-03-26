@@ -13,6 +13,7 @@ const { scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./guildC
 const { handleStickyMessage } = require('./stickyManager');
 const { stopYouTubeNotifier } = require('./youtubeNotifier');
 const { stopStatus } = require('../status');
+const { initializeAutoMessageScheduler, clearGuildAutoMessages, stopAutoMessageSchedulers } = require('./autoMessageManager');
 
 const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
@@ -112,6 +113,8 @@ async function initPremiumRuntime(premiumClient, token) {
       initYouTubeNotifier(premiumClient);
 
       require('../status')(premiumClient);
+
+      await initializeAutoMessageScheduler(premiumClient);
 
       const rest = new REST({ version: '10' }).setToken(token);
       await rest.put(
@@ -242,6 +245,7 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
   };
 
   premiumClient.on('guildDelete', guild => {
+    clearGuildAutoMessages(premiumClient, guild.id);
     const instance = activeInstances.get(ownerId);
     if (!instance) return;
 
@@ -373,6 +377,7 @@ async function stopPremiumInstance(ownerId, options = {}) {
 
   stopYouTubeNotifier(instance.client);
   stopStatus(instance.client);
+  stopAutoMessageSchedulers(instance.client);
   await instance.client.destroy();
 
   if (persist) {

@@ -82,8 +82,9 @@ module.exports = {
       .setTitle('🎮 Rock Paper Scissors Challenge')
       .setDescription(
         `${interaction.user} challenged ${opponent}!\n\n` +
-        `**${interaction.user.username} picked:** ${CHOICE_EMOJI[choice]} ${choice}\n` +
-        `**${opponent.username}, choose your move below.**`
+        `**${interaction.user.username} has locked in a choice.**\n` +
+        `**${opponent.username}, choose your move below.**\n\n` +
+        `Both choices and the winner will be revealed once ${opponent} picks.`
       )
       .setFooter({ text: 'Challenge expires in 2 minutes.' });
 
