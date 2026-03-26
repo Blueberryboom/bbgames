@@ -279,8 +279,8 @@ module.exports = async () => {
         boost_role_ids TEXT NULL,
         channel_mode VARCHAR(16) NULL,
         channel_ids TEXT NULL,
-        message_with_role VARCHAR(160) NOT NULL DEFAULT 'Level {level}. You unlocked {role}.',
-        message_without_role VARCHAR(160) NOT NULL DEFAULT 'Level {level}. Keep going.',
+        message_with_role VARCHAR(160) NOT NULL DEFAULT 'Congrats, {user}, you leveled up to **{level}**! You now have the {role}!',
+        message_without_role VARCHAR(160) NOT NULL DEFAULT 'Congrats, {user}, you leveled up to **{level}**!',
         updated_by VARCHAR(32) NULL,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
         INDEX idx_levelup_channel (levelup_channel_id)
