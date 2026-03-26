@@ -6,11 +6,28 @@ const {
   isPremiumAllowedUser,
   hasInstanceForUserGlobal
 } = require('../utils/premiumManager');
+const { redeemPremiumForGuild, removePremiumForUser } = require('../utils/premiumAccessManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('premium')
-    .setDescription('Manage your premium custom bot token (DM only)')
+    .setDescription('Manage premium features')
+    .addSubcommand(sub =>
+      sub
+        .setName('redeem')
+        .setDescription('Redeem server premium perks (no custom bot) for this server')
+        .addStringOption(o =>
+          o
+            .setName('code')
+            .setDescription('Optional premium code from the owner panel')
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('remove')
+        .setDescription('Remove your redeemed server premium perks immediately')
+    )
     .addSubcommand(sub =>
       sub
         .setName('start')
@@ -34,9 +51,48 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    const sub = interaction.options.getSubcommand();
+
+    if (sub === 'redeem') {
+      if (!interaction.inGuild()) {
+        return interaction.reply({
+          content: '❌ `/premium redeem` must be used in the server where you want perks enabled.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const code = interaction.options.getString('code');
+
+      try {
+        const redeemed = await redeemPremiumForGuild(interaction.client, interaction.guildId, interaction.user.id, code);
+        const expiryText = redeemed.expiresAt ? ` Expires <t:${Math.floor(redeemed.expiresAt / 1000)}:R>.` : '';
+        const modeText = redeemed.sourceType === 'code' ? 'premium code' : 'role-based premium';
+
+        return interaction.reply({
+          content: `✅ Premium perks enabled for **${redeemed.guildName}** using ${modeText}.${expiryText} This tier includes premium server features but not a custom bot.`,
+          flags: MessageFlags.Ephemeral
+        });
+      } catch (error) {
+        return interaction.reply({
+          content: `❌ Could not redeem premium perks: ${error.message}`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+    }
+
+    if (sub === 'remove') {
+      const result = await removePremiumForUser(interaction.user.id);
+      return interaction.reply({
+        content: result.removed
+          ? '✅ Your server premium perks were removed immediately. You can now redeem in a new server.'
+          : 'ℹ️ You do not currently have active redeemed server premium perks.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
     if (interaction.inGuild()) {
       return interaction.reply({
-        content: '❌ This command only works in DMs.',
+        content: '❌ `/premium start|stop|status` only works in DMs.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -48,8 +104,6 @@ module.exports = {
         flags: MessageFlags.Ephemeral
       });
     }
-
-    const sub = interaction.options.getSubcommand();
 
     if (sub === 'status') {
       const status = getInstanceStatus(interaction.user.id);

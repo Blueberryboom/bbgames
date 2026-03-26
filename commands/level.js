@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { query } = require('../database');
 const { xpForNextLevel, progressBar } = require('../utils/levelingSystem');
+const { guildHasPremiumPerks } = require('../utils/premiumPerks');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -27,6 +28,24 @@ module.exports = {
       const boardType = interaction.options.getString('leaderboard');
       if (boardType) {
         return showLeaderboard(interaction, boardType);
+      }
+
+
+      const premiumEnabled = await guildHasPremiumPerks(interaction.client, interaction.guildId);
+      if (!premiumEnabled) {
+        const rewardRows = await query(
+          `SELECT COUNT(*) AS total
+           FROM leveling_role_rewards
+           WHERE guild_id = ?`,
+          [interaction.guildId]
+        );
+
+        if (Number(rewardRows[0]?.total || 0) > 15) {
+          return interaction.reply({
+            content: '⚠️ Leveling is temporarily disabled in this server because more than 15 level reward roles are configured without premium perks. Reduce it to 15 or less.',
+            flags: MessageFlags.Ephemeral
+          });
+        }
       }
 
       const target = interaction.options.getUser('user') || interaction.user;

@@ -195,6 +195,69 @@ module.exports = async () => {
       ADD COLUMN IF NOT EXISTS notified_at BIGINT NULL
     `);
 
+
+
+    // ─── PREMIUM GUILD PERKS ──────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS premium_guild_perks (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        owner_user_id VARCHAR(32) NOT NULL,
+        source_user_id VARCHAR(32) NOT NULL,
+        active BOOLEAN NOT NULL DEFAULT 1,
+        grace_expires_at BIGINT NULL,
+        notified_at BIGINT NULL,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_perks_owner (owner_user_id),
+        INDEX idx_perks_source (source_user_id),
+        INDEX idx_perks_grace (grace_expires_at)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_guild_perks
+      ADD COLUMN IF NOT EXISTS grace_expires_at BIGINT NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_guild_perks
+      ADD COLUMN IF NOT EXISTS notified_at BIGINT NULL
+    `);
+
+
+
+    await pool.query(`
+      ALTER TABLE premium_guild_perks
+      ADD COLUMN IF NOT EXISTS source_type VARCHAR(16) NOT NULL DEFAULT 'role'
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_guild_perks
+      ADD COLUMN IF NOT EXISTS code VARCHAR(64) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_guild_perks
+      ADD COLUMN IF NOT EXISTS expires_at BIGINT NULL
+    `);
+
+    // ─── PREMIUM CODES ─────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS premium_codes (
+        code VARCHAR(64) PRIMARY KEY,
+        duration_type VARCHAR(16) NOT NULL,
+        created_by VARCHAR(32) NOT NULL,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        deleted_at BIGINT NULL,
+        redeemed_by_user_id VARCHAR(32) NULL,
+        redeemed_guild_id VARCHAR(32) NULL,
+        redeemed_at BIGINT NULL,
+        expires_at BIGINT NULL,
+        INDEX idx_premium_codes_deleted (deleted_at),
+        INDEX idx_premium_codes_redeemed (redeemed_by_user_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── PREMIUM INSTANCES ─────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS premium_instances (

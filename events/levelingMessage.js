@@ -5,6 +5,7 @@ const {
   xpForNextLevel,
   renderLevelMessage
 } = require('../utils/levelingSystem');
+const { guildHasPremiumPerks } = require('../utils/premiumPerks');
 
 const rewardsCache = new Map();
 const REWARD_CACHE_TTL_MS = 60 * 1000;
@@ -14,6 +15,20 @@ module.exports = async function handleLevelingMessage(message) {
     if (!message.guild || message.author?.bot || !message.member) return;
 
     const settings = await getGuildLevelingSettings(message.guild.id);
+
+    const premiumEnabled = await guildHasPremiumPerks(message.client, message.guild.id);
+    if (!premiumEnabled) {
+      const rewardRows = await query(
+        `SELECT COUNT(*) AS total
+         FROM leveling_role_rewards
+         WHERE guild_id = ?`,
+        [message.guild.id]
+      );
+
+      if (Number(rewardRows[0]?.total || 0) > 15) {
+        return;
+      }
+    }
 
     if (settings.channelMode === 'whitelist' && settings.channelIds.length && !settings.channelIds.includes(message.channel.id)) {
       return;

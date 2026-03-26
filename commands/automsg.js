@@ -6,10 +6,8 @@ const {
 
 const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
-const {
-  getAutoMessageLimit,
-  refreshAutoMessageSchedule
-} = require('../utils/autoMessageManager');
+const { refreshAutoMessageSchedule } = require('../utils/autoMessageManager');
+const { getPremiumLimit } = require('../utils/premiumPerks');
 
 const MIN_INTERVAL_MS = 30 * 60 * 1000;
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -99,7 +97,7 @@ module.exports = {
         [interaction.guildId]
       );
 
-      const limit = getAutoMessageLimit(interaction.client);
+      const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
       if (currentRows.length >= limit) {
         return interaction.reply({
           content: `❌ This bot can only have ${limit} automatic messages in this server.`,
@@ -175,7 +173,7 @@ module.exports = {
       });
     }
 
-    const limit = getAutoMessageLimit(interaction.client);
+    const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
     const list = rows.map((row, index) => {
       const remainingMs = Math.max(0, Number(row.next_run_at) - Date.now());
       return `${index + 1}. ID **${row.id}** • <#${row.channel_id}> • every **${formatDuration(Number(row.interval_ms))}** • next in **${formatDuration(remainingMs)}**`;

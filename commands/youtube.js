@@ -14,9 +14,10 @@ const youtubeSetupState = require('../utils/youtubeSetupState');
 
 const MAX_YOUTUBE_SUBSCRIPTIONS = 5;
 const MAX_YOUTUBE_SUBSCRIPTIONS_PREMIUM = 25;
+const { getPremiumLimit } = require('../utils/premiumPerks');
 
-function getSubscriptionLimit(client) {
-  return client?.isPremiumInstance ? MAX_YOUTUBE_SUBSCRIPTIONS_PREMIUM : MAX_YOUTUBE_SUBSCRIPTIONS;
+async function getSubscriptionLimit(client, guildId) {
+  return getPremiumLimit(client, guildId, MAX_YOUTUBE_SUBSCRIPTIONS, MAX_YOUTUBE_SUBSCRIPTIONS_PREMIUM);
 }
 
 module.exports = {
@@ -88,7 +89,7 @@ module.exports = {
           [interaction.guildId]
         );
 
-        const maxSubscriptions = getSubscriptionLimit(interaction.client);
+        const maxSubscriptions = await getSubscriptionLimit(interaction.client, interaction.guildId);
         if (existingRows.length >= maxSubscriptions) {
           return interaction.reply({
             content: `❌ You can only configure up to ${maxSubscriptions} YouTube channels per server.`,
@@ -190,7 +191,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor('#ff0000')
-      .setTitle(`📺 YouTube Subscriptions (${rows.length}/${getSubscriptionLimit(interaction.client)})`)
+      .setTitle(`📺 YouTube Subscriptions (${rows.length}/${await getSubscriptionLimit(interaction.client, interaction.guildId)})`)
       .setDescription(
         rows.map(row =>
           `• \`${row.youtube_channel_id}\` → <#${row.discord_channel_id}>${row.ping_role_id ? ` (ping <@&${row.ping_role_id}>)` : ''}`
