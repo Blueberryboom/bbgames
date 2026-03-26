@@ -36,7 +36,7 @@ const HELP_MODULES = {
   },
   misc: {
     name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`.'
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`.'
   }
 };
 const RPS_CHOICE_EMOJI = {
@@ -272,7 +272,7 @@ module.exports = async (interaction) => {
 
     if (interaction.customId.startsWith('rps_pick_')) {
       const [, , gameId, choice] = interaction.customId.split('_');
-      const game = rpsState.consumeGame(gameId);
+      const game = rpsState.getGame(gameId);
 
       if (!game) {
         return interaction.reply({
@@ -287,6 +287,8 @@ module.exports = async (interaction) => {
           flags: MessageFlags.Ephemeral
         });
       }
+
+      rpsState.consumeGame(gameId);
 
       const challenger = await interaction.client.users.fetch(game.challengerId).catch(() => null);
       const firstUser = challenger || `<@${game.challengerId}>`;

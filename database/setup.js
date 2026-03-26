@@ -93,6 +93,25 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+
+    // ─── AUTO MESSAGES ────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS auto_messages (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        content TEXT NOT NULL,
+        interval_ms BIGINT NOT NULL,
+        next_run_at BIGINT NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (id),
+        INDEX idx_automsg_guild (guild_id),
+        INDEX idx_automsg_next_run (next_run_at)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── EVENT ADMIN ROLES ──────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_roles (

@@ -15,6 +15,7 @@ const { startGuildCleanupScheduler, scheduleGuildDataDeletion, cancelGuildDataDe
 const { initPremiumAccessManager } = require('./utils/premiumAccessManager');
 const { query } = require('./database');
 const { buildWelcomePayload } = require('./utils/welcomeSystem');
+const { initializeAutoMessageScheduler, clearGuildAutoMessages } = require('./utils/autoMessageManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -77,6 +78,9 @@ client.once('clientReady', async () => {
 
     // Delayed guild data cleanup worker (shard 0 only).
     startGuildCleanupScheduler(client);
+
+    // Auto message scheduler.
+    await initializeAutoMessageScheduler(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
@@ -173,6 +177,7 @@ client.on('guildCreate', async guild => {
 
 client.on('guildDelete', async guild => {
   try {
+    clearGuildAutoMessages(client, guild.id);
     await scheduleGuildDataDeletion(guild.id, 'main_left');
     console.log(`🕒 Scheduled guild data cleanup for ${guild.id} in 3 days`);
   } catch (err) {
