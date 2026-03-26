@@ -327,16 +327,19 @@ module.exports = async (interaction) => {
     const action = parts[1];
     const giveawayId = parts.slice(2).join('_');
 
+    // Acknowledge giveaway button interactions immediately to avoid Discord's
+    // 3-second timeout causing "Unknown interaction" API errors.
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    }
+
     const rows = await query(
       `SELECT * FROM giveaways WHERE id = ?`,
       [giveawayId]
     );
 
     if (!rows || rows.length === 0) {
-      return interaction.reply({
-        content: 'Giveaway not found.',
-        flags: MessageFlags.Ephemeral
-      });
+      return replyToButton(interaction, 'Giveaway not found.');
     }
 
     const giveaway = rows[0];
@@ -349,27 +352,21 @@ module.exports = async (interaction) => {
 
       const total = Number(countRows[0]?.total || 0);
 
-      return interaction.reply({
-        content: `👥 **${total}** participant${total === 1 ? '' : 's'} entered this giveaway.`,
-        flags: MessageFlags.Ephemeral
-      });
+      return replyToButton(
+        interaction,
+        `👥 **${total}** participant${total === 1 ? '' : 's'} entered this giveaway.`
+      );
     }
 
     if (giveaway.ended) {
-      return interaction.reply({
-        content: '❌ This giveaway has already ended.',
-        flags: MessageFlags.Ephemeral
-      });
+      return replyToButton(interaction, '❌ This giveaway has already ended.');
     }
 
     if (action === 'join') {
       if (giveaway.required_role) {
         const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         if (!member || !member.roles.cache.has(giveaway.required_role)) {
-          return interaction.reply({
-            content: `❌ You need <@&${giveaway.required_role}> to enter this giveaway.`,
-            flags: MessageFlags.Ephemeral
-          });
+          return replyToButton(interaction, `❌ You need <@&${giveaway.required_role}> to enter this giveaway.`);
         }
       }
 
@@ -406,10 +403,7 @@ module.exports = async (interaction) => {
 
       await refreshParticipantButton(interaction, giveawayId);
 
-      await interaction.reply({
-        content: feedback,
-        flags: MessageFlags.Ephemeral
-      });
+      await replyToButton(interaction, feedback);
 
       return;
     }
@@ -505,4 +499,15 @@ async function refreshParticipantButton(interaction, giveawayId) {
   );
 
   await interaction.message.edit({ components: rows }).catch(() => {});
+}
+
+async function replyToButton(interaction, content) {
+  if (interaction.deferred || interaction.replied) {
+    return interaction.editReply({ content });
+  }
+
+  return interaction.reply({
+    content,
+    flags: MessageFlags.Ephemeral
+  });
 }

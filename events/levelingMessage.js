@@ -15,6 +15,10 @@ module.exports = async function handleLevelingMessage(message) {
     if (!message.guild || message.author?.bot || !message.member) return;
 
     const settings = await getGuildLevelingSettings(message.guild.id);
+    if (!settings.enabled) {
+      // Guild leveling remains inactive until /leveling config is run.
+      return;
+    }
 
     const premiumEnabled = await guildHasPremiumPerks(message.client, message.guild.id);
     if (!premiumEnabled) {

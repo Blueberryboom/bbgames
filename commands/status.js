@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { guildHasPremiumPerks } = require('../utils/premiumPerks');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -88,6 +89,9 @@ module.exports = {
 
     if (client.isPremiumInstance) {
       premiumDisplay = 'Yes';
+    } else if (interaction.inGuild()) {
+      // Show premium as enabled when this guild has redeemed premium perks.
+      premiumDisplay = await guildHasPremiumPerks(client, interaction.guildId) ? 'Yes' : 'No';
     } else if (!interaction.inGuild()) {
       if (client.shard) {
         const userId = interaction.user.id;

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { query } = require('../database');
-const { xpForNextLevel, progressBar } = require('../utils/levelingSystem');
+const { xpForNextLevel, progressBar, getGuildLevelingSettings } = require('../utils/levelingSystem');
 const { guildHasPremiumPerks } = require('../utils/premiumPerks');
 
 module.exports = {
@@ -25,6 +25,14 @@ module.exports = {
 
   async execute(interaction) {
     try {
+      const settings = await getGuildLevelingSettings(interaction.guildId);
+      if (!settings.enabled) {
+        return interaction.reply({
+          content: '⚠️ Leveling is currently disabled in this server. Run `/leveling config` to activate it.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
       const boardType = interaction.options.getString('leaderboard');
       if (boardType) {
         return showLeaderboard(interaction, boardType);

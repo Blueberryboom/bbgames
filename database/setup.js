@@ -273,6 +273,7 @@ module.exports = async () => {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS leveling_settings (
         guild_id VARCHAR(32) PRIMARY KEY,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
         levelup_channel_id VARCHAR(32) NULL,
         difficulty TINYINT NOT NULL DEFAULT 3,
         boost_role_ids TEXT NULL,
@@ -284,6 +285,11 @@ module.exports = async () => {
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
         INDEX idx_levelup_channel (levelup_channel_id)
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE leveling_settings
+      ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT 1
     `);
 
     await pool.query(`
