@@ -46,12 +46,13 @@ module.exports = {
           o.setName('message')
             .setDescription('Pick one of the pre-made level up messages')
             .setRequired(true)
+            // Use concrete message examples so admins can preview exactly what users will see.
             .addChoices(
-              { name: '🥳 Congrats @usermention, level **(level)**, role reward included', value: 'classic' },
-              { name: '🎉 Big W @usermention, level **(level)** hype style', value: 'hype' },
-              { name: '🛡️ Adventure style level-up for @usermention', value: 'fantasy' },
-              { name: '✨ Chill style level-up for @usermention', value: 'chill' },
-              { name: '🕹️ Gamer LEVEL UP style for @usermention', value: 'gamer' }
+              { name: 'Example: Congrats, @usermention! You reached level **(level)**.', value: 'classic' },
+              { name: 'Example: 🎉 Big W @usermention! You hit **level (level)**!', value: 'hype' },
+              { name: 'Example: 🛡️ @usermention advanced to **level (level)**!', value: 'fantasy' },
+              { name: 'Example: ✨ Nice one @usermention — level **(level)** achieved.', value: 'chill' },
+              { name: 'Example: 🕹️ LEVEL UP! @usermention is now **level (level)**!', value: 'gamer' }
             )
         )
         .addRoleOption(o => o.setName('boost_role_1').setDescription('Boost role 1').setRequired(false))

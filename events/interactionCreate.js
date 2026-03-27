@@ -29,7 +29,7 @@ const HELP_MODULES = {
   },
   fun: {
     name: 'Fun',
-    value: 'Commands: `/coinflip`, `/dadjoke`, `/tictactoe`, `/rps`.'
+    value: 'Commands: `/coinflip`, `/dadjoke`, `/dice`, `/tictactoe`, `/rps`.'
   },
   youtube: {
     name: 'YouTube',

@@ -12,7 +12,12 @@ const REWARD_CACHE_TTL_MS = 60 * 1000;
 
 module.exports = async function handleLevelingMessage(message) {
   try {
-    if (!message.guild || message.author?.bot || !message.member) return;
+    if (!message.guild || message.author?.bot) return;
+
+    // Some gateway events can arrive without a hydrated GuildMember object.
+    // Fetching here prevents XP from silently never updating for those users.
+    const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
+    if (!member) return;
 
     const settings = await getGuildLevelingSettings(message.guild.id);
     if (!settings.enabled) {
@@ -59,7 +64,8 @@ module.exports = async function handleLevelingMessage(message) {
       return;
     }
 
-    const userHasBoostRole = settings.boostRoleIds.some(roleId => message.member.roles.cache.has(roleId));
+    // Check boost roles against the resolved member object (cached or freshly fetched).
+    const userHasBoostRole = settings.boostRoleIds.some(roleId => member.roles.cache.has(roleId));
     const boostMultiplier = userHasBoostRole ? 1.7 : 1;
     const gainedXp = Math.max(1, Math.floor(baseXp * boostMultiplier / difficultyMultiplier(settings.difficulty)));
 
@@ -97,7 +103,7 @@ module.exports = async function handleLevelingMessage(message) {
       if (!role) continue;
 
       try {
-        await message.member.roles.add(roleId, `Level reward for level ${level}`);
+        await member.roles.add(roleId, `Level reward for level ${level}`);
         if (!grantedRoleMention) grantedRoleMention = `<@&${roleId}>`;
       } catch (error) {
         console.warn('⚠️ Could not assign level reward role:', error?.message || error);
