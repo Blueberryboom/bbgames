@@ -66,7 +66,12 @@ async function handleStickyMessage(message) {
       if (!removedPreviousSticky) return;
     }
 
-    const stickyMessage = await message.channel.send(freshSticky.content).catch(() => null);
+    // Force mention parsing off as a second safety layer in case legacy sticky content
+    // still contains mention-like tokens saved before validation rules were added.
+    const stickyMessage = await message.channel.send({
+      content: freshSticky.content,
+      allowedMentions: { parse: [] }
+    }).catch(() => null);
     if (!stickyMessage) return;
 
     await query(

@@ -2,24 +2,24 @@ const { query } = require('../database');
 
 const LEVELUP_MESSAGE_PRESETS = {
   classic: {
-    withRole: 'Congrats, {user}, you leveled up to **{level}**! You now have the {role}!',
-    withoutRole: 'Congrats, {user}, you leveled up to **{level}**!'
+    withRole: 'Congrats {user}, you reached level **{level}**! You now have the {role}!',
+    withoutRole: 'Congrats {user}, you reached level **{level}**!'
   },
   hype: {
-    withRole: '🎉 Big W, {user}! You reached **level {level}** and unlocked {role}!',
-    withoutRole: '🎉 Big W, {user}! You reached **level {level}**!'
+    withRole: 'Yoo {user}, you leveled up to level **{level}**!! You now have the {role}!',
+    withoutRole: 'Yoo {user}, you leveled up to level **{level}**!!'
   },
   fantasy: {
-    withRole: '🛡️ {user} advanced to **level {level}** and has been granted {role}!',
-    withoutRole: '🛡️ {user} advanced to **level {level}**!'
+    withRole: '{user} advanced to level **{level}** and unlocked {role}.',
+    withoutRole: '{user} advanced to level **{level}**'
   },
   chill: {
-    withRole: '✨ Nice one, {user} — level **{level}** achieved. New reward: {role}.',
-    withoutRole: '✨ Nice one, {user} — level **{level}** achieved.'
+    withRole: 'Nice one {user}, you are now level **{level}**! Reward unlocked: {role}.',
+    withoutRole: 'Nice one {user}, you are now level **{level}**!'
   },
   gamer: {
-    withRole: '🕹️ LEVEL UP! {user} is now **level {level}** and unlocked {role}!',
-    withoutRole: '🕹️ LEVEL UP! {user} is now **level {level}**!'
+    withRole: 'LEVEL UP {user} | **LEVEL {level}** | Reward: {role}',
+    withoutRole: 'LEVEL UP {user} | **LEVEL {level}**'
   }
 };
 const DEFAULT_MESSAGE_PRESET_KEY = 'classic';
