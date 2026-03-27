@@ -20,6 +20,9 @@ const { BOT_OWNER_ID } = require('../utils/constants');
 
 const FREE_ROLE_LIMIT = 15;
 const PREMIUM_ROLE_LIMIT = 50;
+// Keep these in one place so validation and user-facing copy always stay in sync.
+const MIN_DIFFICULTY = 1;
+const MAX_DIFFICULTY = 5;
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -37,9 +40,9 @@ module.exports = {
         )
         .addIntegerOption(o =>
           o.setName('difficulty')
-            .setDescription('Difficulty from 1 to 5')
-            .setMinValue(1)
-            .setMaxValue(5)
+            .setDescription(`Difficulty from ${MIN_DIFFICULTY} to ${MAX_DIFFICULTY}`)
+            .setMinValue(MIN_DIFFICULTY)
+            .setMaxValue(MAX_DIFFICULTY)
             .setRequired(true)
         )
         .addStringOption(o =>
@@ -48,11 +51,11 @@ module.exports = {
             .setRequired(true)
             // Use concrete message examples so admins can preview exactly what users will see.
             .addChoices(
-              { name: 'Example: Congrats, @usermention! You reached level **(level)**.', value: 'classic' },
-              { name: 'Example: 🎉 Big W @usermention! You hit **level (level)**!', value: 'hype' },
-              { name: 'Example: 🛡️ @usermention advanced to **level (level)**!', value: 'fantasy' },
-              { name: 'Example: ✨ Nice one @usermention — level **(level)** achieved.', value: 'chill' },
-              { name: 'Example: 🕹️ LEVEL UP! @usermention is now **level (level)**!', value: 'gamer' }
+              { name: 'Example: Congrats @usermention, you reached level **(level)**!', value: 'classic' },
+              { name: 'Example: Yoo @usermention, you leveled up to level **(level)**!!', value: 'hype' },
+              { name: 'Example: @usermention advanced to level **(level)**', value: 'fantasy' },
+              { name: 'Example: Nice one @usermention, you are now level **(level)**!', value: 'chill' },
+              { name: 'Example: LEVEL UP @usermention | **LEVEL (level)**', value: 'gamer' }
             )
         )
         .addRoleOption(o => o.setName('boost_role_1').setDescription('Boost role 1').setRequired(false))
@@ -221,7 +224,9 @@ async function handleConfig(interaction) {
   invalidateGuildLevelingCache(interaction.guildId);
 
   return interaction.reply({
-    content: `✅ Leveling config saved. Difficulty ${finalDifficulty}, channel <#${channel.id}>, message preset \`${messagePreset}\`.`,
+    // Include the supported difficulty range directly in the confirmation so admins
+    // can immediately see the lowest and highest accepted values.
+    content: `✅ Leveling config saved. Difficulty ${finalDifficulty} (min ${MIN_DIFFICULTY}, max ${MAX_DIFFICULTY}), channel <#${channel.id}>, message preset \`${messagePreset}\`.`,
     flags: MessageFlags.Ephemeral
   });
 }

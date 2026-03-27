@@ -9,6 +9,9 @@ const checkPerms = require('../utils/checkEventPerms');
 const { DEFAULT_COOLDOWN_MS, cancelStickySchedule } = require('../utils/stickyManager');
 const { getPremiumLimit } = require('../utils/premiumPerks');
 
+// Disallow mention syntaxes to keep sticky messages from pinging users/roles/everyone.
+const DISALLOWED_MENTION_PATTERN = /(@everyone|@here|<@!?\d+>|<@&\d+>|(^|\s)@[^\s@]+)/i;
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('sticky')
@@ -73,6 +76,14 @@ module.exports = {
       const content = interaction.options.getString('message', true).trim();
       const cooldownSeconds = interaction.options.getInteger('cooldown_seconds') || Math.round(DEFAULT_COOLDOWN_MS / 1000);
       const cooldownMs = cooldownSeconds * 1000;
+
+      // Reject sticky content containing possible mention tokens so sticky posts stay non-pinging.
+      if (DISALLOWED_MENTION_PATTERN.test(content)) {
+        return interaction.reply({
+          content: '❌ Sticky messages cannot contain mentions (for example: @everyone, @here, or @username).',
+          flags: MessageFlags.Ephemeral
+        });
+      }
 
       const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
 
