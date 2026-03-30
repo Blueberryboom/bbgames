@@ -1,4 +1,12 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  MessageFlags,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType
+} = require('discord.js');
 const { query } = require('../database');
 const { xpForNextLevel, progressBar, getGuildLevelingSettings } = require('../utils/levelingSystem');
 const { guildHasPremiumPerks } = require('../utils/premiumPerks');
@@ -89,8 +97,114 @@ module.exports = {
 };
 
 async function showLeaderboard(interaction, boardType) {
+  const rows = await fetchLeaderboardRows(interaction, boardType);
+  if (!rows.length) {
+    return interaction.reply({ content: 'No leaderboard data yet.' });
+  }
+
+  const title = boardType === 'all'
+    ? 'Level Leaderboard • All Time'
+    : boardType === 'month'
+      ? 'Level Leaderboard • 30 Days'
+      : 'Level Leaderboard • 7 Days';
+
+  const perPage = 10;
+  const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+  let page = 0;
+  const customBase = `level_board:${interaction.id}`;
+
+  const buildEmbed = () => {
+    const slice = rows.slice(page * perPage, (page + 1) * perPage);
+    const lines = slice.map((row, index) => {
+      const rank = page * perPage + index + 1;
+      const valueText = boardType === 'all'
+        ? `Level ${Number(row.level || 0)} (${Number(row.xp || 0)} XP)`
+        : `${Number(row.total_xp || 0)} XP`;
+      return `#${rank} <@${row.user_id}> - ${valueText}`;
+    });
+
+    return new EmbedBuilder()
+      .setColor(0xF1C40F)
+      .setTitle(title)
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: `Page ${page + 1} / ${totalPages} • ${rows.length} users` });
+  };
+
+  const buildComponents = () => [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${customBase}:left`)
+        .setLabel('⬅')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(totalPages <= 1),
+      new ButtonBuilder()
+        .setCustomId(`${customBase}:me`)
+        .setLabel('Find Me')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`${customBase}:right`)
+        .setLabel('➡')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(totalPages <= 1)
+    )
+  ];
+
+  const reply = await interaction.reply({
+    embeds: [buildEmbed()],
+    components: buildComponents()
+  });
+
+  const message = await interaction.fetchReply();
+  const collector = message.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 120000
+  });
+
+  collector.on('collect', async i => {
+    if (!i.customId.startsWith(customBase)) return;
+
+    if (i.customId.endsWith(':left')) {
+      page = (page - 1 + totalPages) % totalPages;
+      return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+    }
+
+    if (i.customId.endsWith(':right')) {
+      page = (page + 1) % totalPages;
+      return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+    }
+
+    const index = rows.findIndex(row => row.user_id === i.user.id);
+    if (index === -1) {
+      return i.reply({ content: 'You are not ranked on this leaderboard yet.', flags: MessageFlags.Ephemeral });
+    }
+
+    page = Math.floor(index / perPage);
+    return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+  });
+
+  collector.on('end', async () => {
+    await message.edit({ components: [] }).catch(() => null);
+  });
+
+  return reply;
+}
+
+async function fetchLeaderboardRows(interaction, boardType) {
+  if (boardType === 'all') {
+    const memberIds = new Set((await interaction.guild.members.fetch()).map(member => member.id));
+    const rows = await query(
+      `SELECT user_id, level, xp
+       FROM leveling_users
+       WHERE guild_id = ?
+       ORDER BY level DESC, xp DESC, user_id ASC`,
+      [interaction.guildId]
+    );
+
+    return rows.filter(row => memberIds.has(row.user_id));
+  }
+
   let where = '';
-  let params = [interaction.guildId];
+  const params = [interaction.guildId];
 
   if (boardType === '7d') {
     where = 'AND created_at >= ?';
@@ -100,31 +214,12 @@ async function showLeaderboard(interaction, boardType) {
     params.push(Date.now() - (30 * 24 * 60 * 60 * 1000));
   }
 
-  const rows = await query(
+  return query(
     `SELECT user_id, COALESCE(SUM(xp_gained), 0) AS total_xp
      FROM leveling_xp_events
      WHERE guild_id = ? ${where}
      GROUP BY user_id
-     ORDER BY total_xp DESC
-     LIMIT 10`,
+     ORDER BY total_xp DESC, user_id ASC`,
     params
   );
-
-  if (!rows.length) {
-    return interaction.reply({ content: 'No leaderboard data yet.' });
-  }
-
-  const lines = rows.map((row, index) => `#${index + 1} <@${row.user_id}> - ${Number(row.total_xp)} XP`);
-  const title = boardType === 'all'
-    ? 'Level Leaderboard • All Time'
-    : boardType === 'month'
-      ? 'Level Leaderboard • 30 Days'
-      : 'Level Leaderboard • 7 Days';
-
-  const embed = new EmbedBuilder()
-    .setColor(0xF1C40F)
-    .setTitle(title)
-    .setDescription(lines.join('\n'));
-
-  return interaction.reply({ embeds: [embed] });
 }
