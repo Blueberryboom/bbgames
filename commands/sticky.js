@@ -85,7 +85,7 @@ module.exports = {
         });
       }
 
-      const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
+      const limit = await getPremiumLimit(interaction.client, interaction.guildId, 5, 10);
 
       const currentRows = await query(
         `SELECT id, channel_id
@@ -166,7 +166,7 @@ module.exports = {
       });
     }
 
-    const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
+    const limit = await getPremiumLimit(interaction.client, interaction.guildId, 5, 10);
     const body = rows.map((row, index) => {
       const cooldownSeconds = Math.round((Number(row.cooldown_ms) || DEFAULT_COOLDOWN_MS) / 1000);
       return `${index + 1}. <#${row.channel_id}> • cooldown: **${cooldownSeconds}s**`;
