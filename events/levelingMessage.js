@@ -73,12 +73,9 @@ module.exports = async function handleLevelingMessage(message) {
     let level = Number(current.level || 0);
 
     const rewardMap = await getRewardMap(message.guild.id);
-    const newlyEarnedRoles = [];
     while (xp >= xpForNextLevel(level)) {
       xp -= xpForNextLevel(level);
       level += 1;
-      const roleId = rewardMap.get(level);
-      if (roleId) newlyEarnedRoles.push(roleId);
     }
 
     await query(
@@ -93,22 +90,16 @@ module.exports = async function handleLevelingMessage(message) {
       [message.guild.id, message.author.id, gainedXp, now]
     );
 
-    if (!newlyEarnedRoles.length && level === Number(current.level || 0)) {
+    if (level === Number(current.level || 0)) {
       return;
     }
 
-    let grantedRoleMention = null;
-    for (const roleId of newlyEarnedRoles) {
-      const role = message.guild.roles.cache.get(roleId);
-      if (!role) continue;
-
-      try {
-        await member.roles.add(roleId, `Level reward for level ${level}`);
-        if (!grantedRoleMention) grantedRoleMention = `<@&${roleId}>`;
-      } catch (error) {
-        console.warn('⚠️ Could not assign level reward role:', error?.message || error);
-      }
-    }
+    const grantedRoleMention = await syncRewardRoles({
+      guild: message.guild,
+      member,
+      rewardMap,
+      level
+    });
 
     const outputChannel = settings.levelup_channel_id
       ? await message.guild.channels.fetch(settings.levelup_channel_id).catch(() => null)
@@ -134,6 +125,39 @@ module.exports = async function handleLevelingMessage(message) {
 
 function parseRoleIds(content) {
   return (content.match(/\d{16,20}/g) || []).slice(0, 1);
+}
+
+async function syncRewardRoles({ guild, member, rewardMap, level }) {
+  const rewardEntries = [...rewardMap.entries()];
+  const eligibleRoleIds = rewardEntries
+    .filter(([requiredLevel]) => Number(requiredLevel) <= level)
+    .map(([, roleId]) => roleId);
+  const rewardRoleIds = rewardEntries.map(([, roleId]) => roleId);
+
+  let firstGrantedRole = null;
+
+  for (const roleId of eligibleRoleIds) {
+    const role = guild.roles.cache.get(roleId);
+    if (!role || member.roles.cache.has(roleId)) continue;
+
+    try {
+      await member.roles.add(roleId, `Level reward sync for level ${level}`);
+      if (!firstGrantedRole) firstGrantedRole = roleId;
+    } catch (error) {
+      console.warn('⚠️ Could not assign level reward role:', error?.message || error);
+    }
+  }
+
+  for (const roleId of rewardRoleIds) {
+    if (eligibleRoleIds.includes(roleId) || !member.roles.cache.has(roleId)) continue;
+    try {
+      await member.roles.remove(roleId, `Level reward sync for level ${level}`);
+    } catch (error) {
+      console.warn('⚠️ Could not remove level reward role:', error?.message || error);
+    }
+  }
+
+  return firstGrantedRole ? `<@&${firstGrantedRole}>` : null;
 }
 
 async function getRewardMap(guildId) {

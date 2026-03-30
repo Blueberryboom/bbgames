@@ -364,11 +364,11 @@ module.exports = {
         return interaction.editReply("Bot is not in any servers.");
 
       const perPage = 10;
-      const totalPages = Math.ceil(guilds.length / perPage);
       let page = 0;
 
       const buildEmbed = () => {
         const slice = guilds.slice(page * perPage, (page + 1) * perPage);
+        const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
 
         return new EmbedBuilder()
           .setTitle(`🌍 Total Servers: ${guilds.length}`)
@@ -386,7 +386,7 @@ module.exports = {
 
         const select = new StringSelectMenuBuilder()
           .setCustomId('select_server')
-          .setPlaceholder('Generate invite for server')
+          .setPlaceholder('Select server for details')
           .addOptions(
             slice.map(g => ({
               label: g.name.substring(0, 100),
@@ -399,11 +399,13 @@ module.exports = {
           new ButtonBuilder()
             .setCustomId('back')
             .setLabel('⬅')
-            .setStyle(ButtonStyle.Secondary),
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(guilds.length <= perPage),
           new ButtonBuilder()
             .setCustomId('next')
             .setLabel('➡')
             .setStyle(ButtonStyle.Secondary)
+            .setDisabled(guilds.length <= perPage)
         );
 
         return [
@@ -425,61 +427,84 @@ module.exports = {
           return i.reply({ content: "Not for you.", ephemeral: true });
 
         if (i.customId === "next") {
+          const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
           page = (page + 1) % totalPages;
           return i.update({ embeds: [buildEmbed()], components: buildComponents() });
         }
 
         if (i.customId === "back") {
+          const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
           page = (page - 1 + totalPages) % totalPages;
           return i.update({ embeds: [buildEmbed()], components: buildComponents() });
         }
 
         if (i.customId === "select_server") {
-
           const guildId = i.values[0];
-          let inviteUrl = null;
+          const detail = await buildServerDetail(interaction.client, guildId);
+          const actionRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`owner_server_leave:${guildId}`)
+              .setLabel('Leave')
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setCustomId(`owner_server_blacklist:${guildId}`)
+              .setLabel('Blacklist')
+              .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+              .setCustomId(`owner_server_invite:${guildId}`)
+              .setLabel('Generate Invite')
+              .setStyle(ButtonStyle.Primary)
+          );
 
-          try {
-            const results = await interaction.client.shard.broadcastEval(
-              async (client, { guildId }) => {
+          return i.reply({ embeds: [detail], components: [actionRow], ephemeral: true });
+        }
 
-                const guild = client.guilds.cache.get(guildId);
-                if (!guild) return null;
+        if (i.customId.startsWith('owner_server_invite:')) {
+          const guildId = i.customId.split(':')[1];
+          const inviteUrl = await generateGuildInvite(interaction.client, guildId);
+          if (!inviteUrl) {
+            return i.reply({ content: '❌ Cannot create invite for that server.', ephemeral: true });
+          }
+          return i.reply({ content: inviteUrl, ephemeral: true });
+        }
 
-                const channel = guild.channels.cache
-                  .filter(c =>
-                    c.isTextBased() &&
-                    c.permissionsFor(guild.members.me)
-                      ?.has("CreateInstantInvite")
-                  )
-                  .first();
-
-                if (!channel) return null;
-
-                try {
-                  const invite = await channel.createInvite({ maxAge: 300 });
-                  return invite.url;
-                } catch {
-                  return null;
-                }
-
-              },
-              { context: { guildId } }
-            );
-
-            inviteUrl = results.find(Boolean);
-
-          } catch (err) {
-            console.error(err);
+        if (i.customId.startsWith('owner_server_leave:')) {
+          const guildId = i.customId.split(':')[1];
+          const left = await leaveGuildById(interaction.client, guildId);
+          if (!left) {
+            return i.reply({ content: '❌ Could not leave that server.', ephemeral: true });
           }
 
-          if (!inviteUrl)
-            return i.reply({
-              content: "❌ Cannot create invite for that server.",
-              ephemeral: true
-            });
+          guilds = guilds.filter(g => g.id !== guildId);
+          if (!guilds.length) {
+            return i.update({ content: 'No servers remaining.', embeds: [], components: [] });
+          }
 
-          return i.reply({ content: inviteUrl, ephemeral: true });
+          page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
+          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+        }
+
+        if (i.customId.startsWith('owner_server_blacklist:')) {
+          const guildId = i.customId.split(':')[1];
+          try {
+            await pool.query(
+              `REPLACE INTO blacklist (guild_id, added_at)
+               VALUES (?, ?)`,
+              [guildId, Date.now()]
+            );
+          } catch (err) {
+            console.error(err);
+            return i.reply({ content: '❌ Failed to blacklist server.', ephemeral: true });
+          }
+
+          await leaveGuildById(interaction.client, guildId);
+          guilds = guilds.filter(g => g.id !== guildId);
+          if (!guilds.length) {
+            return i.update({ content: 'No servers remaining.', embeds: [], components: [] });
+          }
+
+          page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
+          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
         }
       });
 
@@ -799,3 +824,130 @@ ${messageText}`);
     }
   }
 };
+
+async function generateGuildInvite(client, guildId) {
+  try {
+    if (!client.shard) {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return null;
+      const channel = guild.channels.cache
+        .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has('CreateInstantInvite'))
+        .first();
+      if (!channel) return null;
+      const invite = await channel.createInvite({ maxAge: 300 }).catch(() => null);
+      return invite?.url || null;
+    }
+
+    const results = await client.shard.broadcastEval(
+      async (botClient, { guildId }) => {
+        const guild = botClient.guilds.cache.get(guildId);
+        if (!guild) return null;
+
+        const channel = guild.channels.cache
+          .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has('CreateInstantInvite'))
+          .first();
+        if (!channel) return null;
+
+        try {
+          const invite = await channel.createInvite({ maxAge: 300 });
+          return invite.url;
+        } catch {
+          return null;
+        }
+      },
+      { context: { guildId } }
+    );
+
+    return results.find(Boolean) || null;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+}
+
+async function leaveGuildById(client, guildId) {
+  try {
+    if (!client.shard) {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return false;
+      await guild.leave().catch(() => null);
+      return true;
+    }
+
+    const results = await client.shard.broadcastEval(
+      async (botClient, { guildId }) => {
+        const guild = botClient.guilds.cache.get(guildId);
+        if (!guild) return false;
+        await guild.leave().catch(() => null);
+        return true;
+      },
+      { context: { guildId } }
+    );
+    return results.some(Boolean);
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
+}
+
+async function buildServerDetail(client, guildId) {
+  const [premiumRows, countingRows, levelingRows, welcomeRows, stickyRows, autoRows, youtubeRows, giveawayRows, adminRoleRows, giveawayAdminRoleRows] = await Promise.all([
+    pool.query(
+      `SELECT owner_user_id, source_user_id, source_type, code, active, expires_at
+       FROM premium_guild_perks
+       WHERE guild_id = ?
+       LIMIT 1`,
+      [guildId]
+    ),
+    pool.query(`SELECT channel_id, current, announcements_enabled FROM counting WHERE guild_id = ? LIMIT 1`, [guildId]),
+    pool.query(`SELECT enabled, levelup_channel_id, difficulty, channel_mode, channel_ids FROM leveling_settings WHERE guild_id = ? LIMIT 1`, [guildId]),
+    pool.query(`SELECT channel_id, message_key, image_enabled FROM welcome_settings WHERE guild_id = ? LIMIT 1`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM sticky_messages WHERE guild_id = ? AND enabled = 1`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM auto_messages WHERE guild_id = ? AND enabled = 1`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM youtube_subscriptions WHERE guild_id = ?`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM giveaways WHERE guild_id = ? AND ended = 0`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM admin_roles WHERE guild_id = ?`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM giveaway_admin_roles WHERE guild_id = ?`, [guildId])
+  ]);
+
+  const premium = premiumRows[0] || null;
+  const counting = countingRows[0] || null;
+  const leveling = levelingRows[0] || null;
+  const welcome = welcomeRows[0] || null;
+
+  const moduleSummary = [
+    `Counting: ${counting ? 'enabled' : 'disabled'}`,
+    `Leveling: ${leveling?.enabled ? 'enabled' : 'disabled'}`,
+    `Welcome: ${welcome ? 'enabled' : 'disabled'}`,
+    `Sticky: ${Number(stickyRows[0]?.total || 0)} active`,
+    `Auto Messages: ${Number(autoRows[0]?.total || 0)} active`,
+    `YouTube: ${Number(youtubeRows[0]?.total || 0)} channels`,
+    `Giveaways: ${Number(giveawayRows[0]?.total || 0)} running`
+  ];
+
+  const configSummary = [
+    counting ? `Counting channel: <#${counting.channel_id}> • current \`${counting.current}\`` : 'Counting channel: not set',
+    counting ? `Announcements: ${counting.announcements_enabled ? 'on' : 'off'}` : 'Announcements: n/a',
+    leveling ? `Leveling channel: ${leveling.levelup_channel_id ? `<#${leveling.levelup_channel_id}>` : 'current channel'} • difficulty ${leveling.difficulty}` : 'Leveling settings: not configured',
+    leveling?.channel_mode ? `Leveling channel filter: ${leveling.channel_mode}` : 'Leveling channel filter: none',
+    welcome ? `Welcome channel: <#${welcome.channel_id}> • template: \`${welcome.message_key}\`` : 'Welcome settings: not configured',
+    `Admin roles: ${Number(adminRoleRows[0]?.total || 0)} • Giveaway admin roles: ${Number(giveawayAdminRoleRows[0]?.total || 0)}`
+  ];
+
+  const inviteUrl = await generateGuildInvite(client, guildId);
+  const premiumText = premium
+    ? `Yes (${premium.source_type || 'role'})${premium.code ? ` • code: \`${premium.code}\`` : ''}`
+    : 'No';
+
+  return new EmbedBuilder()
+    .setTitle(`Server Details • ${guildId}`)
+    .setColor(premium ? 0x9B59B6 : 0x5865F2)
+    .addFields(
+      { name: 'Premium', value: premiumText, inline: false },
+      { name: 'Premium Owner / Source', value: premium ? `owner: \`${premium.owner_user_id}\`\nsource: \`${premium.source_user_id}\`` : 'n/a', inline: false },
+      { name: 'Modules', value: moduleSummary.join('\n'), inline: false },
+      { name: 'Configuration', value: configSummary.join('\n').slice(0, 1024), inline: false },
+      { name: 'Quick Invite', value: inviteUrl || 'Not available', inline: false }
+    )
+    .setFooter({ text: 'Use the buttons below for actions.' });
+}
