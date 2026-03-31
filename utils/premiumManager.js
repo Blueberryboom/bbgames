@@ -11,9 +11,11 @@ const { query } = require('../database');
 const { buildWelcomePayload } = require('./welcomeSystem');
 const { scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./guildCleanup');
 const { handleStickyMessage } = require('./stickyManager');
+const handleLevelingMessage = require('../events/levelingMessage');
 const { stopYouTubeNotifier } = require('./youtubeNotifier');
 const { stopStatus } = require('../status');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages, stopAutoMessageSchedulers } = require('./autoMessageManager');
+const { clearAfkForMessage, notifyMentionedAfkUsers, formatDuration } = require('./afkManager');
 
 const activeInstances = new Map(); // ownerId -> instance
 const guildOwners = new Map(); // guildId -> ownerId
@@ -58,7 +60,16 @@ async function initPremiumRuntime(premiumClient, token) {
   const countingHandler = require('../events/countingMessage');
   premiumClient.on('messageCreate', async message => {
     try {
+      const clearedAfk = await clearAfkForMessage(message);
+      if (clearedAfk) {
+        await message.channel.send({
+          content: `👋 Welcome back ${message.author}!\nYou were AFK for **${formatDuration(clearedAfk.durationMs)}**`
+        }).catch(() => null);
+      }
+
+      await notifyMentionedAfkUsers(message);
       await countingHandler(message);
+      await handleLevelingMessage(message);
       await handleStickyMessage(message);
     } catch (err) {
       console.error('❌ Premium counting handler error:', err);

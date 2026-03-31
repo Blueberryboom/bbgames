@@ -317,6 +317,40 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── AFK SYSTEM ───────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS afk_status (
+        user_id VARCHAR(32) PRIMARY KEY,
+        guild_id VARCHAR(32) NOT NULL,
+        reason VARCHAR(200) NOT NULL,
+        only_this_server BOOLEAN NOT NULL DEFAULT 1,
+        started_at BIGINT NOT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_afk_guild (guild_id),
+        INDEX idx_afk_started (started_at)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS afk_leaderboard (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        longest_afk_ms BIGINT NOT NULL DEFAULT 0,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, user_id),
+        INDEX idx_afk_lb_rank (guild_id, longest_afk_ms)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS afk_user_activity (
+        user_id VARCHAR(32) PRIMARY KEY,
+        last_online_at BIGINT NOT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_afk_activity_online (last_online_at)
+      ) ENGINE=InnoDB;
+    `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS leveling_xp_events (
         id BIGINT NOT NULL AUTO_INCREMENT,
