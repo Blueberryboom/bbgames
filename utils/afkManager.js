@@ -133,7 +133,7 @@ async function notifyMentionedAfkUsers(message) {
     const embed = new EmbedBuilder()
       .setColor(0xF1C40F)
       .setTitle(`${user.username} is AFK!`)
-      .setDescription(`They'll be back soon 💛\n**Reason:** ${afk.reason || 'No reason provided.'}`);
+      .setDescription(`Please don't ping them!\n**Reason:** ${afk.reason || 'No reason provided.'}`);
 
     const sent = await message.channel.send({ embeds: [embed] }).catch(() => null);
     if (!sent) continue;
