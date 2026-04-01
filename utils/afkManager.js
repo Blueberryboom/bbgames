@@ -69,7 +69,7 @@ async function clearAfkForMessage(message) {
 
   const now = Date.now();
   await query(
-    `REPLACE INTO afk_user_activity (user_id, last_online_at, updated_at)
+    `INSERT INTO afk_user_activity (user_id, last_online_at, updated_at)
      VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE
       last_online_at = VALUES(last_online_at),
@@ -133,7 +133,7 @@ async function notifyMentionedAfkUsers(message) {
     const embed = new EmbedBuilder()
       .setColor(0xF1C40F)
       .setTitle(`${user.username} is AFK!`)
-      .setDescription(`Reason: ${afk.reason || 'No reason provided.'}`);
+      .setDescription(`They'll be back soon 💛\n**Reason:** ${afk.reason || 'No reason provided.'}`);
 
     const sent = await message.channel.send({ embeds: [embed] }).catch(() => null);
     if (!sent) continue;
@@ -146,6 +146,7 @@ async function notifyMentionedAfkUsers(message) {
 
 async function getAfkLeaderboard(guildId, limit = 10) {
   const cutoff = Date.now() - LEADERBOARD_ACTIVITY_WINDOW_MS;
+  const safeLimit = Math.min(25, Math.max(1, Number(limit) || 10));
 
   return query(
     `SELECT l.user_id, l.longest_afk_ms
@@ -154,8 +155,8 @@ async function getAfkLeaderboard(guildId, limit = 10) {
      WHERE l.guild_id = ?
        AND a.last_online_at >= ?
      ORDER BY l.longest_afk_ms DESC
-     LIMIT ?`,
-    [guildId, cutoff, limit]
+     LIMIT ${safeLimit}`,
+    [guildId, cutoff]
   );
 }
 

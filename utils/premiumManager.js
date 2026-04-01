@@ -63,7 +63,7 @@ async function initPremiumRuntime(premiumClient, token) {
       const clearedAfk = await clearAfkForMessage(message);
       if (clearedAfk) {
         await message.channel.send({
-          content: `👋 Welcome back ${message.author}!\nYou were AFK for **${formatDuration(clearedAfk.durationMs)}**`
+          content: `👋 Welcome back ${message.author}!\nGlad you're back — you were AFK for **${formatDuration(clearedAfk.durationMs)}**.`
         }).catch(() => null);
       }
 

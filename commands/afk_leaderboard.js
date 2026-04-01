@@ -17,7 +17,7 @@ module.exports = {
 
       const rows = await getAfkLeaderboard(interaction.guildId, 10);
       if (!rows.length) {
-        return interaction.reply('📭 No AFK leaderboard data yet (or everyone is inactive for 2+ days).');
+        return interaction.reply('📭 No AFK leaderboard data yet. Once people use AFK and return, stats will appear here.');
       }
 
       const description = rows
