@@ -1,8 +1,8 @@
 const { query } = require('../database');
 
 const WINDOW_SLICE_MS = 5_000;
-const WINDOW_SLICES = 24; // 2 minutes / 5 seconds
-const ADJUST_INTERVAL_MS = 2 * 60 * 1000;
+const WINDOW_SLICES = 12; // 1 minute / 5 seconds
+const ADJUST_INTERVAL_MS = 15 * 1000;
 
 const channelStates = new Map();
 let adjustTimer = null;
@@ -76,7 +76,7 @@ async function applySlowmode(client, state) {
     return;
   }
 
-  const reason = `Variable slowmode auto-adjust: ${avgMessagesPerFiveSeconds.toFixed(2)} msgs/5s over 2m (range ${state.minSlowmode}-${state.maxSlowmode}s)`;
+  const reason = `Variable slowmode auto-adjust: ${avgMessagesPerFiveSeconds.toFixed(2)} msgs/5s over 1m (range ${state.minSlowmode}-${state.maxSlowmode}s)`;
 
   await channel.setRateLimitPerUser(targetSlowmode, reason);
 }
