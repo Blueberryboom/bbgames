@@ -36,7 +36,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setColor(0xF39C12)
         .setDescription(
-          `💤 ${interaction.user} is now AFK.\nTake your time — we'll let others know for you!\n\n**Reason:** *${reason}*`
+          `💤 ${interaction.user} is now AFK.\n\n**Reason:** *${reason}*`
         )
         .setFooter({
           text: onlyThisServer ? 'Scope: This server only' : 'Scope: All servers'
