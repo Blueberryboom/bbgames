@@ -37,7 +37,7 @@ const HELP_MODULES = {
   },
   misc: {
     name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`.'
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`.'
   }
 };
 const RPS_CHOICE_EMOJI = {

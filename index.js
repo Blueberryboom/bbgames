@@ -114,9 +114,18 @@ client.once('clientReady', async () => {
 const countingHandler = require('./events/countingMessage');
 const levelingHandler = require('./events/levelingMessage');
 const { handleStickyMessage } = require('./utils/stickyManager');
+const { clearAfkForMessage, notifyMentionedAfkUsers, formatDuration } = require('./utils/afkManager');
 
 client.on('messageCreate', async message => {
   try {
+    const clearedAfk = await clearAfkForMessage(message);
+    if (clearedAfk) {
+      await message.channel.send({
+        content: `👋 Welcome back ${message.author}!\nGlad you're back — you were AFK for **${formatDuration(clearedAfk.durationMs)}**.`
+      }).catch(() => null);
+    }
+
+    await notifyMentionedAfkUsers(message);
     await countingHandler(message);
     await levelingHandler(message);
     await handleStickyMessage(message);

@@ -10,6 +10,7 @@ const {
 
 const pool = require('../database');
 const { BOT_OWNER_ID } = require('../utils/constants');
+const { invalidatePremiumGuildCache } = require('../utils/premiumPerks');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -268,6 +269,36 @@ module.exports = {
       }
 
       if (action === 'delete') {
+        const codeRows = await pool.query(
+          `SELECT redeemed_guild_id
+           FROM premium_codes
+           WHERE code = ?
+           LIMIT 1`,
+          [codeInput]
+        );
+
+        if (!codeRows.length) {
+          return interaction.reply({
+            content: '❌ That premium code does not exist.',
+            ephemeral: true
+          });
+        }
+
+        const redeemedGuildId = codeRows[0].redeemed_guild_id || null;
+        if (redeemedGuildId) {
+          await pool.query(
+            `UPDATE premium_guild_perks
+             SET active = 0,
+                 updated_at = ?
+             WHERE guild_id = ?
+               AND code = ?
+               AND source_type = 'code'
+               AND active = 1`,
+            [Date.now(), redeemedGuildId, codeInput]
+          );
+          invalidatePremiumGuildCache(redeemedGuildId);
+        }
+
         await pool.query(
           `UPDATE premium_codes
            SET deleted_at = ?
@@ -374,7 +405,7 @@ module.exports = {
           .setTitle(`🌍 Total Servers: ${guilds.length}`)
           .setDescription(
             slice.map(g =>
-              `${g.premium ? '💎 ' : ''}**${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
+              `**${g.premium ? '💎 ' : ''}${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
             ).join("\n\n")
           )
           .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
@@ -389,7 +420,7 @@ module.exports = {
           .setPlaceholder('Select server for details')
           .addOptions(
             slice.map(g => ({
-              label: g.name.substring(0, 100),
+              label: `${g.premium ? '💎 ' : ''}${g.name}`.substring(0, 100),
               description: `${g.premium ? 'Premium • ' : ''}Members: ${g.members}`,
               value: g.id
             }))
@@ -465,7 +496,7 @@ module.exports = {
           if (!inviteUrl) {
             return i.reply({ content: '❌ Cannot create invite for that server.', ephemeral: true });
           }
-          return i.reply({ content: inviteUrl, ephemeral: true });
+          return i.reply({ content: `🔗 ${inviteUrl}\n(Valid for 7 days)`, ephemeral: true });
         }
 
         if (i.customId.startsWith('owner_server_leave:')) {
@@ -826,6 +857,7 @@ ${messageText}`);
 };
 
 async function generateGuildInvite(client, guildId) {
+  const sevenDaysSeconds = 7 * 24 * 60 * 60;
   try {
     if (!client.shard) {
       const guild = client.guilds.cache.get(guildId);
@@ -834,7 +866,7 @@ async function generateGuildInvite(client, guildId) {
         .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has('CreateInstantInvite'))
         .first();
       if (!channel) return null;
-      const invite = await channel.createInvite({ maxAge: 300 }).catch(() => null);
+      const invite = await channel.createInvite({ maxAge: sevenDaysSeconds }).catch(() => null);
       return invite?.url || null;
     }
 
@@ -849,7 +881,7 @@ async function generateGuildInvite(client, guildId) {
         if (!channel) return null;
 
         try {
-          const invite = await channel.createInvite({ maxAge: 300 });
+          const invite = await channel.createInvite({ maxAge: 7 * 24 * 60 * 60 });
           return invite.url;
         } catch {
           return null;
@@ -934,7 +966,6 @@ async function buildServerDetail(client, guildId) {
     `Admin roles: ${Number(adminRoleRows[0]?.total || 0)} • Giveaway admin roles: ${Number(giveawayAdminRoleRows[0]?.total || 0)}`
   ];
 
-  const inviteUrl = await generateGuildInvite(client, guildId);
   const premiumText = premium
     ? `Yes (${premium.source_type || 'role'})${premium.code ? ` • code: \`${premium.code}\`` : ''}`
     : 'No';
@@ -947,7 +978,7 @@ async function buildServerDetail(client, guildId) {
       { name: 'Premium Owner / Source', value: premium ? `owner: \`${premium.owner_user_id}\`\nsource: \`${premium.source_user_id}\`` : 'n/a', inline: false },
       { name: 'Modules', value: moduleSummary.join('\n'), inline: false },
       { name: 'Configuration', value: configSummary.join('\n').slice(0, 1024), inline: false },
-      { name: 'Quick Invite', value: inviteUrl || 'Not available', inline: false }
+      { name: 'Quick Invite', value: 'Click **Generate Invite** to create a 7-day invite link.', inline: false }
     )
     .setFooter({ text: 'Use the buttons below for actions.' });
 }
