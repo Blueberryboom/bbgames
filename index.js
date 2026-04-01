@@ -16,6 +16,7 @@ const { initPremiumAccessManager } = require('./utils/premiumAccessManager');
 const { query } = require('./database');
 const { buildWelcomePayload } = require('./utils/welcomeSystem');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages } = require('./utils/autoMessageManager');
+const { initializeVariableSlowmodeManager, trackMessage: trackVariableSlowmodeMessage } = require('./utils/variableSlowmodeManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -82,6 +83,9 @@ client.once('clientReady', async () => {
     // Auto message scheduler.
     await initializeAutoMessageScheduler(client);
 
+    // Variable slowmode scheduler.
+    await initializeVariableSlowmodeManager(client);
+
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
   }
@@ -137,6 +141,7 @@ client.on('messageCreate', async message => {
     await countingHandler(message);
     await levelingHandler(message);
     await handleStickyMessage(message);
+    trackVariableSlowmodeMessage(message);
   } catch (err) {
     console.error('❌ Message handler error:', err);
   }

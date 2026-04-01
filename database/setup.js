@@ -112,6 +112,23 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+
+
+    // ─── VARIABLE SLOWMODE ───────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS variable_slowmode_configs (
+        guild_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        min_slowmode INT NOT NULL,
+        max_slowmode INT NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, channel_id),
+        INDEX idx_vs_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── EVENT ADMIN ROLES ──────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_roles (
