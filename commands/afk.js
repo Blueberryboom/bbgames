@@ -29,7 +29,7 @@ module.exports = {
       }
 
       const reason = interaction.options.getString('reason') || 'No reason provided.';
-      const onlyThisServer = interaction.options.getBoolean('only_this_server') ?? true;
+      const onlyThisServer = interaction.options.getBoolean('only_this_server') ?? false;
 
       await setAfk(interaction.user.id, interaction.guildId, reason, onlyThisServer);
 
