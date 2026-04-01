@@ -17,6 +17,7 @@ const { query } = require('./database');
 const { buildWelcomePayload } = require('./utils/welcomeSystem');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages } = require('./utils/autoMessageManager');
 const { initializeVariableSlowmodeManager, trackMessage: trackVariableSlowmodeMessage } = require('./utils/variableSlowmodeManager');
+const { initBirthdayScheduler, cleanupUserGuildData } = require('./utils/birthdaySystem');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -85,6 +86,9 @@ client.once('clientReady', async () => {
 
     // Variable slowmode scheduler.
     await initializeVariableSlowmodeManager(client);
+
+    // Birthday scheduler.
+    initBirthdayScheduler(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
@@ -229,6 +233,14 @@ client.on('guildMemberAdd', async member => {
     await targetChannel.send(payload);
   } catch (err) {
     console.error('❌ Welcome system error:', err);
+  }
+});
+
+client.on('guildMemberRemove', async member => {
+  try {
+    await cleanupUserGuildData(member.guild.id, member.id);
+  } catch (err) {
+    console.error('❌ guildMemberRemove cleanup error:', err);
   }
 });
 
