@@ -18,6 +18,7 @@ const { buildWelcomePayload } = require('./utils/welcomeSystem');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages } = require('./utils/autoMessageManager');
 const { initializeVariableSlowmodeManager, trackMessage: trackVariableSlowmodeMessage } = require('./utils/variableSlowmodeManager');
 const { initBirthdayScheduler, cleanupUserGuildData } = require('./utils/birthdaySystem');
+const { queueOneWordStoryMessage, clearGuildOneWordStoryState } = require('./utils/oneWordStoryManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -146,6 +147,7 @@ client.on('messageCreate', async message => {
     await levelingHandler(message);
     await handleStickyMessage(message);
     trackVariableSlowmodeMessage(message);
+    await queueOneWordStoryMessage(message);
   } catch (err) {
     console.error('❌ Message handler error:', err);
   }
@@ -206,6 +208,7 @@ client.on('guildCreate', async guild => {
 client.on('guildDelete', async guild => {
   try {
     clearGuildAutoMessages(client, guild.id);
+    clearGuildOneWordStoryState(guild.id);
     await scheduleGuildDataDeletion(guild.id, 'main_left');
     console.log(`🕒 Scheduled guild data cleanup for ${guild.id} in 3 days`);
   } catch (err) {

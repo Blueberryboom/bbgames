@@ -494,6 +494,40 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── TAG SYSTEM ────────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tags (
+        guild_id VARCHAR(32) NOT NULL,
+        tag_name VARCHAR(40) NOT NULL,
+        content TEXT NOT NULL,
+        created_by VARCHAR(32) NOT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, tag_name),
+        INDEX idx_tags_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tag_allowed_roles (
+        guild_id VARCHAR(32) NOT NULL,
+        role_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (guild_id, role_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    // ─── ONE WORD STORY ────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS one_word_story_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        channel_id VARCHAR(32) NULL,
+        story_text LONGTEXT NOT NULL,
+        word_count INT NOT NULL DEFAULT 0,
+        last_user_id VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_story_channel (channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
     console.log("✅ Database setup complete!");
   } catch (err) {
     console.error("❌ Error setting up database:", err);
