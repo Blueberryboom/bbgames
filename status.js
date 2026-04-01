@@ -76,11 +76,22 @@ module.exports = (client) => {
     }
 
     // ─── SET PRESENCE ─────────────────────────────────
+    let activity = {
+      name: `👀 ${memberCount} members | ${guildCount} servers`,
+      type: ActivityType.Watching
+    };
+
+    if (client.isPremiumInstance && Array.isArray(client.customStatuses) && client.customStatuses.length) {
+      const index = client.customStatusIndex || 0;
+      activity = {
+        name: client.customStatuses[index % client.customStatuses.length],
+        type: ActivityType.Playing
+      };
+      client.customStatusIndex = (index + 1) % client.customStatuses.length;
+    }
+
     client.user.setPresence({
-      activities: [{
-        name: `👀 ${memberCount} members | ${guildCount} servers`,
-        type: ActivityType.Watching
-      }],
+      activities: [activity],
       status: 'online'
     });
   };
@@ -88,8 +99,8 @@ module.exports = (client) => {
   // Update when bot starts
   updateStatus();
 
-  // Update every 5 minutes
-  const interval = setInterval(updateStatus, 5 * 60 * 1000);
+  // Update every 3 minutes
+  const interval = setInterval(updateStatus, 3 * 60 * 1000);
   statusIntervals.set(client, interval);
 
   client.once('shardDisconnect', () => stopStatus(client));

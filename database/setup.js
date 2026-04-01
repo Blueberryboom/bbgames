@@ -278,12 +278,54 @@ module.exports = async () => {
     // ─── PREMIUM INSTANCES ─────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS premium_instances (
-        owner_id VARCHAR(32) PRIMARY KEY,
+        instance_id VARCHAR(80) PRIMARY KEY,
+        owner_id VARCHAR(32) NOT NULL,
+        bot_user_id VARCHAR(32) NULL,
         token TEXT NOT NULL,
         enabled BOOLEAN NOT NULL DEFAULT 1,
+        status_one VARCHAR(128) NULL,
+        status_two VARCHAR(128) NULL,
+        INDEX idx_premium_instances_owner (owner_id),
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
       ) ENGINE=InnoDB;
     `);
+
+    await pool.query(`
+      ALTER TABLE premium_instances
+      ADD COLUMN IF NOT EXISTS instance_id VARCHAR(80) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_instances
+      ADD COLUMN IF NOT EXISTS bot_user_id VARCHAR(32) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_instances
+      ADD COLUMN IF NOT EXISTS status_one VARCHAR(128) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_instances
+      ADD COLUMN IF NOT EXISTS status_two VARCHAR(128) NULL
+    `);
+
+    await pool.query(`
+      UPDATE premium_instances
+      SET instance_id = CONCAT(owner_id, ':default')
+      WHERE instance_id IS NULL OR instance_id = ''
+    `);
+
+    await pool.query(`
+      ALTER TABLE premium_instances
+      DROP PRIMARY KEY,
+      ADD PRIMARY KEY (instance_id)
+    `).catch(() => {});
+
+    await pool.query(`
+      ALTER TABLE premium_instances
+      ADD INDEX idx_premium_instances_owner (owner_id)
+    `).catch(() => {});
 
 
     // ─── LEVELING SETTINGS ────────────────
