@@ -35,9 +35,17 @@ const HELP_MODULES = {
     name: 'YouTube',
     value: 'Command: `/youtube` with add/remove/list for upload notifications.'
   },
+  tags: {
+    name: 'Tags',
+    value: 'Commands: `/tag send`, `/tag create`, `/tag allowed_roles`.'
+  },
+  onewordstory: {
+    name: 'One Word Story',
+    value: 'Commands: `/onewordstory channel`, `/onewordstory disable`, `/onewordstory view`, `/onewordstory restart`.'
+  },
   misc: {
     name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`.'
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`, `/birthday`, `/leveling`, `/level`, `/premium`, `/owner`, `/variableslowmode`, `/welcome`, `/dice`, `/tictactoe`.'
   }
 };
 const RPS_CHOICE_EMOJI = {

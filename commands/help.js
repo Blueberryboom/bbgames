@@ -36,7 +36,19 @@ module.exports = {
             '`/rps` • Rock paper scissors vs bot or users',
             '`/dadjoke` • Random dad joke',
             '`/coinflip` • Heads or tails',
-            '`/minecraft` • Query server info/status'
+            '`/minecraft` • Query server info/status',
+            '`/tag send` • Send a saved tag',
+            '`/onewordstory view` • View story progress'
+          ].join('\n')
+        },
+        {
+          name: 'All Commands',
+          value: [
+            '`/help`, `/about`, `/status`, `/support`, `/donate`',
+            '`/config`, `/count`, `/giveaway`, `/youtube`, `/sticky`, `/automsg`',
+            '`/leveling`, `/level`, `/birthday`, `/afk`, `/afk_leaderboard`',
+            '`/variableslowmode`, `/welcome`, `/premium`, `/owner`',
+            '`/tag`, `/onewordstory`, `/coinflip`, `/dadjoke`, `/dice`, `/minecraft`, `/rps`, `/tictactoe`'
           ].join('\n')
         }
       )
@@ -51,6 +63,8 @@ module.exports = {
           { label: 'Giveaways', value: 'giveaways' },
           { label: 'Fun', value: 'fun' },
           { label: 'YouTube', value: 'youtube' },
+          { label: 'Tags', value: 'tags' },
+          { label: 'One Word Story', value: 'onewordstory' },
           { label: 'Misc', value: 'misc' }
         )
     );
