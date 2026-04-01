@@ -381,6 +381,34 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── BIRTHDAY SYSTEM ──────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS birthday_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        channel_id VARCHAR(32) NOT NULL,
+        allowed_role_ids TEXT NULL,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_birthday_channel (channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS birthday_users (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        day TINYINT NOT NULL,
+        month TINYINT NOT NULL,
+        last_changed_at BIGINT NOT NULL,
+        last_announced_year SMALLINT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, user_id),
+        INDEX idx_birthday_lookup (guild_id, month, day),
+        INDEX idx_birthday_user (user_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── GUILD DATA DELETION QUEUE ─────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS guild_deletion_queue (
