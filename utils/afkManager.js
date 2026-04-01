@@ -6,6 +6,7 @@ const ALERT_DELETE_AFTER_MS = 6_000;
 const MEMORY_SWEEP_MS = 60_000;
 const STALE_ALERT_MS = 5 * 60_000;
 const LEADERBOARD_ACTIVITY_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+const AFK_LEADERBOARD_SCOPE = 'GLOBAL';
 
 const afkAlertCooldowns = new Map(); // key: channelId:userId -> last sent timestamp
 let sweepInterval = null;
@@ -86,29 +87,35 @@ async function clearAfkForMessage(message) {
   await query(`DELETE FROM afk_status WHERE user_id = ?`, [message.author.id]);
 
   const afkDurationMs = Math.max(0, now - Number(afk.started_at || now));
-  await query(
-    `INSERT INTO afk_leaderboard (guild_id, user_id, longest_afk_ms, updated_at)
-     VALUES (?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-      longest_afk_ms = GREATEST(longest_afk_ms, VALUES(longest_afk_ms)),
-      updated_at = VALUES(updated_at)`,
-    [afk.guild_id, message.author.id, afkDurationMs, now]
-  );
+  let place = null;
 
-  const placeRows = await query(
-    `SELECT 1 + COUNT(*) AS place
-     FROM afk_leaderboard
-     WHERE guild_id = ?
-       AND longest_afk_ms > (
-         SELECT longest_afk_ms
-         FROM afk_leaderboard
-         WHERE guild_id = ? AND user_id = ?
-         LIMIT 1
-       )`,
-    [afk.guild_id, afk.guild_id, message.author.id]
-  );
+  if (!isOnlyThisServer) {
+    await query(
+      `INSERT INTO afk_leaderboard (guild_id, user_id, longest_afk_ms, total_afk_ms, afk_sessions, updated_at)
+       VALUES (?, ?, ?, ?, 1, ?)
+       ON DUPLICATE KEY UPDATE
+        longest_afk_ms = GREATEST(longest_afk_ms, VALUES(longest_afk_ms)),
+        total_afk_ms = total_afk_ms + VALUES(total_afk_ms),
+        afk_sessions = afk_sessions + 1,
+        updated_at = VALUES(updated_at)`,
+      [AFK_LEADERBOARD_SCOPE, message.author.id, afkDurationMs, afkDurationMs, now]
+    );
 
-  const place = Number(placeRows?.[0]?.place || 0) || null;
+    const placeRows = await query(
+      `SELECT 1 + COUNT(*) AS place
+       FROM afk_leaderboard
+       WHERE guild_id = ?
+         AND longest_afk_ms > (
+           SELECT longest_afk_ms
+           FROM afk_leaderboard
+           WHERE guild_id = ? AND user_id = ?
+           LIMIT 1
+         )`,
+      [AFK_LEADERBOARD_SCOPE, AFK_LEADERBOARD_SCOPE, message.author.id]
+    );
+
+    place = Number(placeRows?.[0]?.place || 0) || null;
+  }
 
   return {
     durationMs: afkDurationMs,
@@ -166,14 +173,14 @@ async function getAfkLeaderboard(guildId, limit = 10) {
   const safeLimit = Math.min(25, Math.max(1, Number(limit) || 10));
 
   return query(
-    `SELECT l.user_id, l.longest_afk_ms
+    `SELECT l.user_id, l.longest_afk_ms, l.total_afk_ms, l.afk_sessions
      FROM afk_leaderboard l
      INNER JOIN afk_user_activity a ON a.user_id = l.user_id
      WHERE l.guild_id = ?
        AND a.last_online_at >= ?
      ORDER BY l.longest_afk_ms DESC
      LIMIT ${safeLimit}`,
-    [guildId, cutoff]
+    [AFK_LEADERBOARD_SCOPE, cutoff]
   );
 }
 
