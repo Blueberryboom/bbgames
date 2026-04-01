@@ -7,6 +7,7 @@ const {
   hasInstanceForUserGlobal
 } = require('../utils/premiumManager');
 const { redeemPremiumForGuild, removePremiumForUser } = require('../utils/premiumAccessManager');
+const { BOT_OWNER_ID } = require('../utils/constants');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -38,11 +39,29 @@ module.exports = {
             .setDescription('Your custom bot token')
             .setRequired(true)
         )
+        .addStringOption(opt =>
+          opt
+            .setName('status_one')
+            .setDescription('Optional custom premium status #1')
+            .setRequired(false)
+        )
+        .addStringOption(opt =>
+          opt
+            .setName('status_two')
+            .setDescription('Optional custom premium status #2 (rotates with #1)')
+            .setRequired(false)
+        )
     )
     .addSubcommand(sub =>
       sub
         .setName('stop')
         .setDescription('Stop your running premium instance')
+        .addStringOption(opt =>
+          opt
+            .setName('instance_id')
+            .setDescription('Instance ID from /premium status')
+            .setRequired(true)
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -106,26 +125,34 @@ module.exports = {
     }
 
     if (sub === 'status') {
-      const status = getInstanceStatus(interaction.user.id);
-      if (!status) {
+      const statuses = getInstanceStatus(interaction.user.id);
+      if (!statuses.length) {
         return interaction.reply({
           content: 'ℹ️ You do not have a running premium instance.',
           flags: MessageFlags.Ephemeral
         });
       }
 
+      const summary = statuses
+        .map(
+          s =>
+            `• ID: \`${s.instanceId}\` | **${s.botTag}** in **${s.guildCount}** server(s)${s.statusLine ? ` — status: ${s.statusLine}` : ''}`
+        )
+        .join('\n');
+
       return interaction.reply({
-        content: `✅ Premium instance running as **${status.botTag}** in **${status.guildCount}** server(s).`,
+        content: `✅ You have **${statuses.length}** running premium instance(s):\n${summary}`,
         flags: MessageFlags.Ephemeral
       });
     }
 
     if (sub === 'stop') {
-      const stopped = await stopPremiumInstance(interaction.user.id);
+      const instanceId = interaction.options.getString('instance_id', true).trim();
+      const stopped = await stopPremiumInstance(interaction.user.id, { instanceId });
       return interaction.reply({
         content: stopped
-          ? '✅ Your premium instance was stopped.'
-          : 'ℹ️ You do not have a running premium instance.',
+          ? `✅ Premium instance \`${instanceId}\` was stopped.`
+          : `ℹ️ No running premium instance found for ID \`${instanceId}\`.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -134,15 +161,20 @@ module.exports = {
 
     try {
       const hasGlobalInstance = await hasInstanceForUserGlobal(interaction.client, interaction.user.id);
-      if (hasGlobalInstance) {
+      if (hasGlobalInstance && interaction.user.id !== BOT_OWNER_ID) {
         return interaction.editReply('❌ You already have an active premium bot instance.');
       }
 
       const token = interaction.options.getString('token', true).trim();
-      const created = await startPremiumInstance(interaction.client, interaction.user.id, token);
+      const statusOne = interaction.options.getString('status_one')?.trim() || null;
+      const statusTwo = interaction.options.getString('status_two')?.trim() || null;
+      const created = await startPremiumInstance(interaction.client, interaction.user.id, token, {
+        customStatuses: [statusOne, statusTwo].filter(Boolean)
+      });
+      const statusText = created.statusLine ? ` Custom status: ${created.statusLine}.` : '';
 
       return interaction.editReply(
-        `✅ Premium instance started as **${created.botTag}** in **${created.guildCount}** server(s). This will auto-restore after restart.`
+        `✅ Premium instance started as **${created.botTag}** in **${created.guildCount}** server(s).${statusText} This will auto-restore after restart.`
       );
     } catch (error) {
       console.error('❌ premium start failed:', error);

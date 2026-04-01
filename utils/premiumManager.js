@@ -17,8 +17,10 @@ const { stopYouTubeNotifier } = require('./youtubeNotifier');
 const { stopStatus } = require('../status');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages, stopAutoMessageSchedulers } = require('./autoMessageManager');
 const { clearAfkForMessage, notifyMentionedAfkUsers, formatDuration } = require('./afkManager');
+const { BOT_OWNER_ID } = require('./constants');
 
-const activeInstances = new Map(); // ownerId -> instance
+const activeInstances = new Map(); // instanceId -> instance
+const ownerInstances = new Map(); // ownerId -> Set(instanceId)
 const guildOwners = new Map(); // guildId -> ownerId
 let mainClientRef = null;
 
@@ -195,6 +197,26 @@ async function hasInstanceForUserGlobal(mainClient, ownerId) {
   return results.some(Boolean);
 }
 
+function getMaxInstancesForUser(ownerId) {
+  return ownerId === BOT_OWNER_ID ? Infinity : 1;
+}
+
+function addOwnerInstance(ownerId, instanceId) {
+  if (!ownerInstances.has(ownerId)) {
+    ownerInstances.set(ownerId, new Set());
+  }
+  ownerInstances.get(ownerId).add(instanceId);
+}
+
+function removeOwnerInstance(ownerId, instanceId) {
+  const instances = ownerInstances.get(ownerId);
+  if (!instances) return;
+  instances.delete(instanceId);
+  if (!instances.size) {
+    ownerInstances.delete(ownerId);
+  }
+}
+
 function getOtherPremiumOverlapGuilds(ownerId, guildIds) {
   const overlaps = [];
 
@@ -221,12 +243,13 @@ async function isPremiumAllowedUser(userId) {
   return rows.length > 0;
 }
 
-async function savePremiumInstance(ownerId, token, enabled) {
+async function savePremiumInstance(instanceId, ownerId, token, enabled, customStatuses = [], botUserId = null) {
+  const [statusOne, statusTwo] = customStatuses;
   await query(
     `REPLACE INTO premium_instances
-     (owner_id, token, enabled, updated_at)
-     VALUES (?, ?, ?, ?)`,
-    [ownerId, token, enabled ? 1 : 0, Date.now()]
+     (instance_id, owner_id, bot_user_id, token, enabled, status_one, status_two, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [instanceId, ownerId, botUserId, token, enabled ? 1 : 0, statusOne || null, statusTwo || null, Date.now()]
   );
 }
 
@@ -239,20 +262,36 @@ async function setPremiumInstanceEnabled(ownerId, enabled) {
   );
 }
 
+async function setPremiumInstanceEnabledById(ownerId, instanceId, enabled) {
+  await query(
+    `UPDATE premium_instances
+     SET enabled = ?, updated_at = ?
+     WHERE owner_id = ? AND instance_id = ?`,
+    [enabled ? 1 : 0, Date.now(), ownerId, instanceId]
+  );
+}
+
 async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
-  const { persist = true } = options;
+  const {
+    persist = true,
+    instanceId = `${ownerId}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+    customStatuses = []
+  } = options;
   mainClientRef = mainClient;
 
-  if (activeInstances.has(ownerId)) {
+  const currentCount = ownerInstances.get(ownerId)?.size || 0;
+  if (currentCount >= getMaxInstancesForUser(ownerId)) {
     throw new Error('You already have an active premium bot instance. Stop it first.');
   }
 
   const premiumClient = buildPremiumClient();
+  premiumClient.customStatuses = customStatuses.filter(Boolean).slice(0, 2);
+  premiumClient.customStatusIndex = 0;
   await initPremiumRuntime(premiumClient, token);
   let started = false;
 
   const cleanupInstance = () => {
-    const instance = activeInstances.get(ownerId);
+    const instance = activeInstances.get(instanceId);
     if (!instance) return;
 
     for (const guildId of instance.guildIds) {
@@ -261,12 +300,13 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
       }
     }
 
-    activeInstances.delete(ownerId);
+    activeInstances.delete(instanceId);
+    removeOwnerInstance(ownerId, instanceId);
   };
 
   premiumClient.on('guildDelete', guild => {
     clearGuildAutoMessages(premiumClient, guild.id);
-    const instance = activeInstances.get(ownerId);
+    const instance = activeInstances.get(instanceId);
     if (!instance) return;
 
     instance.guildIds.delete(guild.id);
@@ -283,7 +323,7 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
       const existingOwner = guildOwners.get(guild.id);
       const premiumConflict = await hasPremiumInGuildGlobal(mainClient, guild.id);
 
-      const instance = activeInstances.get(ownerId);
+      const instance = activeInstances.get(instanceId);
       const hasGuildLimitReached = instance && instance.guildIds.size >= MAX_PREMIUM_GUILDS_PER_BOT && !instance.guildIds.has(guild.id);
 
       if (mainGuildIds.has(guild.id) || (existingOwner && existingOwner !== ownerId) || premiumConflict || hasGuildLimitReached) {
@@ -347,23 +387,27 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
       await cancelGuildDataDeletion(guildId);
     }
 
-    activeInstances.set(ownerId, {
+    activeInstances.set(instanceId, {
+      instanceId,
       ownerId,
       botUserId: premiumClient.user.id,
       botTag: premiumClient.user.tag,
       client: premiumClient,
       startedAt: Date.now(),
-      guildIds: new Set(premiumGuildIds)
+      guildIds: new Set(premiumGuildIds),
+      customStatuses: premiumClient.customStatuses
     });
+    addOwnerInstance(ownerId, instanceId);
 
     if (persist) {
-      await savePremiumInstance(ownerId, token, true);
+      await savePremiumInstance(instanceId, ownerId, token, true, premiumClient.customStatuses, premiumClient.user.id);
     }
 
     return {
       botTag: premiumClient.user.tag,
       botUserId: premiumClient.user.id,
-      guildCount: premiumGuildIds.length
+      guildCount: premiumGuildIds.length,
+      statusLine: premiumClient.customStatuses.length ? premiumClient.customStatuses.join(' ↔ ') : null
     };
   } catch (error) {
     if (started) {
@@ -376,35 +420,47 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
 }
 
 async function stopPremiumInstance(ownerId, options = {}) {
-  const { persist = true } = options;
-  const instance = activeInstances.get(ownerId);
-  if (!instance) {
+  const { persist = true, instanceId = null } = options;
+  const instanceIds = instanceId ? [instanceId] : [...(ownerInstances.get(ownerId) || [])];
+  if (!instanceIds.length) {
     if (persist) {
       await setPremiumInstanceEnabled(ownerId, false);
     }
     return false;
   }
 
-  activeInstances.delete(ownerId);
+  let stoppedAny = false;
 
-  for (const guildId of instance.guildIds) {
-    if (guildOwners.get(guildId) === ownerId) {
-      guildOwners.delete(guildId);
+  for (const targetInstanceId of instanceIds) {
+    const instance = activeInstances.get(targetInstanceId);
+    if (!instance) continue;
+    activeInstances.delete(targetInstanceId);
+    removeOwnerInstance(ownerId, targetInstanceId);
+    stoppedAny = true;
+
+    for (const guildId of instance.guildIds) {
+      if (guildOwners.get(guildId) === ownerId) {
+        guildOwners.delete(guildId);
+      }
+
+      await scheduleGuildDataDeletion(guildId, 'premium_stopped');
     }
 
-    await scheduleGuildDataDeletion(guildId, 'premium_stopped');
+    stopYouTubeNotifier(instance.client);
+    stopStatus(instance.client);
+    stopAutoMessageSchedulers(instance.client);
+    await instance.client.destroy();
   }
-
-  stopYouTubeNotifier(instance.client);
-  stopStatus(instance.client);
-  stopAutoMessageSchedulers(instance.client);
-  await instance.client.destroy();
 
   if (persist) {
-    await setPremiumInstanceEnabled(ownerId, false);
+    if (instanceId) {
+      await setPremiumInstanceEnabledById(ownerId, instanceId, false);
+    } else {
+      await setPremiumInstanceEnabled(ownerId, false);
+    }
   }
 
-  return true;
+  return stoppedAny;
 }
 
 async function restorePremiumInstances(mainClient) {
@@ -416,14 +472,18 @@ async function restorePremiumInstances(mainClient) {
   }
 
   const rows = await query(
-    `SELECT owner_id, token
+    `SELECT instance_id, owner_id, token, status_one, status_two
      FROM premium_instances
      WHERE enabled = 1`
   );
 
   for (const row of rows) {
     try {
-      await startPremiumInstance(mainClient, row.owner_id, row.token, { persist: false });
+      await startPremiumInstance(mainClient, row.owner_id, row.token, {
+        persist: false,
+        instanceId: row.instance_id,
+        customStatuses: [row.status_one, row.status_two].filter(Boolean)
+      });
       console.log(`✅ Restored premium instance for user ${row.owner_id}`);
     } catch (error) {
       console.error(`❌ Failed to restore premium instance for user ${row.owner_id}:`, error.message);
@@ -433,16 +493,19 @@ async function restorePremiumInstances(mainClient) {
 }
 
 function getInstanceStatus(ownerId) {
-  const instance = activeInstances.get(ownerId);
-  if (!instance) return null;
-
-  return {
-    ownerId,
-    botTag: instance.botTag,
-    botUserId: instance.botUserId,
-    guildCount: instance.guildIds.size,
-    startedAt: instance.startedAt
-  };
+  const instanceIds = [...(ownerInstances.get(ownerId) || [])];
+  return instanceIds
+    .map(instanceId => activeInstances.get(instanceId))
+    .filter(Boolean)
+    .map(instance => ({
+      instanceId: instance.instanceId,
+      ownerId,
+      botTag: instance.botTag,
+      botUserId: instance.botUserId,
+      guildCount: instance.guildIds.size,
+      startedAt: instance.startedAt,
+      statusLine: instance.customStatuses?.length ? instance.customStatuses.join(' ↔ ') : null
+    }));
 }
 
 function hasPremiumInGuild(guildId) {
@@ -450,14 +513,15 @@ function hasPremiumInGuild(guildId) {
 }
 
 function hasInstanceForUser(ownerId) {
-  return activeInstances.has(ownerId);
+  return (ownerInstances.get(ownerId)?.size || 0) > 0;
 }
 
 
 function getPremiumGuildsSnapshot() {
   const guilds = [];
 
-  for (const [ownerId, instance] of activeInstances.entries()) {
+  for (const instance of activeInstances.values()) {
+    const ownerId = instance.ownerId;
     for (const guild of instance.client.guilds.cache.values()) {
       guilds.push({
         name: guild.name,

@@ -56,22 +56,11 @@ module.exports = {
       );
     }
 
-    // Add premium-instance guilds to status totals when viewing on the normal bot.
-    if (!client.isPremiumInstance && client.premiumManager) {
-      if (client.shard) {
-        const premiumStats = await client.shard.broadcastEval(c =>
-          c.premiumManager?.getPremiumAggregateCounts
-            ? c.premiumManager.getPremiumAggregateCounts()
-            : { serverCount: 0, memberCount: 0 }
-        );
-
-        serverCount += premiumStats.reduce((acc, row) => acc + (Number(row.serverCount) || 0), 0);
-        memberCount += premiumStats.reduce((acc, row) => acc + (Number(row.memberCount) || 0), 0);
-      } else {
-        const premiumStats = client.premiumManager.getPremiumAggregateCounts();
-        serverCount += Number(premiumStats.serverCount) || 0;
-        memberCount += Number(premiumStats.memberCount) || 0;
-      }
+    // Keep totals consistent between normal and premium bots (main + premium combined).
+    if (client.premiumManager?.getNetworkAggregateCounts) {
+      const networkStats = await client.premiumManager.getNetworkAggregateCounts();
+      serverCount = Number(networkStats.serverCount) || serverCount;
+      memberCount = Number(networkStats.memberCount) || memberCount;
     }
 
     // ─── SHARD INFO X / Y ────────────────────
