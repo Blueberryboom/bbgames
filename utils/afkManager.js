@@ -95,9 +95,26 @@ async function clearAfkForMessage(message) {
     [afk.guild_id, message.author.id, afkDurationMs, now]
   );
 
+  const placeRows = await query(
+    `SELECT 1 + COUNT(*) AS place
+     FROM afk_leaderboard
+     WHERE guild_id = ?
+       AND longest_afk_ms > (
+         SELECT longest_afk_ms
+         FROM afk_leaderboard
+         WHERE guild_id = ? AND user_id = ?
+         LIMIT 1
+       )`,
+    [afk.guild_id, afk.guild_id, message.author.id]
+  );
+
+  const place = Number(placeRows?.[0]?.place || 0) || null;
+
   return {
     durationMs: afkDurationMs,
-    reason: afk.reason || 'No reason provided.'
+    reason: afk.reason || 'No reason provided.',
+    guildId: afk.guild_id,
+    place
   };
 }
 

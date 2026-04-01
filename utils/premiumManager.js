@@ -4,7 +4,8 @@ const {
   Collection,
   REST,
   Routes,
-  MessageFlags
+  MessageFlags,
+  EmbedBuilder
 } = require('discord.js');
 const fs = require('fs');
 const { query } = require('../database');
@@ -62,8 +63,16 @@ async function initPremiumRuntime(premiumClient, token) {
     try {
       const clearedAfk = await clearAfkForMessage(message);
       if (clearedAfk) {
+        const placeText = clearedAfk.place ? `#${clearedAfk.place}` : 'unranked';
+        const embed = new EmbedBuilder()
+          .setColor(0x57F287)
+          .setTitle(`Welcome back ${message.author} 🎉`)
+          .setDescription(
+            `You were gone for **${formatDuration(clearedAfk.durationMs)}** and are currently **${placeText}** on the AFK leaderboard.`
+          );
+
         await message.channel.send({
-          content: `👋 Welcome back ${message.author}!\nGlad you're back — you were AFK for **${formatDuration(clearedAfk.durationMs)}**.`
+          embeds: [embed]
         }).catch(() => null);
       }
 
