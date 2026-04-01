@@ -353,10 +353,22 @@ module.exports = async () => {
         guild_id VARCHAR(32) NOT NULL,
         user_id VARCHAR(32) NOT NULL,
         longest_afk_ms BIGINT NOT NULL DEFAULT 0,
+        total_afk_ms BIGINT NOT NULL DEFAULT 0,
+        afk_sessions BIGINT NOT NULL DEFAULT 0,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
         PRIMARY KEY (guild_id, user_id),
         INDEX idx_afk_lb_rank (guild_id, longest_afk_ms)
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE afk_leaderboard
+      ADD COLUMN IF NOT EXISTS total_afk_ms BIGINT NOT NULL DEFAULT 0
+    `);
+
+    await pool.query(`
+      ALTER TABLE afk_leaderboard
+      ADD COLUMN IF NOT EXISTS afk_sessions BIGINT NOT NULL DEFAULT 0
     `);
 
     await pool.query(`
