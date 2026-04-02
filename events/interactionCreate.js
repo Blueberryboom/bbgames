@@ -37,11 +37,11 @@ const HELP_MODULES = {
   },
   tags: {
     name: 'Tags',
-    value: 'Commands: `/tag send`, `/tag create`, `/tag allowed_roles`.'
+    value: 'Commands: `/tag send`, `/tag create`, `/tags usage`.'
   },
   onewordstory: {
     name: 'One Word Story',
-    value: 'Commands: `/onewordstory channel`, `/onewordstory disable`, `/onewordstory view`, `/onewordstory restart`.'
+    value: 'Commands: `/onewordstory channel`, `/onewordstory disable`, `/onewordstory view`, `/onewordstory restart`, `/onewordstory leaderboard`.'
   },
   misc: {
     name: 'Misc',

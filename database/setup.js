@@ -501,6 +501,8 @@ module.exports = async () => {
         tag_name VARCHAR(40) NOT NULL,
         content TEXT NOT NULL,
         created_by VARCHAR(32) NOT NULL,
+        expires_after_seconds INT NOT NULL DEFAULT 0,
+        send_mode VARCHAR(16) NOT NULL DEFAULT 'admins',
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
         PRIMARY KEY (guild_id, tag_name),
         INDEX idx_tags_guild (guild_id)
@@ -508,10 +510,43 @@ module.exports = async () => {
     `);
 
     await pool.query(`
+      ALTER TABLE tags
+      ADD COLUMN IF NOT EXISTS expires_after_seconds INT NOT NULL DEFAULT 0
+    `);
+
+    await pool.query(`
+      ALTER TABLE tags
+      ADD COLUMN IF NOT EXISTS send_mode VARCHAR(16) NOT NULL DEFAULT 'admins'
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS tag_allowed_roles (
         guild_id VARCHAR(32) NOT NULL,
+        tag_name VARCHAR(40) NOT NULL DEFAULT '',
         role_id VARCHAR(32) NOT NULL,
-        PRIMARY KEY (guild_id, role_id)
+        PRIMARY KEY (guild_id, role_id, tag_name)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE tag_allowed_roles
+      ADD COLUMN IF NOT EXISTS tag_name VARCHAR(40) NOT NULL DEFAULT ''
+    `);
+
+    await pool.query(`
+      ALTER TABLE tag_allowed_roles
+      DROP PRIMARY KEY,
+      ADD PRIMARY KEY (guild_id, role_id, tag_name)
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tag_usage_stats (
+        guild_id VARCHAR(32) NOT NULL,
+        tag_name VARCHAR(40) NOT NULL,
+        used_at BIGINT NOT NULL,
+        INDEX idx_tag_usage_guild (guild_id),
+        INDEX idx_tag_usage_name (guild_id, tag_name),
+        INDEX idx_tag_usage_time (guild_id, used_at)
       ) ENGINE=InnoDB;
     `);
 
@@ -525,6 +560,20 @@ module.exports = async () => {
         last_user_id VARCHAR(32) NULL,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
         INDEX idx_story_channel (channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS one_word_story_contributions (
+        guild_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        message_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        stars INT NOT NULL DEFAULT 1,
+        created_at BIGINT NOT NULL,
+        PRIMARY KEY (guild_id, message_id),
+        INDEX idx_ows_contrib_user (guild_id, user_id),
+        INDEX idx_ows_contrib_channel (guild_id, channel_id)
       ) ENGINE=InnoDB;
     `);
 
