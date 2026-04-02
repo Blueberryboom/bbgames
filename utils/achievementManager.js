@@ -5,7 +5,7 @@ const ACHIEVEMENTS = [
   {
     key: 'forever_afk',
     tier: 'Platinum',
-    icon: '🏆',
+    icon: '🧀',
     name: 'Forever AFK',
     description: 'Be AFK for 48 hours!!',
     target: 1,
