@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { trackAchievementEvent } = require('../utils/achievementManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,5 +18,18 @@ module.exports = {
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
+
+    if (result === 'Tails') {
+      await trackAchievementEvent({
+        userId: interaction.user.id,
+        event: 'coinflip_tails',
+        context: {
+          guildId: interaction.guildId,
+          channelId: interaction.channelId,
+          channel: interaction.channel,
+          userMention: `${interaction.user}`
+        }
+      });
+    }
   }
 };

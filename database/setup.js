@@ -577,6 +577,22 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── ACHIEVEMENTS ─────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS achievements_progress (
+        user_id VARCHAR(32) NOT NULL,
+        achievement_key VARCHAR(64) NOT NULL,
+        progress BIGINT NOT NULL DEFAULT 0,
+        unlocked_at BIGINT NULL,
+        unlocked_guild_id VARCHAR(32) NULL,
+        unlocked_channel_id VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (user_id, achievement_key),
+        INDEX idx_achievements_user (user_id),
+        INDEX idx_achievements_unlocked (unlocked_at)
+      ) ENGINE=InnoDB;
+    `);
+
     console.log("✅ Database setup complete!");
   } catch (err) {
     console.error("❌ Error setting up database:", err);

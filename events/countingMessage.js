@@ -1,4 +1,5 @@
 const pool = require('../database');
+const { trackAchievementEvent } = require('../utils/achievementManager');
 
 module.exports = async (message) => {
 
@@ -63,6 +64,17 @@ module.exports = async (message) => {
     VALUES (?, ?, 1)
     ON DUPLICATE KEY UPDATE score = score + 1
   `, [message.guildId, message.author.id]);
+
+  await trackAchievementEvent({
+    userId: message.author.id,
+    event: 'count_success',
+    context: {
+      guildId: message.guildId,
+      channelId: message.channel.id,
+      channel: message.channel,
+      userMention: `${message.author}`
+    }
+  });
 
   // ─── WEBHOOK SYSTEM ────────────────────────
 

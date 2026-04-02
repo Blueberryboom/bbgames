@@ -125,11 +125,38 @@ const countingHandler = require('./events/countingMessage');
 const levelingHandler = require('./events/levelingMessage');
 const { handleStickyMessage } = require('./utils/stickyManager');
 const { clearAfkForMessage, notifyMentionedAfkUsers, formatDuration } = require('./utils/afkManager');
+const { trackAchievementEvent } = require('./utils/achievementManager');
 
 client.on('messageCreate', async message => {
   try {
     const clearedAfk = await clearAfkForMessage(message);
     if (clearedAfk) {
+      if (clearedAfk.durationMs >= 60 * 60 * 1000) {
+        await trackAchievementEvent({
+          userId: message.author.id,
+          event: 'afk_1h',
+          context: {
+            guildId: message.guildId,
+            channelId: message.channel.id,
+            channel: message.channel,
+            userMention: `${message.author}`
+          }
+        });
+      }
+
+      if (clearedAfk.durationMs >= 48 * 60 * 60 * 1000) {
+        await trackAchievementEvent({
+          userId: message.author.id,
+          event: 'afk_48h',
+          context: {
+            guildId: message.guildId,
+            channelId: message.channel.id,
+            channel: message.channel,
+            userMention: `${message.author}`
+          }
+        });
+      }
+
       const placeText = clearedAfk.place ? `#${clearedAfk.place}` : 'unranked';
       const embed = new EmbedBuilder()
         .setColor(0x57F287)

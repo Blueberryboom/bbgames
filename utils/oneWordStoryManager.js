@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require('discord.js');
 const { query } = require('../database');
+const { trackAchievementEvent } = require('./achievementManager');
 
 const pendingTimers = new Map();
 const WORD_DELAY_MS = 5000;
@@ -116,6 +117,17 @@ async function processQueuedMessage(message) {
   );
 
   await message.react(CHECK_EMOJI).catch(() => null);
+  await trackAchievementEvent({
+    userId: message.author.id,
+    event: 'one_word_story_word',
+    context: {
+      guildId: message.guildId,
+      channelId: message.channel.id,
+      channel: message.channel,
+      userMention: `${message.author}`
+    }
+  });
+
   await query(
     `INSERT INTO one_word_story_contributions
      (guild_id, channel_id, message_id, user_id, stars, created_at)
