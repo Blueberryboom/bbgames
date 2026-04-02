@@ -18,7 +18,7 @@ const { buildWelcomePayload } = require('./utils/welcomeSystem');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages } = require('./utils/autoMessageManager');
 const { initializeVariableSlowmodeManager, trackMessage: trackVariableSlowmodeMessage } = require('./utils/variableSlowmodeManager');
 const { initBirthdayScheduler, cleanupUserGuildData } = require('./utils/birthdaySystem');
-const { queueOneWordStoryMessage, clearGuildOneWordStoryState } = require('./utils/oneWordStoryManager');
+const { queueOneWordStoryMessage, clearGuildOneWordStoryState, updateContributionStarCount } = require('./utils/oneWordStoryManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -33,7 +33,8 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions
   ]
 });
 
@@ -244,6 +245,42 @@ client.on('guildMemberRemove', async member => {
     await cleanupUserGuildData(member.guild.id, member.id);
   } catch (err) {
     console.error('❌ guildMemberRemove cleanup error:', err);
+  }
+});
+
+client.on('messageReactionAdd', async (reaction, user) => {
+  try {
+    if (user?.bot) return;
+    if (reaction.partial) await reaction.fetch().catch(() => null);
+    if (!reaction.message?.guildId) return;
+    if (reaction.emoji?.name !== '✅') return;
+
+    await updateContributionStarCount({
+      guildId: reaction.message.guildId,
+      channelId: reaction.message.channelId,
+      messageId: reaction.message.id,
+      delta: 1
+    });
+  } catch (err) {
+    console.error('❌ messageReactionAdd handler error:', err);
+  }
+});
+
+client.on('messageReactionRemove', async (reaction, user) => {
+  try {
+    if (user?.bot) return;
+    if (reaction.partial) await reaction.fetch().catch(() => null);
+    if (!reaction.message?.guildId) return;
+    if (reaction.emoji?.name !== '✅') return;
+
+    await updateContributionStarCount({
+      guildId: reaction.message.guildId,
+      channelId: reaction.message.channelId,
+      messageId: reaction.message.id,
+      delta: -1
+    });
+  } catch (err) {
+    console.error('❌ messageReactionRemove handler error:', err);
   }
 });
 

@@ -2,7 +2,11 @@ const {
   SlashCommandBuilder,
   ChannelType,
   MessageFlags,
-  EmbedBuilder
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType
 } = require('discord.js');
 
 const { query } = require('../database');
@@ -39,6 +43,11 @@ module.exports = {
       sub
         .setName('restart')
         .setDescription('Restart the story and clear progress (admin only)')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('leaderboard')
+        .setDescription('Show contribution leaderboard')
     ),
 
   async execute(interaction) {
@@ -108,6 +117,88 @@ module.exports = {
         content: '✅ One word story progress cleared and restarted.',
         flags: MessageFlags.Ephemeral
       });
+    }
+
+    if (sub === 'leaderboard') {
+      const rows = await query(
+        `SELECT user_id,
+                COUNT(*) AS contributions,
+                ROUND(AVG(stars), 2) AS avg_rating
+         FROM one_word_story_contributions
+         WHERE guild_id = ?
+         GROUP BY user_id
+         ORDER BY contributions DESC, avg_rating DESC, user_id ASC`,
+        [interaction.guildId]
+      );
+
+      if (!rows.length) {
+        return interaction.reply({
+          content: '📭 No one-word-story contributions yet.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const perPage = 10;
+      const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+      let page = 0;
+      const customBase = `ows_board:${interaction.id}`;
+
+      const buildEmbed = () => {
+        const slice = rows.slice(page * perPage, (page + 1) * perPage);
+        const desc = slice.map((row, index) => {
+          const rank = page * perPage + index + 1;
+          return `#${rank} <@${row.user_id}>\n└ Contributions: **${Number(row.contributions || 0)}** • Avg Rating: **${Number(row.avg_rating || 0).toFixed(2)}⭐**`;
+        }).join('\n\n');
+
+        return new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle('🏆 One Word Story Leaderboard')
+          .setDescription(desc)
+          .setFooter({ text: `Page ${page + 1}/${totalPages} • ${rows.length} users` });
+      };
+
+      const components = () => [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`${customBase}:left`).setLabel('⬅').setStyle(ButtonStyle.Secondary).setDisabled(totalPages <= 1),
+          new ButtonBuilder().setCustomId(`${customBase}:me`).setLabel('Find Me').setStyle(ButtonStyle.Primary),
+          new ButtonBuilder().setCustomId(`${customBase}:right`).setLabel('➡').setStyle(ButtonStyle.Secondary).setDisabled(totalPages <= 1)
+        )
+      ];
+
+      await interaction.reply({
+        embeds: [buildEmbed()],
+        components: components()
+      });
+
+      const message = await interaction.fetchReply();
+      const collector = message.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 120000
+      });
+
+      collector.on('collect', async i => {
+        if (!i.customId.startsWith(customBase)) return;
+        if (i.customId.endsWith(':left')) {
+          page = (page - 1 + totalPages) % totalPages;
+          return i.update({ embeds: [buildEmbed()], components: components() });
+        }
+        if (i.customId.endsWith(':right')) {
+          page = (page + 1) % totalPages;
+          return i.update({ embeds: [buildEmbed()], components: components() });
+        }
+        const idx = rows.findIndex(row => row.user_id === i.user.id);
+        if (idx === -1) {
+          return i.reply({ content: 'You are not ranked on this leaderboard yet.', flags: MessageFlags.Ephemeral });
+        }
+        page = Math.floor(idx / perPage);
+        return i.update({ embeds: [buildEmbed()], components: components() });
+      });
+
+      collector.on('end', async () => {
+        await message.edit({ components: [] }).catch(() => null);
+      });
+
+      return;
     }
 
     const config = await getStoryConfig(interaction.guildId);

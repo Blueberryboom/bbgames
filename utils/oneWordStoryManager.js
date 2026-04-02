@@ -116,6 +116,16 @@ async function processQueuedMessage(message) {
   );
 
   await message.react(CHECK_EMOJI).catch(() => null);
+  await query(
+    `INSERT INTO one_word_story_contributions
+     (guild_id, channel_id, message_id, user_id, stars, created_at)
+     VALUES (?, ?, ?, ?, 1, ?)
+     ON DUPLICATE KEY UPDATE
+       user_id = VALUES(user_id),
+       stars = VALUES(stars),
+       created_at = VALUES(created_at)`,
+    [message.guildId, message.channel.id, message.id, message.author.id, Date.now()]
+  );
 
   if (nextCount % 25 === 0 && nextCount < 100) {
     await message.channel.send({
@@ -147,11 +157,39 @@ async function processQueuedMessage(message) {
   }
 }
 
+async function updateContributionStarCount({ guildId, messageId, channelId, delta }) {
+  if (!guildId || !messageId || !delta) return;
+
+  if (!channelId) {
+    const rows = await query(
+      `SELECT channel_id
+       FROM one_word_story_contributions
+       WHERE guild_id = ? AND message_id = ?
+       LIMIT 1`,
+      [guildId, messageId]
+    );
+    channelId = rows[0]?.channel_id || null;
+  }
+
+  if (!channelId) return;
+
+  const config = await getStoryConfig(guildId);
+  if (!config?.channel_id || config.channel_id !== channelId) return;
+
+  await query(
+    `UPDATE one_word_story_contributions
+     SET stars = GREATEST(1, stars + ?)
+     WHERE guild_id = ? AND message_id = ?`,
+    [delta, guildId, messageId]
+  );
+}
+
 module.exports = {
   WORD_DELAY_MS,
   getStoryConfig,
   resetStory,
   queueOneWordStoryMessage,
+  updateContributionStarCount,
   clearPendingTimer,
   clearGuildOneWordStoryState
 };
