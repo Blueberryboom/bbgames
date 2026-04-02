@@ -8,6 +8,7 @@ const {
 } = require('discord.js');
 
 const rpsState = require('../utils/rpsState');
+const { trackAchievementEvent } = require('../utils/achievementManager');
 
 const CHOICES = ['rock', 'paper', 'scissors'];
 const CHOICE_EMOJI = {
@@ -55,7 +56,22 @@ module.exports = {
           `${resultText(result, interaction.user.username, interaction.client.user.username)}`
         );
 
-      return interaction.reply({ embeds: [embed] });
+      await interaction.reply({ embeds: [embed] });
+
+      if (result === 'first') {
+        await trackAchievementEvent({
+          userId: interaction.user.id,
+          event: 'rps_win',
+          context: {
+            guildId: interaction.guildId,
+            channelId: interaction.channelId,
+            channel: interaction.channel,
+            userMention: `${interaction.user}`
+          }
+        });
+      }
+
+      return;
     }
 
     if (opponent.id === interaction.user.id) {

@@ -7,6 +7,7 @@ const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
 const { BOT_OWNER_ID } = require('../utils/constants');
 const { getPremiumLimit } = require('../utils/premiumPerks');
+const { trackAchievementEvent } = require('../utils/achievementManager');
 
 const TAG_FREE_LIMIT = 25;
 const TAG_PREMIUM_LIMIT = 200;
@@ -231,6 +232,17 @@ module.exports = {
     );
 
     await interaction.reply({ content: tag.content });
+
+    await trackAchievementEvent({
+      userId: interaction.user.id,
+      event: 'tag_send',
+      context: {
+        guildId: interaction.guildId,
+        channelId: interaction.channelId,
+        channel: interaction.channel,
+        userMention: `${interaction.user}`
+      }
+    });
 
     if (Number(tag.expires_after_seconds || 0) > 0) {
       setTimeout(() => {

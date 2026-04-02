@@ -7,6 +7,7 @@ const {
   ComponentType,
   MessageFlags
 } = require('discord.js');
+const { trackAchievementEvent } = require('../utils/achievementManager');
 
 const MAX_LEVEL = 5;
 
@@ -106,6 +107,30 @@ async function runGame({ message, player1, player2, aiMode, level, board, symbol
         components: createComponents(board, true, rematchLevel)
       });
 
+      if (winner === 'X') {
+        await trackAchievementEvent({
+          userId: player1.id,
+          event: 'tictactoe_win',
+          context: {
+            guildId: message.guildId,
+            channelId: message.channelId,
+            channel: message.channel,
+            userMention: `<@${player1.id}>`
+          }
+        });
+      } else if (winner === 'O' && player2.id !== 'AI') {
+        await trackAchievementEvent({
+          userId: player2.id,
+          event: 'tictactoe_win',
+          context: {
+            guildId: message.guildId,
+            channelId: message.channelId,
+            channel: message.channel,
+            userMention: `<@${player2.id}>`
+          }
+        });
+      }
+
       if (aiMode) {
         await awaitRematch({ message, player1, player2, nextLevel: rematchLevel });
       }
@@ -136,6 +161,19 @@ async function runGame({ message, player1, player2, aiMode, level, board, symbol
             embeds: [buildResultEmbed(player1, player2, aiWinner, level)],
             components: createComponents(board, true, rematchLevel)
           }).catch(() => {});
+
+          if (aiWinner === 'X') {
+            await trackAchievementEvent({
+              userId: player1.id,
+              event: 'tictactoe_win',
+              context: {
+                guildId: message.guildId,
+                channelId: message.channelId,
+                channel: message.channel,
+                userMention: `<@${player1.id}>`
+              }
+            });
+          }
 
           await awaitRematch({ message, player1, player2, nextLevel: rematchLevel });
           return;

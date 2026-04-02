@@ -8,6 +8,7 @@ const {
 const youtubeSetupState = require('../utils/youtubeSetupState');
 const welcomeSetupState = require('../utils/welcomeSetupState');
 const rpsState = require('../utils/rpsState');
+const { trackAchievementEvent } = require('../utils/achievementManager');
 const { buildWelcomePayload } = require('../utils/welcomeSystem');
 const { getPremiumLimit } = require('../utils/premiumPerks');
 const {
@@ -326,6 +327,31 @@ module.exports = async (interaction) => {
         content: '',
         components: []
       });
+
+      if (result === 'first') {
+        await trackAchievementEvent({
+          userId: game.challengerId,
+          event: 'rps_win',
+          context: {
+            guildId: interaction.guildId,
+            channelId: interaction.channelId,
+            channel: interaction.channel,
+            userMention: firstUserMention
+          }
+        });
+      } else if (result === 'second') {
+        await trackAchievementEvent({
+          userId: interaction.user.id,
+          event: 'rps_win',
+          context: {
+            guildId: interaction.guildId,
+            channelId: interaction.channelId,
+            channel: interaction.channel,
+            userMention: secondUserMention
+          }
+        });
+      }
+
       return;
     }
 
