@@ -89,6 +89,23 @@ module.exports = {
             .setRequired(false)
             .setMaxLength(400)
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('delete')
+        .setDescription('Delete a saved tag (admin only)')
+        .addStringOption(option =>
+          option
+            .setName('name')
+            .setDescription('Tag name')
+            .setRequired(true)
+            .setMaxLength(40)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('list')
+        .setDescription('List tags you can use in this server')
     ),
 
   async execute(interaction) {
@@ -195,6 +212,85 @@ module.exports = {
 
       return interaction.reply({
         content: `✅ Saved tag \`${rawName}\` (${expire ? 'expires after 30s' : 'no expiry'}, usable by: ${usableBy}).`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (sub === 'delete') {
+      if (!await checkPerms(interaction)) {
+        return interaction.reply({
+          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const rawName = interaction.options.getString('name', true).trim().toLowerCase();
+      if (!/^[a-z0-9-]{2,40}$/.test(rawName)) {
+        return interaction.reply({
+          content: '❌ Tag names must be 2-40 characters and use only lowercase letters, numbers, and dashes.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      await query(
+        `DELETE FROM tag_allowed_roles
+         WHERE guild_id = ? AND tag_name = ?`,
+        [interaction.guildId, rawName]
+      );
+
+      const result = await query(
+        `DELETE FROM tags
+         WHERE guild_id = ? AND tag_name = ?`,
+        [interaction.guildId, rawName]
+      );
+
+      if (!result.affectedRows) {
+        return interaction.reply({
+          content: '❌ That tag does not exist.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      return interaction.reply({
+        content: `✅ Deleted tag \`${rawName}\`.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (sub === 'list') {
+      const rows = await query(
+        `SELECT tag_name, send_mode
+         FROM tags
+         WHERE guild_id = ?
+         ORDER BY tag_name ASC`,
+        [interaction.guildId]
+      );
+
+      if (!rows.length) {
+        return interaction.reply({
+          content: 'ℹ️ No tags are set up yet in this server.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const allowedRows = [];
+      for (const row of rows) {
+        if (await canUseTag(interaction, row)) {
+          allowedRows.push(row);
+        }
+      }
+
+      if (!allowedRows.length) {
+        return interaction.reply({
+          content: 'ℹ️ There are tags in this server, but you do not have permission to use any of them.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const lines = allowedRows.slice(0, 50).map(row => `• \`${row.tag_name}\``);
+      const extraCount = allowedRows.length > 50 ? `\n…and ${allowedRows.length - 50} more.` : '';
+      return interaction.reply({
+        content: `🏷️ Tags you can use (${allowedRows.length}):\n${lines.join('\n')}${extraCount}`,
         flags: MessageFlags.Ephemeral
       });
     }
