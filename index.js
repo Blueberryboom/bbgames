@@ -126,6 +126,7 @@ const levelingHandler = require('./events/levelingMessage');
 const { handleStickyMessage } = require('./utils/stickyManager');
 const { clearAfkForMessage, notifyMentionedAfkUsers, formatDuration } = require('./utils/afkManager');
 const { trackAchievementEvent } = require('./utils/achievementManager');
+const AFK_WELCOME_BACK_DELETE_MS = 6000;
 
 client.on('messageCreate', async message => {
   try {
@@ -165,9 +166,15 @@ client.on('messageCreate', async message => {
           `You were gone for **${formatDuration(clearedAfk.durationMs)}** and are currently **${placeText}** on the AFK leaderboard.`
         );
 
-      await message.channel.send({
+      const welcomeBackMessage = await message.channel.send({
         embeds: [embed]
       }).catch(() => null);
+
+      if (welcomeBackMessage) {
+        setTimeout(() => {
+          welcomeBackMessage.delete().catch(() => null);
+        }, AFK_WELCOME_BACK_DELETE_MS);
+      }
     }
 
     await notifyMentionedAfkUsers(message);
