@@ -18,6 +18,7 @@ const { stopStatus } = require('../status');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages, stopAutoMessageSchedulers } = require('./autoMessageManager');
 const { clearAfkForMessage, notifyMentionedAfkUsers, formatDuration } = require('./afkManager');
 const { BOT_OWNER_ID } = require('./constants');
+const { queueOneWordStoryMessage } = require('./oneWordStoryManager');
 
 const activeInstances = new Map(); // instanceId -> instance
 const ownerInstances = new Map(); // ownerId -> Set(instanceId)
@@ -25,6 +26,7 @@ const guildOwners = new Map(); // guildId -> ownerId
 let mainClientRef = null;
 
 const MAX_PREMIUM_GUILDS_PER_BOT = 1;
+const AFK_WELCOME_BACK_DELETE_MS = 6000;
 
 async function leaveExtraGuilds(client, keepGuildIds = new Set()) {
   const guilds = [...client.guilds.cache.values()];
@@ -73,15 +75,22 @@ async function initPremiumRuntime(premiumClient, token) {
             `You were gone for **${formatDuration(clearedAfk.durationMs)}** and are currently **${placeText}** on the AFK leaderboard.`
           );
 
-        await message.channel.send({
+        const welcomeBackMessage = await message.channel.send({
           embeds: [embed]
         }).catch(() => null);
+
+        if (welcomeBackMessage) {
+          setTimeout(() => {
+            welcomeBackMessage.delete().catch(() => null);
+          }, AFK_WELCOME_BACK_DELETE_MS);
+        }
       }
 
       await notifyMentionedAfkUsers(message);
       await countingHandler(message);
       await handleLevelingMessage(message);
       await handleStickyMessage(message);
+      await queueOneWordStoryMessage(message);
     } catch (err) {
       console.error('❌ Premium counting handler error:', err);
     }
