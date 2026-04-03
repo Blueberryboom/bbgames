@@ -1,4 +1,5 @@
 const { query } = require('../database');
+const { trackAchievementEvent } = require('./achievementManager');
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -204,6 +205,20 @@ async function concludeGiveaway(client, giveaway) {
     await channel.send(
       `🎉 Congratulations ${winners.map(id => `<@${id}>`).join(', ')}! You won **${giveaway.prize}**!`
     );
+
+    if (entries.length > 5) {
+      for (const winnerId of winners) {
+        await trackAchievementEvent({
+          userId: winnerId,
+          event: 'giveaway_win_5plus',
+          context: {
+            guildId: giveaway.guild_id,
+            channelId: giveaway.channel_id,
+            channel
+          }
+        });
+      }
+    }
   }
 }
 

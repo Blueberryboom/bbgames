@@ -34,9 +34,18 @@ const ACHIEVEMENTS = [
     tier: 'Silver',
     icon: '🥈',
     name: 'Uhhh how many',
-    description: 'Flip a coin and land on tails',
-    target: 1,
+    description: 'Land on tails 20 times in coin flips',
+    target: 20,
     event: 'coinflip_tails'
+  },
+  {
+    key: 'owner_invite',
+    tier: 'Silver',
+    icon: '🥈',
+    name: 'Server Owner',
+    description: 'Add BBGames to a server that you own',
+    target: 1,
+    event: 'bot_added_owner_server'
   },
   {
     key: 'fifty_word_story',
@@ -73,6 +82,15 @@ const ACHIEVEMENTS = [
     description: 'Win 5 games of rock paper scissors',
     target: 5,
     event: 'rps_win'
+  },
+  {
+    key: 'giveaway_big_win',
+    tier: 'Bronze',
+    icon: '🥉',
+    name: 'Lucky Winner',
+    description: 'Win a giveaway with more than 5 entrants',
+    target: 1,
+    event: 'giveaway_win_5plus'
   }
 ];
 

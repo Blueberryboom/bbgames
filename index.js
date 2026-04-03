@@ -218,6 +218,16 @@ client.on('guildCreate', async guild => {
 
     if (!targetUser) return;
 
+    if (guild.ownerId && targetUser.id === guild.ownerId) {
+      await trackAchievementEvent({
+        userId: targetUser.id,
+        event: 'bot_added_owner_server',
+        context: {
+          guildId: guild.id
+        }
+      });
+    }
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('Thanks for adding BBGames!')
