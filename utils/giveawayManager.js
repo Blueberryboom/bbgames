@@ -249,8 +249,18 @@ async function disableButtons(client, giveaway) {
 function pickWeightedWinners(entries, amount) {
   if (!entries.length || amount <= 0) return [];
 
-  const pool = entries
-    .map(entry => ({ userId: entry.user_id, weight: Math.max(1, Number(entry.entry_count || 1)) }))
+  const combinedEntries = new Map();
+
+  for (const entry of entries) {
+    const userId = entry.user_id;
+    const weight = Math.max(1, Number(entry.entry_count || 1));
+
+    if (!userId || weight <= 0) continue;
+    combinedEntries.set(userId, (combinedEntries.get(userId) || 0) + weight);
+  }
+
+  const pool = [...combinedEntries.entries()]
+    .map(([userId, weight]) => ({ userId, weight }))
     .filter(entry => entry.weight > 0);
 
   const winners = [];
