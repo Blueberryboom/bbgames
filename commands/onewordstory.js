@@ -11,7 +11,13 @@ const {
 
 const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
-const { getStoryConfig, resetStory } = require('../utils/oneWordStoryManager');
+const {
+  getStoryConfig,
+  resetStory,
+  MIN_WORD_DELAY_SECONDS,
+  MAX_WORD_DELAY_SECONDS,
+  DEFAULT_WORD_DELAY_SECONDS
+} = require('../utils/oneWordStoryManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -48,6 +54,20 @@ module.exports = {
       sub
         .setName('leaderboard')
         .setDescription('Show contribution leaderboard')
+    )
+
+    .addSubcommand(sub =>
+      sub
+        .setName('delay')
+        .setDescription('Set one-word-story processing delay in seconds (admin only)')
+        .addIntegerOption(option =>
+          option
+            .setName('seconds')
+            .setDescription('Delay in seconds')
+            .setRequired(true)
+            .setMinValue(MIN_WORD_DELAY_SECONDS)
+            .setMaxValue(MAX_WORD_DELAY_SECONDS)
+        )
     ),
 
   async execute(interaction) {
@@ -119,7 +139,34 @@ module.exports = {
       });
     }
 
-    if (sub === 'leaderboard') {
+    
+    if (sub === 'delay') {
+      if (!await checkPerms(interaction)) {
+        return interaction.reply({
+          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const seconds = interaction.options.getInteger('seconds', true);
+
+      await query(
+        `INSERT INTO one_word_story_settings
+         (guild_id, channel_id, story_text, word_count, last_user_id, process_delay_seconds, updated_at)
+         VALUES (?, NULL, '', 0, NULL, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           process_delay_seconds = VALUES(process_delay_seconds),
+           updated_at = VALUES(updated_at)`,
+        [interaction.guildId, seconds, Date.now()]
+      );
+
+      return interaction.reply({
+        content: `✅ One-word-story processing delay set to **${seconds}** second(s).`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+if (sub === 'leaderboard') {
       const rows = await query(
         `SELECT user_id,
                 COUNT(*) AS contributions,
@@ -218,7 +265,8 @@ module.exports = {
       .setTitle('One Word Story • Current Progress')
       .addFields(
         { name: 'Channel', value: `<#${config.channel_id}>`, inline: true },
-        { name: 'Words', value: `${wordCount}/100`, inline: true }
+        { name: 'Words', value: `${wordCount}/100`, inline: true },
+        { name: 'Delay', value: `${Math.min(MAX_WORD_DELAY_SECONDS, Math.max(MIN_WORD_DELAY_SECONDS, Number(config.process_delay_seconds || DEFAULT_WORD_DELAY_SECONDS)))}s`, inline: true }
       )
       .setDescription(storyText || '*No words yet.*');
 

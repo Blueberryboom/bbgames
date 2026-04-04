@@ -352,6 +352,12 @@ module.exports = {
       await interaction.deferReply({ ephemeral: true });
 
       let guilds = [];
+      const redeemedRows = await pool.query(
+        `SELECT guild_id
+         FROM premium_guild_perks
+         WHERE active = 1`
+      );
+      const redeemedSet = new Set(redeemedRows.map(row => row.guild_id));
 
       try {
         const results = await interaction.client.shard.broadcastEval(
@@ -379,6 +385,10 @@ module.exports = {
             seen.add(g.id);
             return true;
           })
+          .map(g => ({
+            ...g,
+            premium: Boolean(g.premium) || redeemedSet.has(g.id)
+          }))
           .sort((a, b) => {
             if (Boolean(b.premium) !== Boolean(a.premium)) {
               return Number(Boolean(b.premium)) - Number(Boolean(a.premium));

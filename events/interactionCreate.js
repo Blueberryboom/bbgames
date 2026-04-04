@@ -42,11 +42,11 @@ const HELP_MODULES = {
   },
   onewordstory: {
     name: 'One Word Story',
-    value: 'Commands: `/onewordstory channel`, `/onewordstory disable`, `/onewordstory view`, `/onewordstory restart`, `/onewordstory leaderboard`.'
+    value: 'Commands: `/onewordstory channel`, `/onewordstory delay`, `/onewordstory disable`, `/onewordstory view`, `/onewordstory restart`, `/onewordstory leaderboard`.'
   },
   misc: {
     name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`, `/birthday`, `/leveling`, `/level`, `/premium`, `/owner`, `/variableslowmode`, `/welcome`, `/dice`, `/tictactoe`.'
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`, `/birthday`, `/leveling`, `/level`, `/premium`, `/owner`, `/variableslowmode`, `/welcome`, `/starboard`, `/servertag`, `/dice`, `/tictactoe`.'
   }
 };
 const RPS_CHOICE_EMOJI = {

@@ -19,6 +19,8 @@ const { initializeAutoMessageScheduler, clearGuildAutoMessages } = require('./ut
 const { initializeVariableSlowmodeManager, trackMessage: trackVariableSlowmodeMessage } = require('./utils/variableSlowmodeManager');
 const { initBirthdayScheduler, cleanupUserGuildData } = require('./utils/birthdaySystem');
 const { queueOneWordStoryMessage, clearGuildOneWordStoryState, updateContributionStarCount } = require('./utils/oneWordStoryManager');
+const { processStarboardReaction, cleanupStarboardSourceMessage } = require('./utils/starboardManager');
+const { initServerTagRewardManager } = require('./utils/serverTagRewardManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -91,6 +93,9 @@ client.once('clientReady', async () => {
 
     // Birthday scheduler.
     initBirthdayScheduler(client);
+
+    // Server-tag rewards scheduler.
+    initServerTagRewardManager(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
@@ -297,14 +302,17 @@ client.on('messageReactionAdd', async (reaction, user) => {
     if (user?.bot) return;
     if (reaction.partial) await reaction.fetch().catch(() => null);
     if (!reaction.message?.guildId) return;
-    if (reaction.emoji?.name !== '✅') return;
 
-    await updateContributionStarCount({
-      guildId: reaction.message.guildId,
-      channelId: reaction.message.channelId,
-      messageId: reaction.message.id,
-      delta: 1
-    });
+    if (reaction.emoji?.name === '✅') {
+      await updateContributionStarCount({
+        guildId: reaction.message.guildId,
+        channelId: reaction.message.channelId,
+        messageId: reaction.message.id,
+        delta: 1
+      });
+    }
+
+    await processStarboardReaction(reaction, user);
   } catch (err) {
     console.error('❌ messageReactionAdd handler error:', err);
   }
@@ -315,16 +323,28 @@ client.on('messageReactionRemove', async (reaction, user) => {
     if (user?.bot) return;
     if (reaction.partial) await reaction.fetch().catch(() => null);
     if (!reaction.message?.guildId) return;
-    if (reaction.emoji?.name !== '✅') return;
 
-    await updateContributionStarCount({
-      guildId: reaction.message.guildId,
-      channelId: reaction.message.channelId,
-      messageId: reaction.message.id,
-      delta: -1
-    });
+    if (reaction.emoji?.name === '✅') {
+      await updateContributionStarCount({
+        guildId: reaction.message.guildId,
+        channelId: reaction.message.channelId,
+        messageId: reaction.message.id,
+        delta: -1
+      });
+    }
+
+    await processStarboardReaction(reaction, user);
   } catch (err) {
     console.error('❌ messageReactionRemove handler error:', err);
+  }
+});
+
+client.on('messageDelete', async message => {
+  try {
+    if (!message?.guildId || !message?.id) return;
+    await cleanupStarboardSourceMessage(message.guildId, message.id);
+  } catch (err) {
+    console.error('❌ messageDelete cleanup error:', err);
   }
 });
 

@@ -38,7 +38,9 @@ module.exports = {
             '`/coinflip` • Heads or tails',
             '`/minecraft` • Query server info/status',
             '`/tag send` • Send a saved tag',
-            '`/onewordstory view` • View story progress'
+            '`/onewordstory view` • View story progress',
+            '`/starboard configure` • Auto-post popular messages',
+            '`/servertag rewards` • Sync role by server tag'
           ].join('\n')
         },
         {
@@ -48,7 +50,7 @@ module.exports = {
             '`/config`, `/count`, `/giveaway`, `/youtube`, `/sticky`, `/automsg`',
             '`/leveling`, `/level`, `/birthday`, `/afk`, `/afk_leaderboard`',
             '`/variableslowmode`, `/welcome`, `/premium`, `/owner`',
-            '`/tag`, `/onewordstory`, `/coinflip`, `/dadjoke`, `/dice`, `/minecraft`, `/rps`, `/tictactoe`'
+            '`/tag`, `/onewordstory`, `/starboard`, `/servertag`, `/coinflip`, `/dadjoke`, `/dice`, `/minecraft`, `/rps`, `/tictactoe`'
           ].join('\n')
         }
       )
