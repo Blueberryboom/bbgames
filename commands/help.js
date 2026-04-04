@@ -49,7 +49,7 @@ module.exports = {
             '`/help`, `/about`, `/status`, `/support`, `/donate`',
             '`/config`, `/count`, `/giveaway`, `/youtube`, `/sticky`, `/automsg`',
             '`/leveling`, `/level`, `/birthday`, `/afk`, `/afk_leaderboard`',
-            '`/variableslowmode`, `/welcome`, `/premium`, `/owner`',
+            '`/variableslowmode`, `/welcome`, `/premium`, `/say`, `/owner`',
             '`/tag`, `/onewordstory`, `/starboard`, `/servertag`, `/coinflip`, `/dadjoke`, `/dice`, `/minecraft`, `/rps`, `/tictactoe`'
           ].join('\n')
         }
