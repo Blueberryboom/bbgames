@@ -1,0 +1,59 @@
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  MessageFlags
+} = require('discord.js');
+
+const checkPerms = require('../utils/checkEventPerms');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('say')
+    .setDescription('Make the bot send a message in this channel')
+    .addStringOption(option =>
+      option
+        .setName('message')
+        .setDescription('The message for the bot to send')
+        .setRequired(true)
+        .setMaxLength(2000)
+    )
+    .addBooleanOption(option =>
+      option
+        .setName('embed')
+        .setDescription('Send as an embed? (yes/no)')
+        .setRequired(false)
+    ),
+
+  async execute(interaction) {
+    if (!await checkPerms(interaction)) {
+      return interaction.reply({
+        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const message = interaction.options.getString('message', true).trim();
+    const useEmbed = interaction.options.getBoolean('embed') ?? false;
+
+    if (useEmbed) {
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setDescription(message);
+
+      await interaction.channel.send({
+        embeds: [embed],
+        allowedMentions: { parse: [] }
+      });
+    } else {
+      await interaction.channel.send({
+        content: message,
+        allowedMentions: { parse: [] }
+      });
+    }
+
+    return interaction.reply({
+      content: '✅ Message sent.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+};
