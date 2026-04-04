@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require('discord.js');
 const { query } = require('../database');
 
 const DEFAULT_COOLDOWN_MS = 8000;
@@ -12,7 +13,7 @@ async function handleStickyMessage(message) {
   const guildId = message.guildId;
 
   const rows = await query(
-    `SELECT id, content, last_post_message_id, cooldown_ms
+    `SELECT id, content, is_embed, last_post_message_id, cooldown_ms
      FROM sticky_messages
      WHERE guild_id = ? AND channel_id = ? AND enabled = 1
      LIMIT 1`,
@@ -51,7 +52,7 @@ async function handleStickyMessage(message) {
     resendTimersByChannel.delete(channelId);
 
     const freshRows = await query(
-      `SELECT id, content, last_post_message_id
+      `SELECT id, content, is_embed, last_post_message_id
        FROM sticky_messages
        WHERE guild_id = ? AND channel_id = ? AND enabled = 1
        LIMIT 1`,
@@ -68,10 +69,21 @@ async function handleStickyMessage(message) {
 
     // Force mention parsing off as a second safety layer in case legacy sticky content
     // still contains mention-like tokens saved before validation rules were added.
-    const stickyMessage = await message.channel.send({
-      content: freshSticky.content,
-      allowedMentions: { parse: [] }
-    }).catch(() => null);
+    const payload = freshSticky.is_embed
+      ? {
+          embeds: [
+            new EmbedBuilder()
+              .setDescription(freshSticky.content)
+              .setColor(0x5865F2)
+          ],
+          allowedMentions: { parse: [] }
+        }
+      : {
+          content: freshSticky.content,
+          allowedMentions: { parse: [] }
+        };
+
+    const stickyMessage = await message.channel.send(payload).catch(() => null);
     if (!stickyMessage) return;
 
     await query(

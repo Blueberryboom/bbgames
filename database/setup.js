@@ -81,6 +81,7 @@ module.exports = async () => {
         guild_id VARCHAR(32) NOT NULL,
         channel_id VARCHAR(32) NOT NULL,
         content TEXT NOT NULL,
+        is_embed BOOLEAN NOT NULL DEFAULT 0,
         enabled BOOLEAN NOT NULL DEFAULT 1,
         cooldown_ms INT NOT NULL DEFAULT 8000,
         last_post_message_id VARCHAR(32) NULL,
@@ -91,6 +92,11 @@ module.exports = async () => {
         UNIQUE KEY uniq_sticky_channel (guild_id, channel_id),
         INDEX idx_sticky_guild (guild_id)
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE sticky_messages
+      ADD COLUMN IF NOT EXISTS is_embed BOOLEAN NOT NULL DEFAULT 0
     `);
 
 

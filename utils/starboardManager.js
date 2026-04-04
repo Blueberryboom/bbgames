@@ -92,7 +92,7 @@ function invalidateGuildCache(guildId) {
   bannedCache.delete(guildId);
 }
 
-function buildStarboardEmbed(message, reactionCount, config) {
+function buildStarboardEmbed(message, config) {
   const description = message.content?.trim() || '*No message content.*';
   const color = Number(config.embed_color) || 0xF1C40F;
 
@@ -103,18 +103,13 @@ function buildStarboardEmbed(message, reactionCount, config) {
       iconURL: message.author?.displayAvatarURL?.({ size: 128 }) || null
     })
     .setDescription(description)
-    .setFooter({ text: `#${message.channel?.name || 'unknown-channel'} • ${message.id}` })
+    .setFooter({ text: `Message ID: ${message.id}` })
     .setTimestamp(message.createdAt || new Date());
 
   const firstAttachment = message.attachments?.first?.();
   if (firstAttachment?.contentType?.startsWith('image/')) {
     embed.setImage(firstAttachment.url);
   }
-
-  embed.addFields(
-    { name: 'Jump', value: `[Go to message](${message.url})`, inline: true },
-    { name: 'Reactions', value: String(reactionCount), inline: true }
-  );
 
   return embed;
 }
@@ -124,8 +119,8 @@ async function upsertStarboardPost({ message, reactionCount, config }) {
   if (!targetChannel?.isTextBased()) return;
 
   const emojiText = formatStoredEmoji(config.reaction_emoji);
-  const content = `${emojiText} **${reactionCount}** | [Jump to message](${message.url})`;
-  const embed = buildStarboardEmbed(message, reactionCount, config);
+  const content = `${emojiText} **${reactionCount}** • [Jump to message](${message.url}) • <#${message.channelId}>`;
+  const embed = buildStarboardEmbed(message, config);
 
   const existingRows = await query(
     `SELECT starboard_message_id

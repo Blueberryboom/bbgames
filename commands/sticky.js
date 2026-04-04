@@ -42,6 +42,12 @@ module.exports = {
             .setMaxValue(30)
             .setRequired(false)
         )
+        .addBooleanOption(option =>
+          option
+            .setName('embed')
+            .setDescription('Post the sticky as an embed instead of plain text')
+            .setRequired(false)
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -76,6 +82,7 @@ module.exports = {
       const content = interaction.options.getString('message', true).trim();
       const cooldownSeconds = interaction.options.getInteger('cooldown_seconds') || Math.round(DEFAULT_COOLDOWN_MS / 1000);
       const cooldownMs = cooldownSeconds * 1000;
+      const isEmbed = interaction.options.getBoolean('embed') ?? false;
 
       // Reject sticky content containing possible mention tokens so sticky posts stay non-pinging.
       if (DISALLOWED_MENTION_PATTERN.test(content)) {
@@ -105,19 +112,20 @@ module.exports = {
 
       await query(
         `INSERT INTO sticky_messages
-         (guild_id, channel_id, content, enabled, cooldown_ms, updated_by, updated_at)
-         VALUES (?, ?, ?, 1, ?, ?, ?)
+         (guild_id, channel_id, content, is_embed, enabled, cooldown_ms, updated_by, updated_at)
+         VALUES (?, ?, ?, ?, 1, ?, ?, ?)
          ON DUPLICATE KEY UPDATE
            content = VALUES(content),
+           is_embed = VALUES(is_embed),
            enabled = 1,
            cooldown_ms = VALUES(cooldown_ms),
            updated_by = VALUES(updated_by),
            updated_at = VALUES(updated_at)`,
-        [interaction.guildId, channel.id, content, cooldownMs, interaction.user.id, Date.now()]
+        [interaction.guildId, channel.id, content, isEmbed ? 1 : 0, cooldownMs, interaction.user.id, Date.now()]
       );
 
       return interaction.reply({
-        content: `✅ Sticky message saved for ${channel} with a ${cooldownSeconds}s cooldown.`,
+        content: `✅ Sticky message saved for ${channel} with a ${cooldownSeconds}s cooldown (${isEmbed ? 'embed' : 'text'} mode).`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -152,7 +160,7 @@ module.exports = {
     }
 
     const rows = await query(
-      `SELECT channel_id, cooldown_ms, updated_at
+      `SELECT channel_id, cooldown_ms, is_embed, updated_at
        FROM sticky_messages
        WHERE guild_id = ?
        ORDER BY updated_at DESC`,
@@ -169,7 +177,7 @@ module.exports = {
     const limit = await getPremiumLimit(interaction.client, interaction.guildId, 5, 10);
     const body = rows.map((row, index) => {
       const cooldownSeconds = Math.round((Number(row.cooldown_ms) || DEFAULT_COOLDOWN_MS) / 1000);
-      return `${index + 1}. <#${row.channel_id}> • cooldown: **${cooldownSeconds}s**`;
+      return `${index + 1}. <#${row.channel_id}> • cooldown: **${cooldownSeconds}s** • mode: **${row.is_embed ? 'embed' : 'text'}**`;
     }).join('\n');
 
     return interaction.reply({
