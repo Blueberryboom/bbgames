@@ -3,7 +3,9 @@ const { query } = require('../database');
 const { trackAchievementEvent } = require('./achievementManager');
 
 const pendingTimers = new Map();
-const WORD_DELAY_MS = 5000;
+const DEFAULT_WORD_DELAY_SECONDS = 5;
+const MIN_WORD_DELAY_SECONDS = 1;
+const MAX_WORD_DELAY_SECONDS = 30;
 const CHECK_EMOJI = '✅';
 
 function getTimerKey(guildId, messageId) {
@@ -42,7 +44,7 @@ function isSingleValidWord(raw) {
 
 async function getStoryConfig(guildId) {
   const rows = await query(
-    `SELECT guild_id, channel_id, story_text, word_count, last_user_id
+    `SELECT guild_id, channel_id, story_text, word_count, last_user_id, process_delay_seconds
      FROM one_word_story_settings
      WHERE guild_id = ?
      LIMIT 1`,
@@ -73,12 +75,14 @@ async function queueOneWordStoryMessage(message) {
   if (!config || !config.channel_id || config.channel_id !== message.channel.id) return;
 
   const key = getTimerKey(message.guildId, message.id);
+    const configuredSeconds = Math.min(MAX_WORD_DELAY_SECONDS, Math.max(MIN_WORD_DELAY_SECONDS, Number(config.process_delay_seconds || DEFAULT_WORD_DELAY_SECONDS)));
+
   const timer = setTimeout(async () => {
     pendingTimers.delete(key);
     await processQueuedMessage(message).catch(error => {
       console.error('❌ One-word story processing failed:', error);
     });
-  }, WORD_DELAY_MS);
+  }, configuredSeconds * 1000);
 
   if (typeof timer.unref === 'function') {
     timer.unref();
@@ -92,7 +96,7 @@ async function processQueuedMessage(message) {
   if (!isSingleValidWord(content)) return;
 
   const rows = await query(
-    `SELECT guild_id, channel_id, story_text, word_count, last_user_id
+    `SELECT guild_id, channel_id, story_text, word_count, last_user_id, process_delay_seconds
      FROM one_word_story_settings
      WHERE guild_id = ?
      LIMIT 1`,
@@ -197,7 +201,9 @@ async function updateContributionStarCount({ guildId, messageId, channelId, delt
 }
 
 module.exports = {
-  WORD_DELAY_MS,
+  DEFAULT_WORD_DELAY_SECONDS,
+  MIN_WORD_DELAY_SECONDS,
+  MAX_WORD_DELAY_SECONDS,
   getStoryConfig,
   resetStory,
   queueOneWordStoryMessage,

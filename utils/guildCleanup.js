@@ -35,6 +35,10 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM tag_usage_stats WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM one_word_story_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM one_word_story_contributions WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM starboard_posts WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM starboard_configs WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM starboard_banned_users WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM servertag_reward_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
 }
 

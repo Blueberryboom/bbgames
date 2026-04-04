@@ -563,6 +563,12 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+
+    await pool.query(`
+      ALTER TABLE one_word_story_settings
+      ADD COLUMN IF NOT EXISTS process_delay_seconds INT NOT NULL DEFAULT 5
+    `);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS one_word_story_contributions (
         guild_id VARCHAR(32) NOT NULL,
@@ -574,6 +580,59 @@ module.exports = async () => {
         PRIMARY KEY (guild_id, message_id),
         INDEX idx_ows_contrib_user (guild_id, user_id),
         INDEX idx_ows_contrib_channel (guild_id, channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
+
+    // ─── STARBOARD ───────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS starboard_configs (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        name VARCHAR(40) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        reaction_emoji VARCHAR(96) NOT NULL,
+        min_reactions INT NOT NULL DEFAULT 3,
+        embed_color INT NULL,
+        created_by VARCHAR(32) NOT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_starboard_name (guild_id, name),
+        INDEX idx_starboard_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS starboard_posts (
+        guild_id VARCHAR(32) NOT NULL,
+        config_id BIGINT NOT NULL,
+        source_channel_id VARCHAR(32) NOT NULL,
+        source_message_id VARCHAR(32) NOT NULL,
+        starboard_message_id VARCHAR(32) NOT NULL,
+        last_count INT NOT NULL DEFAULT 0,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, config_id, source_message_id),
+        UNIQUE KEY uniq_starboard_post_message (starboard_message_id),
+        INDEX idx_starboard_posts_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS starboard_banned_users (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, user_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    // ─── SERVER TAG REWARDS ──────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS servertag_reward_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        role_id VARCHAR(32) NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
       ) ENGINE=InnoDB;
     `);
 
