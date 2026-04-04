@@ -3,7 +3,9 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   MessageFlags,
-  EmbedBuilder
+  EmbedBuilder,
+  ButtonStyle,
+  ComponentType
 } = require('discord.js');
 const youtubeSetupState = require('../utils/youtubeSetupState');
 const welcomeSetupState = require('../utils/welcomeSetupState');
@@ -379,17 +381,7 @@ module.exports = async (interaction) => {
     const giveaway = rows[0];
 
     if (action === 'participants') {
-      const countRows = await query(
-        `SELECT COUNT(*) AS total FROM giveaway_entries WHERE giveaway_id = ?`,
-        [giveawayId]
-      );
-
-      const total = Number(countRows[0]?.total || 0);
-
-      return replyToButton(
-        interaction,
-        `👥 **${total}** participant${total === 1 ? '' : 's'} entered this giveaway.`
-      );
+      return showGiveawayParticipants(interaction, giveawayId, giveaway);
     }
 
     if (giveaway.ended) {
@@ -543,5 +535,115 @@ async function replyToButton(interaction, content) {
   return interaction.reply({
     content,
     flags: MessageFlags.Ephemeral
+  });
+}
+
+async function showGiveawayParticipants(interaction, giveawayId, giveaway) {
+  const rows = await query(
+    `SELECT user_id, entry_count
+     FROM giveaway_entries
+     WHERE giveaway_id = ?
+     ORDER BY entry_count DESC, user_id ASC`,
+    [giveawayId]
+  );
+
+  if (!rows.length) {
+    return replyToButton(interaction, '👥 No one has entered this giveaway yet.');
+  }
+
+  let page = 0;
+  const perPage = 10;
+  const totalPages = Math.max(1, Math.ceil(rows.length / perPage));
+  const customBase = `gparticipants:${giveawayId}:${interaction.id}`;
+
+  const totalEntries = rows.reduce((sum, row) => sum + Math.max(1, Number(row.entry_count || 1)), 0);
+
+  const buildEmbed = () => {
+    const slice = rows.slice(page * perPage, (page + 1) * perPage);
+    const lines = slice.map((row, index) => {
+      const rank = page * perPage + index + 1;
+      const entryCount = Math.max(1, Number(row.entry_count || 1));
+      const chance = ((entryCount / totalEntries) * 100).toFixed(2);
+      return `#${rank} <@${row.user_id}> — ${entryCount} ${entryCount === 1 ? 'entry' : 'entries'}\n↳ Chance: **${chance}%**`;
+    });
+
+    const myEntryCount = rows
+      .filter(row => row.user_id === interaction.user.id)
+      .reduce((sum, row) => sum + Math.max(1, Number(row.entry_count || 1)), 0);
+    const myChance = myEntryCount > 0
+      ? `${((myEntryCount / totalEntries) * 100).toFixed(2)}% (${myEntryCount} ${myEntryCount === 1 ? 'entry' : 'entries'})`
+      : 'Not entered';
+
+    return new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(`👥 Giveaway Participants (${rows.length})`)
+      .setDescription(lines.join('\n\n'))
+      .addFields(
+        { name: 'Prize', value: `**${giveaway.prize}**`, inline: false },
+        { name: 'Your Chance', value: myChance, inline: true },
+        { name: 'Total Entries', value: `${totalEntries}`, inline: true }
+      )
+      .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
+  };
+
+  const buildComponents = () => [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${customBase}:left`)
+        .setLabel('⬅')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(totalPages <= 1),
+      new ButtonBuilder()
+        .setCustomId(`${customBase}:me`)
+        .setLabel('Find Me')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId(`${customBase}:right`)
+        .setLabel('➡')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(totalPages <= 1)
+    )
+  ];
+
+  await interaction.editReply({
+    embeds: [buildEmbed()],
+    components: buildComponents(),
+    content: ''
+  });
+
+  const message = await interaction.fetchReply();
+  const collector = message.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 120000
+  });
+
+  collector.on('collect', async i => {
+    if (!i.customId.startsWith(customBase)) return;
+
+    if (i.user.id !== interaction.user.id) {
+      return i.reply({ content: '❌ This participant list is only for the user who opened it.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (i.customId.endsWith(':left')) {
+      page = (page - 1 + totalPages) % totalPages;
+      return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+    }
+
+    if (i.customId.endsWith(':right')) {
+      page = (page + 1) % totalPages;
+      return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+    }
+
+    const index = rows.findIndex(row => row.user_id === i.user.id);
+    if (index === -1) {
+      return i.reply({ content: 'You are not entered in this giveaway.', flags: MessageFlags.Ephemeral });
+    }
+
+    page = Math.floor(index / perPage);
+    return i.update({ embeds: [buildEmbed()], components: buildComponents() });
+  });
+
+  collector.on('end', async () => {
+    await message.edit({ components: [] }).catch(() => null);
   });
 }

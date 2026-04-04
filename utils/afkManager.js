@@ -170,7 +170,7 @@ async function notifyMentionedAfkUsers(message) {
 
 async function getAfkLeaderboard(guildId, limit = 10) {
   const cutoff = Date.now() - LEADERBOARD_ACTIVITY_WINDOW_MS;
-  const safeLimit = Math.min(25, Math.max(1, Number(limit) || 10));
+  const safeLimit = Math.min(1000, Math.max(1, Number(limit) || 10));
 
   return query(
     `SELECT l.user_id, l.longest_afk_ms, l.total_afk_ms, l.afk_sessions
