@@ -5,6 +5,7 @@ const {
 } = require('discord.js');
 
 const checkPerms = require('../utils/checkEventPerms');
+const { LOG_EVENT_KEYS, logGuildEvent } = require('../utils/guildLogger');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -50,6 +51,13 @@ module.exports = {
         allowedMentions: { parse: [] }
       });
     }
+
+    await logGuildEvent(
+      interaction.client,
+      interaction.guildId,
+      LOG_EVENT_KEYS.say_command_used,
+      `🗣️ **/say used:** <@${interaction.user.id}> used /say in <#${interaction.channelId}>.`
+    );
 
     return interaction.reply({
       content: '✅ Message sent.',

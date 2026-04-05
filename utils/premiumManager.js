@@ -9,7 +9,7 @@ const {
 } = require('discord.js');
 const fs = require('fs');
 const { query } = require('../database');
-const { buildWelcomePayload } = require('./welcomeSystem');
+const { buildMemberEventPayload, EVENT_TYPES } = require('./memberEventMessages');
 const { scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./guildCleanup');
 const { handleStickyMessage } = require('./stickyManager');
 const handleLevelingMessage = require('../events/levelingMessage');
@@ -99,11 +99,13 @@ async function initPremiumRuntime(premiumClient, token) {
   premiumClient.on('guildMemberAdd', async member => {
     try {
       const rows = await query(
-        `SELECT channel_id, message_key, button_label, button_url
-         FROM welcome_settings
+        `SELECT channel_id, message_template, button_label, button_url
+         FROM member_event_messages
          WHERE guild_id = ?
+           AND event_type = ?
+           AND enabled = 1
          LIMIT 1`,
-        [member.guild.id]
+        [member.guild.id, EVENT_TYPES.welcome]
       );
 
       if (!rows.length) return;
@@ -112,7 +114,7 @@ async function initPremiumRuntime(premiumClient, token) {
       const targetChannel = await member.guild.channels.fetch(config.channel_id).catch(() => null);
       if (!targetChannel?.isTextBased()) return;
 
-      const payload = buildWelcomePayload(member, member.guild, config);
+      const payload = buildMemberEventPayload(EVENT_TYPES.welcome, member, member.guild, config);
       await targetChannel.send(payload);
     } catch (err) {
       console.error('❌ Premium welcome system error:', err);

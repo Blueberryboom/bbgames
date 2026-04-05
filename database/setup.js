@@ -74,6 +74,57 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── MEMBER EVENT MESSAGES ────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS member_event_messages (
+        guild_id VARCHAR(32) NOT NULL,
+        event_type VARCHAR(16) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        message_template TEXT NOT NULL,
+        button_label VARCHAR(80) NULL,
+        button_url TEXT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, event_type),
+        INDEX idx_member_event_channel (channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    // ─── GUILD LOG SETTINGS ───────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS guild_logs_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        channel_id VARCHAR(32) NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_guild_logs_channel (channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS guild_logs_events (
+        guild_id VARCHAR(32) NOT NULL,
+        event_key VARCHAR(48) NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 0,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, event_key)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      INSERT INTO member_event_messages (guild_id, event_type, channel_id, message_template, button_label, button_url, enabled, updated_by, updated_at)
+      SELECT guild_id, 'welcome', channel_id, '👋 Welcome [$usermention] to [$guildname]!', button_label, button_url, 1, updated_by, updated_at
+      FROM welcome_settings
+      ON DUPLICATE KEY UPDATE
+        channel_id = VALUES(channel_id),
+        button_label = VALUES(button_label),
+        button_url = VALUES(button_url),
+        updated_by = VALUES(updated_by),
+        updated_at = VALUES(updated_at)
+    `);
+
     // ─── STICKY MESSAGES ───────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS sticky_messages (

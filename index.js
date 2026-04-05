@@ -14,7 +14,8 @@ const premiumManager = require('./utils/premiumManager');
 const { startGuildCleanupScheduler, scheduleGuildDataDeletion, cancelGuildDataDeletion } = require('./utils/guildCleanup');
 const { initPremiumAccessManager } = require('./utils/premiumAccessManager');
 const { query } = require('./database');
-const { buildWelcomePayload } = require('./utils/welcomeSystem');
+const { buildMemberEventPayload, EVENT_TYPES } = require('./utils/memberEventMessages');
+const { LOG_EVENT_KEYS, logGuildEvent } = require('./utils/guildLogger');
 const { initializeAutoMessageScheduler, clearGuildAutoMessages } = require('./utils/autoMessageManager');
 const { initializeVariableSlowmodeManager, trackMessage: trackVariableSlowmodeMessage } = require('./utils/variableSlowmodeManager');
 const { initBirthdayScheduler, cleanupUserGuildData } = require('./utils/birthdaySystem');
@@ -269,21 +270,30 @@ client.on('guildDelete', async guild => {
 client.on('guildMemberAdd', async member => {
   try {
     const rows = await query(
-      `SELECT channel_id, message_key, button_label, button_url
-       FROM welcome_settings
+      `SELECT channel_id, message_template, button_label, button_url
+       FROM member_event_messages
        WHERE guild_id = ?
+         AND event_type = ?
+         AND enabled = 1
        LIMIT 1`,
-      [member.guild.id]
+      [member.guild.id, EVENT_TYPES.welcome]
     );
 
-    if (!rows.length) return;
+    if (rows.length) {
+      const config = rows[0];
+      const targetChannel = await member.guild.channels.fetch(config.channel_id).catch(() => null);
+      if (targetChannel?.isTextBased()) {
+        const payload = buildMemberEventPayload(EVENT_TYPES.welcome, member, member.guild, config);
+        await targetChannel.send(payload);
+      }
+    }
 
-    const config = rows[0];
-    const targetChannel = await member.guild.channels.fetch(config.channel_id).catch(() => null);
-    if (!targetChannel?.isTextBased()) return;
-
-    const payload = buildWelcomePayload(member, member.guild, config);
-    await targetChannel.send(payload);
+    await logGuildEvent(
+      member.client,
+      member.guild.id,
+      LOG_EVENT_KEYS.joins,
+      `📥 **Member joined:** <@${member.id}> (${member.user.tag})`
+    );
   } catch (err) {
     console.error('❌ Welcome system error:', err);
   }
@@ -291,9 +301,70 @@ client.on('guildMemberAdd', async member => {
 
 client.on('guildMemberRemove', async member => {
   try {
+    const rows = await query(
+      `SELECT channel_id, message_template, button_label, button_url
+       FROM member_event_messages
+       WHERE guild_id = ?
+         AND event_type = ?
+         AND enabled = 1
+       LIMIT 1`,
+      [member.guild.id, EVENT_TYPES.leave]
+    );
+
+    if (rows.length) {
+      const config = rows[0];
+      const targetChannel = await member.guild.channels.fetch(config.channel_id).catch(() => null);
+      if (targetChannel?.isTextBased()) {
+        const payload = buildMemberEventPayload(EVENT_TYPES.leave, member.user || member, member.guild, config);
+        await targetChannel.send(payload);
+      }
+    }
+
+    await logGuildEvent(
+      member.client,
+      member.guild.id,
+      LOG_EVENT_KEYS.leaves,
+      `📤 **Member left:** <@${member.id}> (${member.user?.tag || member.id})`
+    );
+
     await cleanupUserGuildData(member.guild.id, member.id);
   } catch (err) {
     console.error('❌ guildMemberRemove cleanup error:', err);
+  }
+});
+
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  try {
+    const startedBoosting = !oldMember.premiumSinceTimestamp && !!newMember.premiumSinceTimestamp;
+    if (!startedBoosting) return;
+
+    const rows = await query(
+      `SELECT channel_id, message_template, button_label, button_url
+       FROM member_event_messages
+       WHERE guild_id = ?
+         AND event_type = ?
+         AND enabled = 1
+       LIMIT 1`,
+      [newMember.guild.id, EVENT_TYPES.boost]
+    );
+
+    if (rows.length) {
+      const config = rows[0];
+      const targetChannel = await newMember.guild.channels.fetch(config.channel_id).catch(() => null);
+      if (targetChannel?.isTextBased()) {
+        const payload = buildMemberEventPayload(EVENT_TYPES.boost, newMember, newMember.guild, config);
+        await targetChannel.send(payload);
+      }
+    }
+
+    await logGuildEvent(
+      newMember.client,
+      newMember.guild.id,
+      LOG_EVENT_KEYS.boosts,
+      `🚀 **Server boost:** <@${newMember.id}> started boosting the server.`
+    );
+  } catch (err) {
+    console.error('❌ boost message system error:', err);
   }
 });
 

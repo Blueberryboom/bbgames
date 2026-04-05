@@ -14,42 +14,38 @@ function validateButton(buttonLabel, buttonUrl) {
   if ((buttonLabel && !buttonUrl) || (!buttonLabel && buttonUrl)) {
     return '❌ To add a link button, provide both **Link button name** and **Link button** URL.';
   }
-
   if (!buttonUrl) return null;
-
   let parsed;
   try {
     parsed = new URL(buttonUrl);
   } catch {
     return '❌ Link button must be a valid URL.';
   }
-
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     return '❌ Link button URL must start with http:// or https://.';
   }
-
   return null;
 }
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('welcome')
-    .setDescription('Configure welcome messages')
+    .setName('leave')
+    .setDescription('Configure leave messages')
     .addSubcommand(sub =>
       sub
         .setName('config')
-        .setDescription('Configure welcome messages for this server')
+        .setDescription('Configure leave messages for this server')
         .addChannelOption(option =>
           option
             .setName('channel')
-            .setDescription('Channel where welcome messages are sent')
+            .setDescription('Channel where leave messages are sent')
             .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
             .setRequired(true)
         )
         .addStringOption(option =>
           option
             .setName('message')
-            .setDescription('Custom welcome message (supports [$usermention], [$membercount], [$guildname])')
+            .setDescription('Custom leave message (supports [$usermention], [$membercount], [$guildname])')
             .setMaxLength(1800)
             .setRequired(false)
         )
@@ -63,14 +59,14 @@ module.exports = {
         .addStringOption(option =>
           option
             .setName('link_button')
-            .setDescription('Optional URL for the welcome link button')
+            .setDescription('Optional URL for the leave link button')
             .setRequired(false)
         )
     )
     .addSubcommand(sub =>
       sub
         .setName('disable')
-        .setDescription('Disable welcome messages for this server')
+        .setDescription('Disable leave messages for this server')
     ),
 
   async execute(interaction) {
@@ -87,24 +83,24 @@ module.exports = {
       await query(
         `DELETE FROM member_event_messages
          WHERE guild_id = ? AND event_type = ?`,
-        [interaction.guildId, EVENT_TYPES.welcome]
+        [interaction.guildId, EVENT_TYPES.leave]
       );
 
       await logGuildEvent(
         interaction.client,
         interaction.guildId,
         LOG_EVENT_KEYS.modules_disabled,
-        `🧩 **Module disabled:** Welcome messages were disabled by <@${interaction.user.id}>.`
+        `🧩 **Module disabled:** Leave messages were disabled by <@${interaction.user.id}>.`
       );
 
       return interaction.reply({
-        content: '✅ Welcome messages disabled for this server.',
+        content: '✅ Leave messages disabled for this server.',
         flags: MessageFlags.Ephemeral
       });
     }
 
     const channel = interaction.options.getChannel('channel', true);
-    const messageTemplate = interaction.options.getString('message') || DEFAULT_MESSAGES[EVENT_TYPES.welcome];
+    const messageTemplate = interaction.options.getString('message') || DEFAULT_MESSAGES[EVENT_TYPES.leave];
     const buttonLabel = interaction.options.getString('link_button_name');
     const buttonUrl = interaction.options.getString('link_button');
 
@@ -119,7 +115,7 @@ module.exports = {
        VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
       [
         interaction.guildId,
-        EVENT_TYPES.welcome,
+        EVENT_TYPES.leave,
         channel.id,
         messageTemplate,
         buttonLabel || null,
@@ -133,19 +129,19 @@ module.exports = {
       interaction.client,
       interaction.guildId,
       LOG_EVENT_KEYS.modules_enabled,
-      `🧩 **Module configured:** Welcome messages set by <@${interaction.user.id}> in <#${channel.id}>.`
+      `🧩 **Module configured:** Leave messages set by <@${interaction.user.id}> in <#${channel.id}>.`
     );
 
     await logGuildEvent(
       interaction.client,
       interaction.guildId,
       LOG_EVENT_KEYS.bot_setting_changes,
-      `⚙️ **Setting changed:** /welcome config used by <@${interaction.user.id}>.`
+      `⚙️ **Setting changed:** /leave config used by <@${interaction.user.id}>.`
     );
 
     return interaction.reply({
       content:
-        `✅ Welcome messages configured in <#${channel.id}>.\n` +
+        `✅ Leave messages configured in <#${channel.id}>.\n` +
         `Preview: ${renderMessage(messageTemplate, interaction.user, interaction.guild)}`,
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
