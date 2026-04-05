@@ -14,6 +14,9 @@ const LOG_CHOICES = [
   { name: 'Member Leaves', value: LOG_EVENT_KEYS.leaves },
   { name: 'Server Boosts', value: LOG_EVENT_KEYS.boosts },
   { name: 'Bot Setting Changes', value: LOG_EVENT_KEYS.bot_setting_changes },
+  { name: 'Configuration Changes', value: LOG_EVENT_KEYS.configuration_changes },
+  { name: 'Leveling Changes', value: LOG_EVENT_KEYS.leveling_changes },
+  { name: 'Server Data Deletions', value: LOG_EVENT_KEYS.data_deletions },
   { name: 'Modules Enabled', value: LOG_EVENT_KEYS.modules_enabled },
   { name: 'Modules Disabled', value: LOG_EVENT_KEYS.modules_disabled },
   { name: '/say Command Used', value: LOG_EVENT_KEYS.say_command_used }
@@ -172,7 +175,14 @@ module.exports = {
       interaction.client,
       interaction.guildId,
       LOG_EVENT_KEYS.bot_setting_changes,
-      `⚙️ **Setting changed:** /logs choose used by <@${interaction.user.id}>.`
+      {
+        title: '⚙️ Log Configuration Updated',
+        description: `/logs choose used by <@${interaction.user.id}>.`,
+        fields: [
+          { name: 'Enabled Types', value: labels || 'None selected' }
+        ],
+        color: 0x5865F2
+      }
     );
   },
 

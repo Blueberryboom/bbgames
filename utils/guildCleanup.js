@@ -43,6 +43,7 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM starboard_banned_users WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM servertag_reward_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM guild_data_deletion_approvals WHERE guild_id = ?', [guildId]);
 }
 
 async function scheduleGuildDataDeletion(guildId, reason = 'bot_removed', delayMs = GUILD_DATA_DELETE_DELAY_MS) {

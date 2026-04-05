@@ -121,9 +121,19 @@ module.exports = {
           .addChoices(
             { name: 'One Month', value: '1_month' },
             { name: 'One Year', value: '1_year' },
-            { name: 'Lifetime', value: 'lifetime' }
+           { name: 'Lifetime', value: 'lifetime' }
           )
           .setRequired(false)
+       )
+    )
+
+    .addSubcommand(s =>
+      s.setName('approve_data_deletion')
+       .setDescription('Allow a server administrator to run /config delete_data for a large server')
+       .addStringOption(o =>
+         o.setName('guild')
+          .setDescription('Guild ID to approve')
+          .setRequired(true)
        )
     ),
 
@@ -341,6 +351,27 @@ module.exports = {
         .setDescription(description);
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    if (sub === 'approve_data_deletion') {
+      const guildId = interaction.options.getString('guild', true).trim();
+      if (!/^\d{17,20}$/.test(guildId)) {
+        return interaction.reply({
+          content: '❌ Please provide a valid Discord server ID.',
+          ephemeral: true
+        });
+      }
+
+      await pool.query(
+        `REPLACE INTO guild_data_deletion_approvals (guild_id, approved_by, approved_at)
+         VALUES (?, ?, ?)`,
+        [guildId, interaction.user.id, Date.now()]
+      );
+
+      return interaction.reply({
+        content: `✅ Approved data deletion for server \`${guildId}\`. An administrator there can now run \`/config delete_data\`.`,
+        ephemeral: true
+      });
     }
 
     // ======================================================
