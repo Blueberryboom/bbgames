@@ -531,6 +531,15 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS guild_data_deletion_approvals (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        approved_by VARCHAR(32) NOT NULL,
+        approved_at BIGINT NOT NULL,
+        INDEX idx_data_deletion_approved_at (approved_at)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── BLACKLIST ─────────────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blacklist (

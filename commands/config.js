@@ -3,10 +3,16 @@ const {
   MessageFlags,
   EmbedBuilder,
   ActionRowBuilder,
-  StringSelectMenuBuilder
+  StringSelectMenuBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  PermissionFlagsBits,
+  ComponentType
 } = require('discord.js');
 const pool = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
+const { clearGuildData } = require('../utils/guildCleanup');
+const { LOG_EVENT_KEYS, logGuildEvent } = require('../utils/guildLogger');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -50,9 +56,20 @@ module.exports = {
             )
             .setRequired(true)
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('delete_data')
+        .setDescription('Delete all bot data for this server (Administrator only)')
     ),
 
   async execute(interaction) {
+    const sub = interaction.options.getSubcommand();
+
+    if (sub === 'delete_data') {
+      return handleDeleteData(interaction);
+    }
+
     if (!await checkPerms(interaction)) {
       return interaction.reply({
         content: '❌ You need administrator or the configured bot manager role to use this command.',
@@ -60,13 +77,17 @@ module.exports = {
       });
     }
 
-    const sub = interaction.options.getSubcommand();
-
     if (sub === 'bot_manager_role') {
       const role = interaction.options.getRole('role', true);
 
       await pool.query('DELETE FROM admin_roles WHERE guild_id = ?', [interaction.guildId]);
       await pool.query('INSERT INTO admin_roles (guild_id, role_id) VALUES (?, ?)', [interaction.guildId, role.id]);
+
+      await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.configuration_changes, {
+        title: '⚙️ Configuration Updated',
+        description: `/config bot_manager_role used by <@${interaction.user.id}>.`,
+        fields: [{ name: 'Bot Manager Role', value: `<@&${role.id}>` }]
+      });
 
       return interaction.reply({
         content: `✅ Admin role set to ${role}.`,
@@ -79,6 +100,12 @@ module.exports = {
 
       await pool.query('DELETE FROM giveaway_admin_roles WHERE guild_id = ?', [interaction.guildId]);
       await pool.query('INSERT INTO giveaway_admin_roles (guild_id, role_id) VALUES (?, ?)', [interaction.guildId, role.id]);
+
+      await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.configuration_changes, {
+        title: '⚙️ Configuration Updated',
+        description: `/config giveaway_admin_role used by <@${interaction.user.id}>.`,
+        fields: [{ name: 'Giveaway Admin Role', value: `<@&${role.id}>` }]
+      });
 
       return interaction.reply({
         content: `✅ Giveaway admin role set to ${role}.`,
@@ -95,6 +122,14 @@ module.exports = {
          ON DUPLICATE KEY UPDATE announcements_enabled = VALUES(announcements_enabled)`,
         [interaction.guildId, enabled]
       );
+
+      await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.configuration_changes, {
+        title: '⚙️ Configuration Updated',
+        description: `/config system_messages used by <@${interaction.user.id}>.`,
+        fields: [
+          { name: 'System Messages', value: enabled ? 'Enabled' : 'Disabled' }
+        ]
+      });
 
       return interaction.reply({
         content: `✅ System messages are now ${enabled ? 'enabled' : 'disabled'}.`,
@@ -132,3 +167,101 @@ module.exports = {
     return interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral });
   }
 };
+
+async function handleDeleteData(interaction) {
+  const isAdministrator = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
+  if (!isAdministrator) {
+    return interaction.reply({
+      content: '❌ Only members with the **Administrator** permission can use `/config delete_data`.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const levelingCountRows = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM leveling_users
+     WHERE guild_id = ?`,
+    [interaction.guildId]
+  );
+  const levelingMembers = Number(levelingCountRows[0]?.total || 0);
+
+  const approvalRows = await pool.query(
+    `SELECT approved_at
+     FROM guild_data_deletion_approvals
+     WHERE guild_id = ?`,
+    [interaction.guildId]
+  );
+  const hasOwnerApproval = approvalRows.length > 0;
+
+  if (levelingMembers > 10000 && !hasOwnerApproval) {
+    return interaction.reply({
+      content: '❌ This server has over **10,000** users in the leveling system. Please submit a support ticket in your Discord server first, then have the bot owner run `/owner approve_data_deletion` for this server.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`config_delete_data_confirm:${interaction.guildId}`)
+      .setLabel('Confirm Delete')
+      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder()
+      .setCustomId(`config_delete_data_cancel:${interaction.guildId}`)
+      .setLabel('Cancel')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  await interaction.reply({
+    content: '⚠️ This will permanently delete all bot data for this server. Are you sure?',
+    components: [row],
+    flags: MessageFlags.Ephemeral
+  });
+
+  const replyMessage = await interaction.fetchReply();
+  const collector = replyMessage.createMessageComponentCollector({
+    componentType: ComponentType.Button,
+    time: 30_000
+  });
+
+  collector.on('collect', async buttonInteraction => {
+    if (buttonInteraction.user.id !== interaction.user.id) {
+      return buttonInteraction.reply({ content: '❌ This confirmation is not for you.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (buttonInteraction.customId.startsWith('config_delete_data_cancel:')) {
+      collector.stop('cancelled');
+      return buttonInteraction.update({
+        content: '✅ Data deletion cancelled.',
+        components: []
+      });
+    }
+
+    await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.data_deletions, {
+      title: '🗑️ Server Data Deleted',
+      description: `All bot data for this server was deleted by <@${interaction.user.id}>.`,
+      fields: [
+        { name: 'Server ID', value: interaction.guildId, inline: true },
+        { name: 'Leveling Users Before Deletion', value: levelingMembers.toLocaleString(), inline: true }
+      ],
+      color: 0xED4245
+    });
+
+    await clearGuildData(interaction.guildId);
+    await pool.query('DELETE FROM guild_data_deletion_approvals WHERE guild_id = ?', [interaction.guildId]);
+
+    collector.stop('confirmed');
+    return buttonInteraction.update({
+      content: '✅ All bot data for this server has been deleted.',
+      components: []
+    });
+  });
+
+  collector.on('end', async (_, reason) => {
+    if (reason === 'time') {
+      await interaction.editReply({
+        content: '⌛ Confirmation expired. Run `/config delete_data` again if you still want to proceed.',
+        components: []
+      }).catch(() => null);
+    }
+  });
+}

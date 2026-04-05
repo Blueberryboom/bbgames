@@ -17,6 +17,7 @@ const {
 } = require('../utils/levelingSystem');
 const { getPremiumLimit } = require('../utils/premiumPerks');
 const { BOT_OWNER_ID } = require('../utils/constants');
+const { LOG_EVENT_KEYS, logGuildEvent } = require('../utils/guildLogger');
 
 const FREE_ROLE_LIMIT = 15;
 const PREMIUM_ROLE_LIMIT = 50;
@@ -223,6 +224,17 @@ async function handleConfig(interaction) {
   );
   invalidateGuildLevelingCache(interaction.guildId);
 
+  await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.leveling_changes, {
+    title: '📈 Leveling Config Updated',
+    description: `/leveling config used by <@${interaction.user.id}>.`,
+    fields: [
+      { name: 'Channel', value: `<#${channel.id}>`, inline: true },
+      { name: 'Difficulty', value: String(finalDifficulty), inline: true },
+      { name: 'Message Preset', value: messagePreset, inline: true },
+      { name: 'Boost Roles', value: boostRoleIds.length ? boostRoleIds.map(id => `<@&${id}>`).join(', ') : 'None' }
+    ]
+  });
+
   return interaction.reply({
     // Include the supported difficulty range directly in the confirmation so admins
     // can immediately see the lowest and highest accepted values.
@@ -279,6 +291,16 @@ async function handleChannels(interaction) {
   );
   invalidateGuildLevelingCache(interaction.guildId);
 
+  await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.leveling_changes, {
+    title: '📈 Leveling Channel Filter Updated',
+    description: `/leveling channels used by <@${interaction.user.id}>.`,
+    fields: [
+      { name: 'Mode', value: mode, inline: true },
+      { name: 'Channel Count', value: String(channelIds.length), inline: true },
+      { name: 'Channels', value: channelIds.length ? channelIds.map(id => `<#${id}>`).join(', ') : 'None' }
+    ]
+  });
+
   return interaction.reply({
     content: `✅ Channel ${mode} saved with ${channelIds.length} channel(s).`,
     flags: MessageFlags.Ephemeral
@@ -302,6 +324,12 @@ async function handleDeactivate(interaction) {
   await query(`DELETE FROM leveling_role_rewards WHERE guild_id = ?`, [interaction.guildId]);
   await query(`DELETE FROM leveling_settings WHERE guild_id = ?`, [interaction.guildId]);
   invalidateGuildLevelingCache(interaction.guildId);
+
+  await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.leveling_changes, {
+    title: '🧹 Leveling Deactivated',
+    description: `/leveling deactivate used by <@${interaction.user.id}>. All leveling data was removed.`,
+    color: 0xED4245
+  });
 
   return interaction.reply({
     content: '✅ Leveling has been fully deactivated and all leveling data was deleted for this server.',
@@ -334,6 +362,15 @@ async function handleRoles(interaction) {
      VALUES (?, ?, ?, ?)`,
     [interaction.guildId, level, role.id, Date.now()]
   );
+
+  await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.leveling_changes, {
+    title: '🎯 Level Reward Updated',
+    description: `/leveling roles used by <@${interaction.user.id}>.`,
+    fields: [
+      { name: 'Level', value: String(level), inline: true },
+      { name: 'Role', value: `<@&${role.id}>`, inline: true }
+    ]
+  });
 
   return interaction.reply({
     content: `✅ Reward role set: level ${level} -> <@&${role.id}>.`,
@@ -396,6 +433,16 @@ async function handleLevelSet(interaction) {
       updated_at = VALUES(updated_at)`,
     [interaction.guildId, user.id, nextLevel, Date.now()]
   );
+
+  await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.leveling_changes, {
+    title: '🛠️ Manual Level Update',
+    description: `/leveling level_set used by <@${interaction.user.id}>.`,
+    fields: [
+      { name: 'Member', value: `<@${user.id}>`, inline: true },
+      { name: 'Mode', value: mode, inline: true },
+      { name: 'Before → After', value: `${currentLevel} → ${nextLevel}`, inline: true }
+    ]
+  });
 
   return interaction.reply({
     content: `✅ Updated ${user} from level ${currentLevel} to level ${nextLevel}.`,
