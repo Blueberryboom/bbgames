@@ -244,9 +244,9 @@ client.on('guildCreate', async guild => {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('Thanks for adding BBGames!')
-      .setDescription('Quick start: use `/config panel` first, then set your admin role with `/config bot_manager_role`.')
+      .setDescription('We really appreciate you adding the bot to your server! If you have any feeback or want to report a but, use **/support**!')
       .addFields(
-        { name: 'Recommended Setup', value: '`/count channel` to start counting\n`/giveaway create` to run giveaways\n`/youtube add` for upload alerts' },
+        { name: 'Main commands', value: '`/count channel` to start counting\n`/giveaway create` to run giveaways\n`/youtube add` for upload alerts\n`/log channel` to logs changes to bot settings and stuff ' },
         { name: 'Useful Commands', value: '`/help`, `/about`, `/status`, `/minecraft`, `/donate`' }
       );
 
