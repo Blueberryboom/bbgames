@@ -25,9 +25,14 @@ module.exports = {
           value: [
             '`/config panel` • Open settings overview',
             '`/config bot_manager_role` • Assign full bot-manager role',
+            '`/logs channel` • Set bot activity log channel',
+            '`/logs choose` • Choose activity types to log',
             '`/count channel` • Set counting channel',
             '`/youtube add` • Add upload notifications',
-            '`/sticky create` • Set channel sticky message'
+            '`/sticky create` • Set channel sticky message',
+            '`/welcome config` • Configure member join messages',
+            '`/leave config` • Configure member leave messages',
+            '`/boostmsg config` • Configure server boost messages'
           ].join('\n')
         },
         {
@@ -49,7 +54,7 @@ module.exports = {
             '`/help`, `/about`, `/status`, `/support`, `/donate`',
             '`/config`, `/count`, `/giveaway`, `/youtube`, `/sticky`, `/automsg`',
             '`/leveling`, `/level`, `/birthday`, `/afk`, `/afk_leaderboard`',
-            '`/variableslowmode`, `/welcome`, `/premium`, `/say`, `/owner`',
+            '`/variableslowmode`, `/welcome`, `/leave`, `/boostmsg`, `/logs`, `/premium`, `/say`, `/owner`',
             '`/tag`, `/onewordstory`, `/starboard`, `/servertag`, `/coinflip`, `/dadjoke`, `/dice`, `/minecraft`, `/rps`, `/tictactoe`'
           ].join('\n')
         }
