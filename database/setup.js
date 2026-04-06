@@ -242,6 +242,78 @@ module.exports = async () => {
       ADD COLUMN IF NOT EXISTS announcements_enabled BOOLEAN NOT NULL DEFAULT 1
     `);
 
+    // ─── TICKETS ───────────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ticket_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        category_id VARCHAR(32) NULL,
+        transcripts_channel_id VARCHAR(32) NULL,
+        max_tickets_per_user TINYINT NOT NULL DEFAULT 1,
+        panel_message TEXT NULL,
+        claiming_enabled BOOLEAN NOT NULL DEFAULT 1,
+        creation_cooldown_ms BIGINT NOT NULL DEFAULT 0,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ticket_types (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        allowed_role_ids JSON NULL,
+        staff_role_ids JSON NOT NULL,
+        welcome_message TEXT NOT NULL,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_ticket_type_name (guild_id, name),
+        INDEX idx_ticket_types_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tickets (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        type_id BIGINT NOT NULL,
+        claimed_by VARCHAR(32) NULL,
+        transcript_thread_id VARCHAR(32) NULL,
+        created_at BIGINT NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_ticket_channel (channel_id),
+        INDEX idx_ticket_guild_user (guild_id, user_id),
+        INDEX idx_ticket_type (guild_id, type_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE tickets
+      ADD COLUMN IF NOT EXISTS transcript_thread_id VARCHAR(32) NULL
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ticket_blacklist (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        created_by VARCHAR(32) NULL,
+        PRIMARY KEY (guild_id, user_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ticket_user_activity (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        last_opened_at BIGINT NOT NULL,
+        PRIMARY KEY (guild_id, user_id),
+        INDEX idx_ticket_user_activity (guild_id, last_opened_at)
+      ) ENGINE=InnoDB;
+    `);
+
 
     // ─── PREMIUM ACCESS CONTROL ────────────
     await pool.query(`
