@@ -31,8 +31,8 @@ module.exports = {
             .setMaxLength(8)
         )
         .addStringOption(opt =>
-          opt.setName('description')
-            .setDescription('Optional short menu description (max 60 chars)')
+          opt.setName('panel_dropdown_desc')
+            .setDescription('Optional: shown only in the ticket panel dropdown (max 60 chars)')
             .setRequired(false)
             .setMaxLength(60)
         )
@@ -58,7 +58,7 @@ module.exports = {
 
     const name = interaction.options.getString('name', true).trim();
     const prefix = interaction.options.getString('prefix', true).trim();
-    const shortDescription = interaction.options.getString('description')?.trim() || null;
+    const shortDescription = interaction.options.getString('panel_dropdown_desc')?.trim() || null;
 
     if (!/^[a-zA-Z0-9-]{1,8}$/.test(prefix)) {
       return interaction.reply({
