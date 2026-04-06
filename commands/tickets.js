@@ -24,16 +24,16 @@ module.exports = {
             .setMaxLength(8)
         )
         .addStringOption(opt =>
-          opt.setName('description')
-            .setDescription('Optional short menu description (max 60 chars)')
-            .setRequired(false)
-            .setMaxLength(60)
-        )
-        .addStringOption(opt =>
           opt.setName('ticket_welcome_open_message')
             .setDescription('Embed description shown when ticket opens')
             .setRequired(true)
             .setMaxLength(1800)
+        )
+        .addStringOption(opt =>
+          opt.setName('description')
+            .setDescription('Optional short menu description (max 60 chars)')
+            .setRequired(false)
+            .setMaxLength(60)
         )
         .addRoleOption(opt => opt.setName('allowed_role_1').setDescription('Role allowed to open this type').setRequired(false))
         .addRoleOption(opt => opt.setName('allowed_role_2').setDescription('Role allowed to open this type').setRequired(false))
