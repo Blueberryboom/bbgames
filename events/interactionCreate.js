@@ -5,12 +5,25 @@ const {
   MessageFlags,
   EmbedBuilder,
   ButtonStyle,
-  ComponentType
+  ComponentType,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ChannelType,
+  PermissionFlagsBits
 } = require('discord.js');
 const youtubeSetupState = require('../utils/youtubeSetupState');
 const rpsState = require('../utils/rpsState');
 const { trackAchievementEvent } = require('../utils/achievementManager');
 const { getPremiumLimit } = require('../utils/premiumPerks');
+const checkPerms = require('../utils/checkEventPerms');
+const {
+  parseRoleIds,
+  getGuildTicketSettings,
+  getTicketTypeById,
+  buildTicketControls,
+  ensureTicketCategory
+} = require('../utils/ticketSystem');
 const {
   resolveRequiredPermissions,
   getMissingPermissions,
@@ -133,6 +146,14 @@ module.exports = async (interaction) => {
     }
 
     return interaction.reply({ content: '❌ Unknown config menu.', flags: MessageFlags.Ephemeral });
+  }
+
+  if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_panel_select') {
+    return handleTicketPanelSelect(interaction);
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith('ticket_close_reason_modal:')) {
+    return handleTicketCloseWithReasonModal(interaction);
   }
 
   if (!interaction.isButton()) return;
@@ -295,6 +316,17 @@ module.exports = async (interaction) => {
       return;
     }
 
+    if (
+      interaction.customId.startsWith('ticket_open_confirm:')
+      || interaction.customId.startsWith('ticket_open_cancel:')
+      || interaction.customId.startsWith('ticket_claim:')
+      || interaction.customId.startsWith('ticket_close:')
+      || interaction.customId.startsWith('ticket_close_reason:')
+      || interaction.customId.startsWith('ticket_close_request_yes:')
+    ) {
+      return handleTicketButtons(interaction);
+    }
+
     const parts = interaction.customId.split('_');
     if (parts.length < 3 || parts[0] !== 'giveaway') return;
 
@@ -429,6 +461,403 @@ function getEntryCount(member, extraEntriesRaw) {
   }
 
   return 1;
+}
+
+async function handleTicketPanelSelect(interaction) {
+  if (!interaction.guildId) {
+    return interaction.reply({ content: '❌ This menu can only be used in a server.', flags: MessageFlags.Ephemeral });
+  }
+
+  const value = interaction.values?.[0] || '';
+  if (!value.startsWith('type_')) {
+    return interaction.reply({ content: '❌ Unknown ticket type.', flags: MessageFlags.Ephemeral });
+  }
+
+  const typeId = Number(value.slice(5));
+  if (!Number.isFinite(typeId)) {
+    return interaction.reply({ content: '❌ Invalid ticket type id.', flags: MessageFlags.Ephemeral });
+  }
+
+  const settings = await getGuildTicketSettings(interaction.guildId);
+  if (!settings?.category_id) {
+    return interaction.reply({ content: '❌ Ticket system is not configured yet.', flags: MessageFlags.Ephemeral });
+  }
+
+  const type = await getTicketTypeById(interaction.guildId, typeId);
+  if (!type) {
+    return interaction.reply({ content: '❌ That ticket type no longer exists.', flags: MessageFlags.Ephemeral });
+  }
+
+  const allowedRoles = parseRoleIds(type.allowed_role_ids);
+  if (allowedRoles.length && !allowedRoles.some(roleId => interaction.member.roles.cache.has(roleId))) {
+    return interaction.reply({
+      content: '❌ You do not have permission to open this ticket type.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  const isBlacklisted = await query(
+    `SELECT 1 FROM ticket_blacklist WHERE guild_id = ? AND user_id = ? LIMIT 1`,
+    [interaction.guildId, interaction.user.id]
+  );
+  if (isBlacklisted.length) {
+    return interaction.reply({ content: '❌ You are blacklisted from opening tickets in this server.', flags: MessageFlags.Ephemeral });
+  }
+
+  const maxTickets = Math.min(5, Math.max(1, Number(settings.max_tickets_per_user || 1)));
+  const openRows = await query(
+    `SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ? AND user_id = ?`,
+    [interaction.guildId, interaction.user.id]
+  );
+  const openCount = Number(openRows[0]?.total || 0);
+  if (openCount >= maxTickets) {
+    return interaction.reply({ content: `❌ You already have ${openCount}/${maxTickets} open tickets.`, flags: MessageFlags.Ephemeral });
+  }
+
+  const cooldownMs = Math.max(0, Number(settings.creation_cooldown_ms || 0));
+  if (cooldownMs > 0) {
+    const activityRows = await query(
+      `SELECT last_opened_at FROM ticket_user_activity WHERE guild_id = ? AND user_id = ? LIMIT 1`,
+      [interaction.guildId, interaction.user.id]
+    );
+    const lastOpenedAt = Number(activityRows[0]?.last_opened_at || 0);
+    const remaining = lastOpenedAt + cooldownMs - Date.now();
+    if (remaining > 0) {
+      return interaction.reply({
+        content: `⏳ You can open another ticket <t:${Math.floor((Date.now() + remaining) / 1000)}:R>.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`ticket_open_confirm:${type.id}`)
+      .setLabel('Yes')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`ticket_open_cancel:${type.id}`)
+      .setLabel('No')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return interaction.reply({
+    content: `Open a **${type.name}** ticket?`,
+    components: [row],
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+async function handleTicketButtons(interaction) {
+  if (interaction.customId.startsWith('ticket_open_cancel:')) {
+    return interaction.update({ content: 'Cancelled ticket creation.', components: [] });
+  }
+
+  if (interaction.customId.startsWith('ticket_open_confirm:')) {
+    const typeId = Number(interaction.customId.split(':')[1]);
+    const type = await getTicketTypeById(interaction.guildId, typeId);
+    const settings = await getGuildTicketSettings(interaction.guildId);
+
+    if (!type || !settings?.category_id) {
+      return interaction.update({ content: '❌ Ticket setup is missing or invalid.', components: [] });
+    }
+
+    const category = await ensureTicketCategory(interaction.guild, settings.category_id);
+    if (!category) {
+      return interaction.update({ content: '❌ The configured ticket category is missing. Ask staff to run `/ticket config` again.', components: [] });
+    }
+
+    const staffRoleIds = parseRoleIds(type.staff_role_ids);
+    const ticketName = `${type.name.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 70)}-${interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'user'}`;
+
+    const overwrites = [
+      { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+      {
+        id: interaction.guild.members.me.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.ManageChannels,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.EmbedLinks
+        ]
+      },
+      {
+        id: interaction.user.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.EmbedLinks
+        ]
+      }
+    ];
+
+    for (const roleId of staffRoleIds) {
+      overwrites.push({
+        id: roleId,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.ReadMessageHistory,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.EmbedLinks
+        ]
+      });
+    }
+
+    const channel = await interaction.guild.channels.create({
+      name: ticketName.slice(0, 100),
+      type: ChannelType.GuildText,
+      parent: category.id,
+      permissionOverwrites: overwrites,
+      reason: `Ticket opened by ${interaction.user.tag} (${interaction.user.id})`
+    }).catch(() => null);
+
+    if (!channel) {
+      return interaction.update({ content: '❌ Failed to create the ticket channel. Check bot permissions.', components: [] });
+    }
+
+    const now = Date.now();
+    const insert = await query(
+      `INSERT INTO tickets (guild_id, channel_id, user_id, type_id, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [interaction.guildId, channel.id, interaction.user.id, type.id, now]
+    );
+    const ticketId = Number(insert.insertId);
+    const controls = buildTicketControls(ticketId);
+
+    await query(
+      `REPLACE INTO ticket_user_activity (guild_id, user_id, last_opened_at)
+       VALUES (?, ?, ?)`,
+      [interaction.guildId, interaction.user.id, now]
+    );
+
+    const pingRoles = staffRoleIds.map(id => `<@&${id}>`).join(' ');
+    const content = `${interaction.user} ${pingRoles}`.trim();
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle(type.name)
+      .setDescription(type.welcome_message);
+
+    const actionRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(controls.claim).setLabel('Claim').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(controls.close).setLabel('Close').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(controls.closeReason).setLabel('Close With Reason').setStyle(ButtonStyle.Secondary)
+    );
+
+    await channel.send({
+      content,
+      embeds: [embed],
+      components: [actionRow],
+      allowedMentions: { users: [interaction.user.id], roles: staffRoleIds }
+    });
+
+    if (settings?.transcripts_channel_id) {
+      const transcriptsChannel = await interaction.guild.channels.fetch(settings.transcripts_channel_id).catch(() => null);
+      if (transcriptsChannel?.isTextBased()) {
+        const creationEmbed = new EmbedBuilder()
+          .setColor(0x57F287)
+          .setTitle('Ticket Created')
+          .setDescription(`Ticket #${ticketId} was created.`)
+          .addFields(
+            { name: 'Type', value: type.name, inline: true },
+            { name: 'Owner', value: `<@${interaction.user.id}>`, inline: true },
+            { name: 'Channel', value: `<#${channel.id}>`, inline: true }
+          )
+          .setTimestamp(new Date(now));
+
+        const creationMessage = await transcriptsChannel.send({ embeds: [creationEmbed] }).catch(() => null);
+        if (creationMessage && typeof creationMessage.startThread === 'function') {
+          const thread = await creationMessage.startThread({
+            name: `ticket-${ticketId}-${type.name}`.slice(0, 100),
+            autoArchiveDuration: 10080
+          }).catch(() => null);
+
+          if (thread?.id) {
+            await query('UPDATE tickets SET transcript_thread_id = ? WHERE id = ?', [thread.id, ticketId]);
+          }
+        }
+      }
+    }
+
+    return interaction.update({ content: `✅ Your ticket has been created: ${channel}`, components: [] });
+  }
+
+  if (interaction.customId.startsWith('ticket_claim:')) {
+    const ticketId = Number(interaction.customId.split(':')[1]);
+    const rows = await query(
+      `SELECT t.*, tt.staff_role_ids
+       FROM tickets t
+       INNER JOIN ticket_types tt ON tt.guild_id = t.guild_id AND tt.id = t.type_id
+       WHERE t.id = ? AND t.guild_id = ? LIMIT 1`,
+      [ticketId, interaction.guildId]
+    );
+    const ticket = rows[0];
+    if (!ticket) {
+      return interaction.reply({ content: '❌ Ticket not found or already closed.', flags: MessageFlags.Ephemeral });
+    }
+
+    const settings = await getGuildTicketSettings(interaction.guildId);
+    if (!Number(settings?.claiming_enabled || 0)) {
+      return interaction.reply({ content: '❌ Ticket claiming is disabled by configuration.', flags: MessageFlags.Ephemeral });
+    }
+
+    const staffRoles = parseRoleIds(ticket.staff_role_ids);
+    const isStaff = await checkPerms(interaction) || staffRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+    if (!isStaff) {
+      return interaction.reply({ content: '❌ Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
+    }
+
+    await query('UPDATE tickets SET claimed_by = ? WHERE id = ?', [interaction.user.id, ticketId]);
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setDescription(`✅ ${interaction.user} claimed this ticket.`);
+    return interaction.reply({ embeds: [embed] });
+  }
+
+  if (interaction.customId.startsWith('ticket_close_reason:')) {
+    const ticketId = Number(interaction.customId.split(':')[1]);
+    const modal = new ModalBuilder()
+      .setCustomId(`ticket_close_reason_modal:${ticketId}`)
+      .setTitle('Close Ticket With Reason');
+
+    const reasonInput = new TextInputBuilder()
+      .setCustomId('close_reason')
+      .setLabel('Reason for closing')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(1000);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
+    return interaction.showModal(modal);
+  }
+
+  if (interaction.customId.startsWith('ticket_close_request_yes:')) {
+    const ticketId = Number(interaction.customId.split(':')[1]);
+    const rows = await query('SELECT user_id FROM tickets WHERE id = ? AND guild_id = ? LIMIT 1', [ticketId, interaction.guildId]);
+    const ticket = rows[0];
+    if (!ticket) {
+      return interaction.reply({ content: '❌ Ticket no longer exists.', flags: MessageFlags.Ephemeral });
+    }
+    if (interaction.user.id !== ticket.user_id) {
+      return interaction.reply({ content: '❌ Only the ticket owner can confirm this close request.', flags: MessageFlags.Ephemeral });
+    }
+    return closeTicket(interaction, ticketId, 'Closed by owner approval from close request.');
+  }
+
+  if (interaction.customId.startsWith('ticket_close:')) {
+    const ticketId = Number(interaction.customId.split(':')[1]);
+    return closeTicket(interaction, ticketId, null);
+  }
+}
+
+async function handleTicketCloseWithReasonModal(interaction) {
+  const ticketId = Number(interaction.customId.split(':')[1]);
+  const reason = interaction.fields.getTextInputValue('close_reason')?.trim();
+  return closeTicket(interaction, ticketId, reason || null);
+}
+
+async function closeTicket(interaction, ticketId, closeReason) {
+  const rows = await query(
+    `SELECT t.*, tt.name AS type_name, tt.staff_role_ids
+     FROM tickets t
+     INNER JOIN ticket_types tt ON tt.guild_id = t.guild_id AND tt.id = t.type_id
+     WHERE t.id = ? AND t.guild_id = ? LIMIT 1`,
+    [ticketId, interaction.guildId]
+  );
+  const ticket = rows[0];
+  if (!ticket) {
+    return interaction.reply({ content: '❌ Ticket not found or already closed.', flags: MessageFlags.Ephemeral });
+  }
+
+  const isOwner = interaction.user.id === ticket.user_id;
+  const isStaff = await checkPerms(interaction) || parseRoleIds(ticket.staff_role_ids).some(roleId => interaction.member.roles.cache.has(roleId));
+  if (!isOwner && !isStaff) {
+    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', flags: MessageFlags.Ephemeral });
+  }
+
+  const channel = interaction.guild.channels.cache.get(ticket.channel_id) || await interaction.guild.channels.fetch(ticket.channel_id).catch(() => null);
+  const settings = await getGuildTicketSettings(interaction.guildId);
+
+  if (settings?.transcripts_channel_id && channel?.isTextBased()) {
+    const transcriptChannel = await interaction.guild.channels.fetch(settings.transcripts_channel_id).catch(() => null);
+    if (transcriptChannel?.isTextBased()) {
+      let transcriptTarget = transcriptChannel;
+      if (ticket.transcript_thread_id) {
+        const transcriptThread = await interaction.guild.channels.fetch(ticket.transcript_thread_id).catch(() => null);
+        if (transcriptThread?.isTextBased()) {
+          transcriptTarget = transcriptThread;
+        }
+      }
+
+      const messages = await fetchTranscriptMessages(channel);
+      const header = [
+        `Ticket #${ticketId}`,
+        `Type: ${ticket.type_name}`,
+        `Owner: ${ticket.user_id}`,
+        `Closed by: ${interaction.user.id}`,
+        `Closed at: ${new Date().toISOString()}`,
+        `Reason: ${closeReason || 'No reason provided'}`,
+        '---'
+      ];
+      const body = messages.map(msg => {
+        const clean = (msg.content || '').replace(/\\s+/g, ' ').trim();
+        const attachments = msg.attachments?.map(a => a.url).join(' ') || '';
+        return `[${new Date(msg.createdTimestamp).toISOString()}] ${msg.author?.tag || msg.author?.id || 'unknown'}: ${clean} ${attachments}`.trim();
+      });
+      const text = `${header.join('\\n')}\\n${body.join('\\n')}`.slice(0, 1900000);
+      const fileBuffer = Buffer.from(text, 'utf8');
+      await transcriptTarget.send({
+        content: `🧾 Ticket transcript for <#${ticket.channel_id}>`,
+        files: [{ attachment: fileBuffer, name: `ticket-${ticketId}.txt` }]
+      }).catch(() => null);
+
+      const closeEmbed = new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle('Ticket Closed')
+        .setDescription(`Ticket #${ticketId} has been closed.`)
+        .addFields(
+          { name: 'Type', value: ticket.type_name, inline: true },
+          { name: 'Owner', value: `<@${ticket.user_id}>`, inline: true },
+          { name: 'Closed By', value: `<@${interaction.user.id}>`, inline: true },
+          { name: 'Reason', value: closeReason || 'No reason provided', inline: false }
+        )
+        .setTimestamp(new Date());
+
+      await transcriptChannel.send({ embeds: [closeEmbed] }).catch(() => null);
+    }
+  }
+
+  await query('DELETE FROM tickets WHERE id = ?', [ticketId]);
+  if (channel) {
+    await channel.delete(`Ticket closed by ${interaction.user.tag} (${interaction.user.id})`).catch(() => null);
+  }
+
+  const responseText = `✅ Closed ticket #${ticketId}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
+  if (interaction.isModalSubmit()) {
+    return interaction.reply({ content: responseText, flags: MessageFlags.Ephemeral });
+  }
+  if (interaction.deferred || interaction.replied) {
+    return interaction.followUp({ content: responseText, flags: MessageFlags.Ephemeral });
+  }
+  return interaction.reply({ content: responseText, flags: MessageFlags.Ephemeral });
+}
+
+async function fetchTranscriptMessages(channel) {
+  const all = [];
+  let before;
+  for (let i = 0; i < 10; i++) {
+    const batch = await channel.messages.fetch({ limit: 100, before }).catch(() => null);
+    if (!batch || !batch.size) break;
+    const values = [...batch.values()];
+    all.push(...values);
+    before = values[values.length - 1].id;
+    if (batch.size < 100) break;
+  }
+  return all.reverse();
 }
 
 function decideRpsWinner(first, second) {
