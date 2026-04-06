@@ -52,13 +52,13 @@ module.exports = {
       .setTitle('Tic Tac Toe')
       .setDescription(renderDescription(player1, player2, player1, aiMode ? level : null));
 
-    const message = await interaction.reply({
+    await interaction.reply({
       embeds: [embed],
-      components: createComponents(board),
-      fetchReply: true
+      components: createComponents(board)
     });
+    const gameMessage = await interaction.fetchReply();
 
-    await runGame({ message, player1, player2, aiMode, level, board, symbols, currentPlayer: player1 });
+    await runGame({ message: gameMessage, player1, player2, aiMode, level, board, symbols, currentPlayer: player1 });
   }
 };
 
