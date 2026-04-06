@@ -1,4 +1,11 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder
+} = require('discord.js');
 const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
 const { getPremiumLimit } = require('../utils/premiumPerks');
@@ -22,12 +29,6 @@ module.exports = {
             .setDescription('Required ticket name prefix (max 8 chars)')
             .setRequired(true)
             .setMaxLength(8)
-        )
-        .addStringOption(opt =>
-          opt.setName('ticket_welcome_open_message')
-            .setDescription('Embed description shown when ticket opens')
-            .setRequired(true)
-            .setMaxLength(1800)
         )
         .addStringOption(opt =>
           opt.setName('description')
@@ -58,7 +59,6 @@ module.exports = {
     const name = interaction.options.getString('name', true).trim();
     const prefix = interaction.options.getString('prefix', true).trim();
     const shortDescription = interaction.options.getString('description')?.trim() || null;
-    const welcomeMessage = interaction.options.getString('ticket_welcome_open_message', true).trim();
 
     if (!/^[a-zA-Z0-9-]{1,8}$/.test(prefix)) {
       return interaction.reply({
@@ -116,6 +116,39 @@ module.exports = {
       });
     }
 
+    const modalCustomId = `ticket_type_welcome_message:${interaction.id}`;
+    const modal = new ModalBuilder()
+      .setCustomId(modalCustomId)
+      .setTitle('Ticket Welcome Message');
+
+    const welcomeMessageInput = new TextInputBuilder()
+      .setCustomId('welcome_message')
+      .setLabel('Welcome embed description')
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder('Please explain your issue in detail...')
+      .setRequired(true)
+      .setMinLength(1)
+      .setMaxLength(1800);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(welcomeMessageInput));
+    await interaction.showModal(modal);
+
+    const modalSubmit = await interaction.awaitModalSubmit({
+      time: 120000,
+      filter: submit =>
+        submit.customId === modalCustomId
+        && submit.user.id === interaction.user.id
+    }).catch(() => null);
+
+    if (!modalSubmit) {
+      return interaction.followUp({
+        content: '⏱️ Timed out waiting for welcome message input. Please run `/tickets create_type` again.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const welcomeMessage = modalSubmit.fields.getTextInputValue('welcome_message').trim();
+
     await query(
       `INSERT INTO ticket_types
        (guild_id, name, description, prefix, allowed_role_ids, staff_role_ids, welcome_message, created_at)
@@ -132,7 +165,7 @@ module.exports = {
       ]
     );
 
-    return interaction.reply({
+    return modalSubmit.reply({
       content: `✅ Created ticket type **${name}** with ${staffRoleIds.length} staff role(s).`,
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }

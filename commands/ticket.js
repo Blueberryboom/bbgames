@@ -5,6 +5,9 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   ButtonBuilder,
   ButtonStyle
 } = require('discord.js');
@@ -38,12 +41,6 @@ module.exports = {
             .setRequired(true)
             .setMinValue(1)
             .setMaxValue(5)
-        )
-        .addStringOption(opt =>
-          opt.setName('panel_message')
-            .setDescription('Description shown on ticket panels')
-            .setRequired(true)
-            .setMaxLength(1800)
         )
         .addBooleanOption(opt =>
           opt.setName('enable_ticket_claiming')
@@ -152,10 +149,11 @@ module.exports = {
           .setStyle(ButtonStyle.Danger)
       );
 
+      const mentionUserIds = Array.from(new Set([ticket.user_id, interaction.user.id]));
       await interaction.channel.send({
         content: `<@${ticket.user_id}>, <@${interaction.user.id}> requested to close this ticket.`,
         components: [row],
-        allowedMentions: { users: [ticket.user_id, interaction.user.id] }
+        allowedMentions: { users: mentionUserIds }
       });
 
       return interaction.reply({ content: '✅ Close request sent to the ticket owner.', flags: MessageFlags.Ephemeral });
@@ -231,8 +229,39 @@ module.exports = {
       const category = interaction.options.getChannel('ticket_category', true);
       const transcripts = interaction.options.getChannel('transcripts_channel');
       const maxTickets = interaction.options.getInteger('max_tickets_per_user', true);
-      const panelMessage = interaction.options.getString('panel_message', true).trim();
       const claimingEnabled = interaction.options.getBoolean('enable_ticket_claiming', true) ? 1 : 0;
+      const modalCustomId = `ticket_config_panel_message:${interaction.id}`;
+      const modal = new ModalBuilder()
+        .setCustomId(modalCustomId)
+        .setTitle('Ticket Panel Message');
+
+      const panelMessageInput = new TextInputBuilder()
+        .setCustomId('panel_message')
+        .setLabel('Panel description')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Open a ticket by selecting an option below.')
+        .setRequired(true)
+        .setMinLength(1)
+        .setMaxLength(1800);
+
+      modal.addComponents(new ActionRowBuilder().addComponents(panelMessageInput));
+      await interaction.showModal(modal);
+
+      const modalSubmit = await interaction.awaitModalSubmit({
+        time: 120000,
+        filter: submit =>
+          submit.customId === modalCustomId
+          && submit.user.id === interaction.user.id
+      }).catch(() => null);
+
+      if (!modalSubmit) {
+        return interaction.followUp({
+          content: '⏱️ Timed out waiting for panel message input. Please run `/ticket config` again.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const panelMessage = modalSubmit.fields.getTextInputValue('panel_message').trim();
 
       await query(
         `INSERT INTO ticket_settings
@@ -258,7 +287,7 @@ module.exports = {
         ]
       );
 
-      return interaction.reply({
+      return modalSubmit.reply({
         content: '✅ Ticket settings updated.',
         flags: MessageFlags.Ephemeral
       });
