@@ -665,8 +665,11 @@ async function handleTicketButtons(interaction) {
       [interaction.guildId, interaction.user.id, now]
     );
 
-    const pingRoles = staffRoleIds.map(id => `<@&${id}>`).join(' ');
-    const content = `${interaction.user} ${pingRoles}`.trim();
+    const staffMentions = staffRoleIds.map(id => `<@&${id}>`);
+    const content = [
+      `**Ticket Owner:** <@${interaction.user.id}>`,
+      `**Assigned Staff Roles:** ${staffMentions.length ? staffMentions.join(' ') : 'None configured'}`
+    ].join('\n');
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle(type.name)
