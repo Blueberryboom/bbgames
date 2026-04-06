@@ -20,7 +20,7 @@ async function relayTicketMessageToTranscript(message) {
   if (message.author?.bot) return;
 
   const ticketRows = await query(
-    'SELECT id FROM tickets WHERE guild_id = ? AND channel_id = ? LIMIT 1',
+    'SELECT id, display_id FROM tickets WHERE guild_id = ? AND channel_id = ? LIMIT 1',
     [message.guildId, message.channel.id]
   );
   if (!ticketRows.length) return;
@@ -38,9 +38,9 @@ async function relayTicketMessageToTranscript(message) {
     if (!transcriptsChannel?.isTextBased()) return;
 
     const thread = await transcriptsChannel.threads.create({
-      name: `ticket-${ticketRows[0].id}-${message.channel.name}`.slice(0, 100),
+      name: `ticket-${ticketRows[0].display_id}-${message.channel.name}`.slice(0, 100),
       autoArchiveDuration: 10080,
-      reason: `Transcript thread for ticket #${ticketRows[0].id}`
+      reason: `Transcript thread for ticket #${ticketRows[0].display_id}`
     }).catch(() => null);
     if (!thread?.id) return;
 

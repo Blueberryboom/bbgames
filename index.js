@@ -22,6 +22,7 @@ const { initBirthdayScheduler, cleanupUserGuildData } = require('./utils/birthda
 const { queueOneWordStoryMessage, clearGuildOneWordStoryState, updateContributionStarCount } = require('./utils/oneWordStoryManager');
 const { processStarboardReaction, cleanupStarboardSourceMessage } = require('./utils/starboardManager');
 const { initServerTagRewardManager } = require('./utils/serverTagRewardManager');
+const { startStatsApiServer } = require('./utils/statsApiServer');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -119,6 +120,8 @@ client.once('clientReady', async () => {
     } catch (err) {
       console.error('❌ Failed to register slash commands:', err);
     }
+
+    startStatsApiServer(client);
   }
 
   // Status system

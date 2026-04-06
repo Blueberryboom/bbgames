@@ -1,5 +1,5 @@
 const { ChannelType, PermissionFlagsBits, MessageFlags, EmbedBuilder } = require('discord.js');
-const { query } = require('../database');
+const { pool, query } = require('../database');
 const checkPerms = require('./checkEventPerms');
 
 const WORKLOAD_LABELS = {
@@ -176,6 +176,33 @@ async function safeReply(interaction, payload) {
   return interaction.reply(payload);
 }
 
+async function allocateGuildTicketDisplayId(guildId) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query(
+      `INSERT INTO ticket_settings (guild_id, next_ticket_display_id, updated_at)
+       VALUES (?, 2, UNIX_TIMESTAMP() * 1000)
+       ON DUPLICATE KEY UPDATE next_ticket_display_id = next_ticket_display_id + 1`,
+      [guildId]
+    );
+    const rows = await conn.query(
+      `SELECT next_ticket_display_id - 1 AS display_id
+       FROM ticket_settings
+       WHERE guild_id = ?
+       LIMIT 1`,
+      [guildId]
+    );
+    await conn.commit();
+    return Number(rows[0]?.display_id || 1);
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = {
   WORKLOAD_EMOJIS,
   WORKLOAD_LABELS,
@@ -190,5 +217,6 @@ module.exports = {
   buildWorkloadEmbed,
   refreshWorkloadPanel,
   ensureTicketCategory,
-  safeReply
+  safeReply,
+  allocateGuildTicketDisplayId
 };

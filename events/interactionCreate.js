@@ -20,7 +20,8 @@ const {
   getTicketTypeById,
   buildTicketControls,
   ensureTicketCategory,
-  refreshWorkloadPanel
+  refreshWorkloadPanel,
+  allocateGuildTicketDisplayId
 } = require('../utils/ticketSystem');
 const {
   resolveRequiredPermissions,
@@ -645,10 +646,11 @@ async function handleTicketButtons(interaction) {
     }
 
     const now = Date.now();
+    const displayTicketId = await allocateGuildTicketDisplayId(interaction.guildId);
     const insert = await query(
-      `INSERT INTO tickets (guild_id, channel_id, user_id, type_id, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [interaction.guildId, channel.id, interaction.user.id, type.id, now]
+      `INSERT INTO tickets (guild_id, channel_id, user_id, type_id, display_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [interaction.guildId, channel.id, interaction.user.id, type.id, displayTicketId, now]
     );
     const ticketId = Number(insert.insertId);
     const controls = buildTicketControls(ticketId);
@@ -657,7 +659,7 @@ async function handleTicketButtons(interaction) {
       .replace(/[^A-Z0-9-]/g, '')
       .slice(0, 8) || 'TICKET';
     const safeUser = interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'user';
-    const ticketName = `${safePrefix}-${ticketId}-${safeUser}`.slice(0, 100);
+    const ticketName = `${safePrefix}-${displayTicketId}-${safeUser}`.slice(0, 100);
     await channel.setName(ticketName).catch(() => null);
 
     await query(
@@ -699,7 +701,7 @@ async function handleTicketButtons(interaction) {
         const creationEmbed = new EmbedBuilder()
           .setColor(0x57F287)
           .setTitle('Ticket Created')
-          .setDescription(`Ticket #${ticketId} was created.`)
+          .setDescription(`Ticket #${displayTicketId} was created.`)
           .addFields(
             { name: 'Type', value: type.name, inline: true },
             { name: 'Owner', value: `<@${interaction.user.id}>`, inline: true },
@@ -710,7 +712,7 @@ async function handleTicketButtons(interaction) {
         const creationMessage = await transcriptsChannel.send({ embeds: [creationEmbed] }).catch(() => null);
         if (creationMessage && typeof creationMessage.startThread === 'function') {
           const thread = await creationMessage.startThread({
-            name: `ticket-${ticketId}-${type.name}`.slice(0, 100),
+            name: `ticket-${displayTicketId}-${type.name}`.slice(0, 100),
             autoArchiveDuration: 10080
           }).catch(() => null);
           if (thread?.id && channel.isTextBased()) {
@@ -837,7 +839,7 @@ async function closeTicket(interaction, ticketId, closeReason) {
       const closeEmbed = new EmbedBuilder()
         .setColor(0xED4245)
         .setTitle('Ticket Closed')
-        .setDescription(`Ticket #${ticketId} has been closed.`)
+        .setDescription(`Ticket #${ticket.display_id} has been closed.`)
         .addFields(
           { name: 'Type', value: ticket.type_name, inline: true },
           { name: 'Owner', value: `<@${ticket.user_id}>`, inline: true },
@@ -850,7 +852,7 @@ async function closeTicket(interaction, ticketId, closeReason) {
     }
   }
 
-  const responseText = `✅ Closed ticket #${ticketId}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
+  const responseText = `✅ Closed ticket #${ticket.display_id}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
   if (interaction.deferred || interaction.replied) {
     await interaction.followUp({ content: responseText, flags: MessageFlags.Ephemeral }).catch(() => null);
   } else {
