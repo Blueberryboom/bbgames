@@ -849,18 +849,19 @@ async function closeTicket(interaction, ticketId, closeReason) {
     }
   }
 
+  const responseText = `✅ Closed ticket #${ticketId}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
+  if (interaction.deferred || interaction.replied) {
+    await interaction.followUp({ content: responseText, flags: MessageFlags.Ephemeral }).catch(() => null);
+  } else {
+    await interaction.reply({ content: responseText, flags: MessageFlags.Ephemeral }).catch(() => null);
+  }
+
   await query('DELETE FROM tickets WHERE id = ?', [ticketId]);
   if (channel) {
     await channel.delete(`Ticket closed by ${interaction.user.tag} (${interaction.user.id})`).catch(() => null);
   }
 
   await refreshWorkloadPanel(interaction.guild);
-
-  const responseText = `✅ Closed ticket #${ticketId}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
-  if (interaction.deferred || interaction.replied) {
-    return interaction.followUp({ content: responseText, flags: MessageFlags.Ephemeral });
-  }
-  return interaction.reply({ content: responseText, flags: MessageFlags.Ephemeral });
 }
 
 async function setClaimButtonState(message, ticketId, disabled, label) {
