@@ -251,6 +251,7 @@ module.exports = async (interaction) => {
         });
       }
 
+      await interaction.deferUpdate();
       rpsState.consumeGame(gameId);
 
       const challenger = await interaction.client.users.fetch(game.challengerId).catch(() => null);
@@ -277,7 +278,7 @@ module.exports = async (interaction) => {
           `**Result:** ${summary}`
         );
 
-      await interaction.update({
+      await interaction.editReply({
         embeds: [embed],
         content: '',
         components: []
