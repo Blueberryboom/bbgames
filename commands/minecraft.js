@@ -1,22 +1,9 @@
 const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 
-const RECOMMENDED_SERVERS = [
-  {
-    host: 'play.blueberrynet.uk',
-    location: 'United Kingdom',
-    players: '5+',
-    description: 'This command is still in development!'
-  },
-  
-];
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('minecraft')
-    .setDescription('Find servers and check Minecraft server status')
-    .addSubcommand(sub =>
-      sub.setName('find').setDescription('Show sponsored servers to try')
-    )
+    .setDescription('Check Minecraft server status')
     .addSubcommand(sub =>
       sub
         .setName('status')
@@ -30,22 +17,7 @@ module.exports = {
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
-
-    if (sub === 'find') {
-      const embed = new EmbedBuilder()
-        .setColor(0x2ECC71)
-        .setTitle('🧭 Sponsored Minecraft Servers')
-        .setDescription(
-          RECOMMENDED_SERVERS.map((server, i) =>
-            `**${i + 1}. \`${server.host}\`**\n` +
-            `• Description: ${server.description}\n` +
-            `• Location: ${server.location}\n` +
-            `• Players: ${server.players}`
-          ).join('\n\n')
-        );
-
-      return interaction.reply({ embeds: [embed] });
-    }
+    if (sub !== 'status') return;
 
     const server = interaction.options.getString('server').trim();
 

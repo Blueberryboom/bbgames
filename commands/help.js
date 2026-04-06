@@ -55,7 +55,7 @@ module.exports = {
             '`/rps` • Rock paper scissors vs bot or users',
             '`/dadjoke` • Random dad joke',
             '`/coinflip` • Heads or tails',
-            '`/minecraft` • Query server info/status',
+            '`/minecraft status` • Check Minecraft server status',
             '`/tag send` • Send a saved tag',
             '`/onewordstory view` • View story progress',
             '`/starboard configure` • Auto-post popular messages',
@@ -65,11 +65,11 @@ module.exports = {
         {
           name: 'All Commands',
           value: [
-            '`/help`, `/about`, `/status`, `/support`, `/donate`',
-            '`/config`, `/count`, `/giveaway`, `/youtube`, `/sticky`, `/automsg`',
-            '`/leveling`, `/level`, `/birthday`, `/afk`, `/afk_leaderboard`',
-            '`/variableslowmode`, `/welcome`, `/leave`, `/boostmsg`, `/logs`, `/premium`, `/say`, `/owner`, `/ticket`, `/tickets`',
-            '`/tag`, `/onewordstory`, `/starboard`, `/servertag`, `/coinflip`, `/dadjoke`, `/dice`, `/minecraft`, `/rps`, `/tictactoe`'
+            '`/about`, `/achievements`, `/afk`, `/afk_leaderboard`, `/automsg`',
+            '`/birthday`, `/boostmsg`, `/coinflip`, `/config`, `/count`, `/dadjoke`',
+            '`/dice`, `/donate`, `/giveaway`, `/help`, `/leave`, `/level`, `/leveling`',
+            '`/logs`, `/minecraft`, `/onewordstory`, `/owner`, `/premium`, `/purge`, `/rps`, `/say`',
+            '`/servertag`, `/starboard`, `/status`, `/sticky`, `/support`, `/tag`, `/tags`, `/ticket`, `/tickets`, `/tictactoe`, `/variableslowmode`, `/welcome`, `/youtube`'
           ].join('\n')
         }
       )

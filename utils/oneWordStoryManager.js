@@ -6,6 +6,7 @@ const pendingTimers = new Map();
 const DEFAULT_WORD_DELAY_SECONDS = 5;
 const MIN_WORD_DELAY_SECONDS = 1;
 const MAX_WORD_DELAY_SECONDS = 30;
+const MAX_WORD_LENGTH = 12;
 const CHECK_EMOJI = '✅';
 
 function getTimerKey(guildId, messageId) {
@@ -37,6 +38,7 @@ function isSingleValidWord(raw) {
   const word = raw.trim();
   if (!word) return false;
   if (/\s/.test(word)) return false;
+  if (word.length > MAX_WORD_LENGTH) return false;
 
   // Keep words strict to avoid cheat formats (underscores, symbols, numbers).
   return /^[A-Za-z]+(?:'[A-Za-z]+)?$/.test(word);
