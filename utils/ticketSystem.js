@@ -109,7 +109,7 @@ async function buildWorkloadEmbed(guildId, useEmojis = true) {
     const total = countMap.get(Number(type.id)) || 0;
     const level = workloadLevel(total);
     const emoji = useEmojis ? `${WORKLOAD_EMOJIS[level]} ` : '';
-    return `• **${type.name}** — ${emoji}${WORKLOAD_LABELS[level]} (${total})`;
+    return `• **${type.name}** | ${emoji}${WORKLOAD_LABELS[level]} (${total})`;
   });
 
   return new EmbedBuilder()
