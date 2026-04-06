@@ -274,6 +274,8 @@ module.exports = async () => {
         id BIGINT NOT NULL AUTO_INCREMENT,
         guild_id VARCHAR(32) NOT NULL,
         name VARCHAR(100) NOT NULL,
+        description VARCHAR(60) NULL,
+        prefix VARCHAR(8) NOT NULL DEFAULT 'TICKET',
         allowed_role_ids JSON NULL,
         staff_role_ids JSON NOT NULL,
         welcome_message TEXT NOT NULL,
@@ -283,6 +285,22 @@ module.exports = async () => {
         INDEX idx_ticket_types_guild (guild_id)
       ) ENGINE=InnoDB;
     `);
+
+    await pool.query(`
+      ALTER TABLE ticket_types
+      ADD COLUMN IF NOT EXISTS description VARCHAR(60) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE ticket_types
+      ADD COLUMN IF NOT EXISTS prefix VARCHAR(8) NOT NULL DEFAULT 'TICKET'
+    `);
+
+    await pool.query(`
+      UPDATE ticket_types
+      SET prefix = UPPER(LEFT(REGEXP_REPLACE(COALESCE(prefix, name, 'TICKET'), '[^A-Za-z0-9-]', ''), 8))
+      WHERE prefix IS NULL OR prefix = '' OR prefix REGEXP '[^A-Za-z0-9-]'
+    `).catch(() => null);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tickets (

@@ -18,6 +18,18 @@ module.exports = {
             .setMaxLength(80)
         )
         .addStringOption(opt =>
+          opt.setName('prefix')
+            .setDescription('Required ticket name prefix (max 8 chars)')
+            .setRequired(true)
+            .setMaxLength(8)
+        )
+        .addStringOption(opt =>
+          opt.setName('description')
+            .setDescription('Optional short menu description (max 60 chars)')
+            .setRequired(false)
+            .setMaxLength(60)
+        )
+        .addStringOption(opt =>
           opt.setName('ticket_welcome_open_message')
             .setDescription('Embed description shown when ticket opens')
             .setRequired(true)
@@ -44,7 +56,16 @@ module.exports = {
     }
 
     const name = interaction.options.getString('name', true).trim();
+    const prefix = interaction.options.getString('prefix', true).trim();
+    const shortDescription = interaction.options.getString('description')?.trim() || null;
     const welcomeMessage = interaction.options.getString('ticket_welcome_open_message', true).trim();
+
+    if (!/^[a-zA-Z0-9-]{1,8}$/.test(prefix)) {
+      return interaction.reply({
+        content: '❌ Prefix must be 1-8 characters and only use letters, numbers, or hyphens.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
     const allowedRoleIds = [];
     const staffRoleIds = [];
@@ -97,11 +118,13 @@ module.exports = {
 
     await query(
       `INSERT INTO ticket_types
-       (guild_id, name, allowed_role_ids, staff_role_ids, welcome_message, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (guild_id, name, description, prefix, allowed_role_ids, staff_role_ids, welcome_message, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         interaction.guildId,
         name,
+        shortDescription,
+        prefix.toUpperCase(),
         JSON.stringify(allowedRoleIds),
         JSON.stringify(staffRoleIds),
         welcomeMessage,

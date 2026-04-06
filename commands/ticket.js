@@ -14,7 +14,8 @@ const {
   parseCooldown,
   formatDuration,
   getGuildTicketSettings,
-  buildWorkloadEmbed
+  buildWorkloadEmbed,
+  parseRoleIds
 } = require('../utils/ticketSystem');
 
 module.exports = {
@@ -119,6 +120,11 @@ module.exports = {
       sub
         .setName('close_request')
         .setDescription('Ask ticket owner for close confirmation in a ticket channel')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('unclaim')
+        .setDescription('Unclaim a claimed ticket in a ticket channel')
     ),
 
   async execute(interaction) {
@@ -153,6 +159,65 @@ module.exports = {
       });
 
       return interaction.reply({ content: '✅ Close request sent to the ticket owner.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (sub === 'unclaim') {
+      const ticketRows = await query(
+        `SELECT t.id, t.user_id, t.type_id, t.claimed_by, tt.staff_role_ids
+         FROM tickets t
+         INNER JOIN ticket_types tt ON tt.guild_id = t.guild_id AND tt.id = t.type_id
+         WHERE t.guild_id = ? AND t.channel_id = ?
+         LIMIT 1`,
+        [interaction.guildId, interaction.channelId]
+      );
+      const ticket = ticketRows[0];
+      if (!ticket) {
+        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (!ticket.claimed_by) {
+        return interaction.reply({ content: '❌ This ticket is not currently claimed.', flags: MessageFlags.Ephemeral });
+      }
+
+      const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
+      const isStaff = await checkPerms(interaction) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
+      const isClaimer = interaction.user.id === ticket.claimed_by;
+      if (!isStaff && !isClaimer) {
+        return interaction.reply({ content: '❌ Only the claimer, ticket staff, or admins can unclaim this ticket.', flags: MessageFlags.Ephemeral });
+      }
+
+      await query('UPDATE tickets SET claimed_by = NULL WHERE id = ?', [ticket.id]);
+
+      const claimControlId = `ticket_claim:${ticket.id}`;
+      const messages = await interaction.channel.messages.fetch({ limit: 25 }).catch(() => null);
+      const controlMessage = messages?.find(message =>
+        message.components?.some(row =>
+          row.components?.some(component => component.customId === claimControlId)
+        )
+      );
+
+      if (controlMessage) {
+        const updatedRows = controlMessage.components.map(row => new ActionRowBuilder().addComponents(
+          row.components.map(component => {
+            if (component.customId === claimControlId) {
+              return ButtonBuilder.from(component)
+                .setLabel('🙋 Claim')
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(false);
+            }
+            return ButtonBuilder.from(component);
+          })
+        ));
+        await controlMessage.edit({ components: updatedRows }).catch(() => null);
+      }
+
+      const unclaimEmbed = new EmbedBuilder()
+        .setColor(0xFEE75C)
+        .setTitle('Ticket unclaimed!')
+        .setDescription(`This ticket was unclaimed by ${interaction.user}.`);
+      await interaction.channel.send({ embeds: [unclaimEmbed] }).catch(() => null);
+
+      return interaction.reply({ content: '✅ Ticket is now unclaimed.', flags: MessageFlags.Ephemeral });
     }
 
     if (!await checkPerms(interaction)) {
@@ -251,7 +316,7 @@ module.exports = {
         });
       }
 
-      const types = await query('SELECT id, name FROM ticket_types WHERE guild_id = ? ORDER BY name ASC', [interaction.guildId]);
+      const types = await query('SELECT id, name, description FROM ticket_types WHERE guild_id = ? ORDER BY name ASC', [interaction.guildId]);
       if (!types.length) {
         return interaction.reply({
           content: '❌ No ticket types exist yet. Create one with `/tickets create_type` first.',
@@ -270,7 +335,13 @@ module.exports = {
       const select = new StringSelectMenuBuilder()
         .setCustomId('ticket_panel_select')
         .setPlaceholder('Choose a ticket type to open')
-        .addOptions(types.map(type => ({ label: type.name.slice(0, 100), value: `type_${type.id}` })));
+        .addOptions(
+          types.map(type => ({
+            label: type.name.slice(0, 100),
+            description: type.description ? type.description.slice(0, 60) : undefined,
+            value: `type_${type.id}`
+          }))
+        );
 
       const row = new ActionRowBuilder().addComponents(select);
       await targetChannel.send({ embeds: [embed], components: [row] });

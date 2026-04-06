@@ -562,7 +562,6 @@ async function handleTicketButtons(interaction) {
     }
 
     const staffRoleIds = parseRoleIds(type.staff_role_ids);
-    const ticketName = `${type.name.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 70)}-${interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'user'}`;
 
     const overwrites = [
       { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
@@ -603,7 +602,7 @@ async function handleTicketButtons(interaction) {
     }
 
     const channel = await interaction.guild.channels.create({
-      name: ticketName.slice(0, 100),
+      name: 'ticket-opening',
       type: ChannelType.GuildText,
       parent: category.id,
       permissionOverwrites: overwrites,
@@ -622,6 +621,13 @@ async function handleTicketButtons(interaction) {
     );
     const ticketId = Number(insert.insertId);
     const controls = buildTicketControls(ticketId);
+    const safePrefix = (type.prefix || type.name || 'ticket')
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, '')
+      .slice(0, 8) || 'TICKET';
+    const safeUser = interaction.user.username.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'user';
+    const ticketName = `${safePrefix}-${ticketId}-${safeUser}`.slice(0, 100);
+    await channel.setName(ticketName).catch(() => null);
 
     await query(
       `REPLACE INTO ticket_user_activity (guild_id, user_id, last_opened_at)
@@ -634,12 +640,17 @@ async function handleTicketButtons(interaction) {
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle(type.name)
-      .setDescription(type.welcome_message);
+      .setDescription(type.welcome_message)
+      .addFields(
+        { name: 'Category', value: type.name, inline: false },
+        { name: 'User', value: interaction.user.username, inline: false }
+      )
+      .setTimestamp(new Date(now));
 
     const actionRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(controls.claim).setLabel('🙋 Claim').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(controls.close).setLabel('🔒 Close').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId(controls.closeReason).setLabel('📝 Close With Reason').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(controls.claim).setLabel('Claim').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId(controls.close).setLabel('Close').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(controls.closeReason).setLabel('Close With Reason').setStyle(ButtonStyle.Secondary)
     );
 
     await channel.send({
@@ -669,9 +680,10 @@ async function handleTicketButtons(interaction) {
             name: `ticket-${ticketId}-${type.name}`.slice(0, 100),
             autoArchiveDuration: 10080
           }).catch(() => null);
-
-          if (thread?.id) {
-            await query('UPDATE tickets SET transcript_thread_id = ? WHERE id = ?', [thread.id, ticketId]);
+          if (thread?.id && channel.isTextBased()) {
+            const topicParts = (channel.topic || '').split(' | ').filter(Boolean).filter(part => !part.startsWith('transcript_thread_id:'));
+            topicParts.push(`transcript_thread_id:${thread.id}`);
+            await channel.setTopic(topicParts.join(' | ').slice(0, 1024)).catch(() => null);
           }
         }
       }
@@ -705,25 +717,33 @@ async function handleTicketButtons(interaction) {
     if (!isStaff) {
       return interaction.reply({ content: '❌ Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
     }
+    if (ticket.claimed_by && ticket.claimed_by !== interaction.user.id) {
+      return interaction.reply({ content: '❌ This ticket has already been claimed by another staff member.', flags: MessageFlags.Ephemeral });
+    }
+    if (ticket.claimed_by === interaction.user.id) {
+      return interaction.reply({ content: '❌ You already claimed this ticket.', flags: MessageFlags.Ephemeral });
+    }
 
     await query('UPDATE tickets SET claimed_by = ? WHERE id = ?', [interaction.user.id, ticketId]);
+    await setClaimButtonState(interaction.message, ticketId, true, `Claimed by ${interaction.user.username}`.slice(0, 80));
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
-      .setDescription(`✅ ${interaction.user} claimed this ticket.`);
+      .setTitle('Ticket claimed!')
+      .setDescription(`Your ticket will be handled by ${interaction.user}`);
     return interaction.reply({ embeds: [embed] });
   }
 
   if (interaction.customId.startsWith('ticket_close_reason:')) {
     const ticketId = Number(interaction.customId.split(':')[1]);
     await interaction.reply({
-      content: '📝 Please type the close reason in this ticket within **30 seconds**. I will only accept your message.',
+      content: 'Please type the close reason in chat within **60 seconds**.',
       flags: MessageFlags.Ephemeral
     });
 
     const reasonMessage = await interaction.channel.awaitMessages({
       filter: msg => msg.author.id === interaction.user.id,
       max: 1,
-      time: 30_000
+      time: 60_000
     }).catch(() => null);
 
     const reason = reasonMessage?.first()?.content?.trim();
@@ -778,48 +798,9 @@ async function closeTicket(interaction, ticketId, closeReason) {
   const channel = interaction.guild.channels.cache.get(ticket.channel_id) || await interaction.guild.channels.fetch(ticket.channel_id).catch(() => null);
   const settings = await getGuildTicketSettings(interaction.guildId);
 
-  if (settings?.transcripts_channel_id && channel?.isTextBased()) {
+  if (settings?.transcripts_channel_id) {
     const transcriptChannel = await interaction.guild.channels.fetch(settings.transcripts_channel_id).catch(() => null);
     if (transcriptChannel?.isTextBased()) {
-      let transcriptTarget = transcriptChannel;
-      if (ticket.transcript_thread_id) {
-        const transcriptThread = await interaction.guild.channels.fetch(ticket.transcript_thread_id).catch(() => null);
-        if (transcriptThread?.isTextBased()) {
-          transcriptTarget = transcriptThread;
-        }
-      }
-
-      const messages = await fetchTranscriptMessages(channel);
-      const header = [
-        `Ticket #${ticketId}`,
-        `Type: ${ticket.type_name}`,
-        `Owner: ${ticket.user_id}`,
-        `Closed by: ${interaction.user.id}`,
-        `Closed at: ${new Date().toISOString()}`,
-        `Reason: ${closeReason || 'No reason provided'}`,
-        '---'
-      ];
-      const body = messages.map(msg => {
-        const clean = (msg.content || '').replace(/\\s+/g, ' ').trim();
-        const attachments = msg.attachments?.map(a => a.url).join(' ') || '';
-        return `[${new Date(msg.createdTimestamp).toISOString()}] ${msg.author?.tag || msg.author?.id || 'unknown'}: ${clean} ${attachments}`.trim();
-      });
-      const text = `${header.join('\n')}\n${body.join('\n')}`.slice(0, 1900000);
-      const chunks = [];
-      for (let i = 0; i < text.length; i += 1800) {
-        chunks.push(text.slice(i, i + 1800));
-      }
-
-      await transcriptTarget.send({ content: `🧾 Ticket transcript for <#${ticket.channel_id}>` }).catch(() => null);
-      for (let i = 0; i < Math.min(chunks.length, 12); i++) {
-        await transcriptTarget.send({ content: `\`\`\`\n${chunks[i]}\n\`\`\`` }).catch(() => null);
-      }
-      if (chunks.length > 12) {
-        await transcriptTarget.send({
-          content: `... transcript truncated (${chunks.length - 12} additional chunk(s) omitted to avoid spam).`
-        }).catch(() => null);
-      }
-
       const closeEmbed = new EmbedBuilder()
         .setColor(0xED4245)
         .setTitle('Ticket Closed')
@@ -850,18 +831,21 @@ async function closeTicket(interaction, ticketId, closeReason) {
   return interaction.reply({ content: responseText, flags: MessageFlags.Ephemeral });
 }
 
-async function fetchTranscriptMessages(channel) {
-  const all = [];
-  let before;
-  for (let i = 0; i < 10; i++) {
-    const batch = await channel.messages.fetch({ limit: 100, before }).catch(() => null);
-    if (!batch || !batch.size) break;
-    const values = [...batch.values()];
-    all.push(...values);
-    before = values[values.length - 1].id;
-    if (batch.size < 100) break;
-  }
-  return all.reverse();
+async function setClaimButtonState(message, ticketId, disabled, label) {
+  if (!message?.components?.length) return;
+  const claimCustomId = `ticket_claim:${ticketId}`;
+  const updatedRows = message.components.map(row => new ActionRowBuilder().addComponents(
+    row.components.map(component => {
+      if (component.customId === claimCustomId) {
+        return ButtonBuilder.from(component)
+          .setDisabled(disabled)
+          .setLabel(label || 'Claim')
+          .setStyle(disabled ? ButtonStyle.Secondary : ButtonStyle.Success);
+      }
+      return ButtonBuilder.from(component);
+    })
+  ));
+  await message.edit({ components: updatedRows }).catch(() => null);
 }
 
 function decideRpsWinner(first, second) {

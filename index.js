@@ -132,6 +132,8 @@ const levelingHandler = require('./events/levelingMessage');
 const { handleStickyMessage } = require('./utils/stickyManager');
 const { clearAfkForMessage, notifyMentionedAfkUsers, formatDuration } = require('./utils/afkManager');
 const { trackAchievementEvent } = require('./utils/achievementManager');
+const { relayTicketMessageToTranscript } = require('./utils/ticketTranscriptRelay');
+const { maybeSendTicketClaimNotice } = require('./utils/ticketClaimNotice');
 const AFK_WELCOME_BACK_DELETE_MS = 6000;
 
 client.on('messageCreate', async message => {
@@ -184,9 +186,11 @@ client.on('messageCreate', async message => {
     }
 
     await notifyMentionedAfkUsers(message);
+    await maybeSendTicketClaimNotice(message);
     await countingHandler(message);
     await levelingHandler(message);
     await handleStickyMessage(message);
+    await relayTicketMessageToTranscript(message);
     trackVariableSlowmodeMessage(message);
     await queueOneWordStoryMessage(message);
   } catch (err) {
