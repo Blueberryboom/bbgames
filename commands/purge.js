@@ -10,6 +10,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('purge')
     .setDescription('Delete recent messages from this channel')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .addIntegerOption(option =>
       option
         .setName('amount')
@@ -42,6 +43,12 @@ module.exports = {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
         content: '❌ You need administrator or the configured bot manager role to use this command.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) {
+      return interaction.reply({
+        content: '❌ You need the **Manage Messages** permission to use `/purge`.',
         flags: MessageFlags.Ephemeral
       });
     }

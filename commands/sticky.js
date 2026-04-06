@@ -1,7 +1,8 @@
 const {
   SlashCommandBuilder,
   MessageFlags,
-  ChannelType
+  ChannelType,
+  PermissionFlagsBits
 } = require('discord.js');
 
 const { query } = require('../database');
@@ -11,6 +12,24 @@ const { getPremiumLimit } = require('../utils/premiumPerks');
 
 // Disallow mention syntaxes to keep sticky messages from pinging users/roles/everyone.
 const DISALLOWED_MENTION_PATTERN = /(@everyone|@here|<@!?\d+>|<@&\d+>|(^|\s)@[^\s@]+)/i;
+const PERMISSION_LABELS = {
+  [PermissionFlagsBits.ViewChannel]: 'View Channel',
+  [PermissionFlagsBits.SendMessages]: 'Send Messages',
+  [PermissionFlagsBits.EmbedLinks]: 'Embed Links'
+};
+
+function getMissingBotPermissionsForChannel(channel, me, requiredPermissions) {
+  const permissions = channel.permissionsFor(me);
+  if (!permissions) {
+    return requiredPermissions;
+  }
+
+  return requiredPermissions.filter(permission => !permissions.has(permission));
+}
+
+function formatPermissionList(permissionBits) {
+  return permissionBits.map(permission => PERMISSION_LABELS[permission] || `Permission ${permission}`).join(', ');
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -83,6 +102,19 @@ module.exports = {
       const cooldownSeconds = interaction.options.getInteger('cooldown_seconds') || Math.round(DEFAULT_COOLDOWN_MS / 1000);
       const cooldownMs = cooldownSeconds * 1000;
       const isEmbed = interaction.options.getBoolean('embed') ?? false;
+      const requiredPermissions = [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages,
+        ...(isEmbed ? [PermissionFlagsBits.EmbedLinks] : [])
+      ];
+      const missingPermissions = getMissingBotPermissionsForChannel(channel, interaction.guild.members.me || interaction.client.user, requiredPermissions);
+
+      if (missingPermissions.length) {
+        return interaction.reply({
+          content: `❌ I can't post sticky messages in ${channel}. Missing: ${formatPermissionList(missingPermissions)}.`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
 
       // Reject sticky content containing possible mention tokens so sticky posts stay non-pinging.
       if (DISALLOWED_MENTION_PATTERN.test(content)) {
