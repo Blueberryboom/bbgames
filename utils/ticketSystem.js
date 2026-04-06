@@ -16,9 +16,32 @@ const WORKLOAD_EMOJIS = {
 
 function parseRoleIds(raw) {
   if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map(value => String(value).trim())
+      .filter(value => /^\d{5,}$/.test(value));
+  }
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+
+    if (/^\d{5,}(,\s*\d{5,})*$/.test(trimmed)) {
+      return trimmed.split(',').map(value => value.trim()).filter(Boolean);
+    }
+  }
+
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map(value => String(value).trim())
+        .filter(value => /^\d{5,}$/.test(value));
+    }
+    if (typeof parsed === 'string' && /^\d{5,}$/.test(parsed.trim())) {
+      return [parsed.trim()];
+    }
+    return [];
   } catch {
     return [];
   }

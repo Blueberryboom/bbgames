@@ -666,10 +666,9 @@ async function handleTicketButtons(interaction) {
     );
 
     const staffMentions = staffRoleIds.map(id => `<@&${id}>`);
-    const content = [
-      `**Ticket Owner:** <@${interaction.user.id}>`,
-      `**Assigned Staff Roles:** ${staffMentions.length ? staffMentions.join(' ') : 'None configured'}`
-    ].join('\n');
+    const mentionContent = [interaction.user.id, ...staffRoleIds]
+      .map(id => (id === interaction.user.id ? `<@${id}>` : `<@&${id}>`))
+      .join(' ');
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle(type.name)
@@ -687,7 +686,7 @@ async function handleTicketButtons(interaction) {
     );
 
     await channel.send({
-      content,
+      content: mentionContent,
       embeds: [embed],
       components: [actionRow],
       allowedMentions: { users: [interaction.user.id], roles: staffRoleIds }
