@@ -31,12 +31,6 @@ module.exports = {
             .addChannelTypes(ChannelType.GuildCategory)
             .setRequired(true)
         )
-        .addChannelOption(opt =>
-          opt.setName('transcripts_channel')
-            .setDescription('Optional transcript log channel')
-            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-            .setRequired(false)
-        )
         .addIntegerOption(opt =>
           opt.setName('max_tickets_per_user')
             .setDescription('Max open tickets per user (1-5)')
@@ -54,6 +48,12 @@ module.exports = {
           opt.setName('enable_ticket_claiming')
             .setDescription('Whether claim button is enabled')
             .setRequired(true)
+        )
+        .addChannelOption(opt =>
+          opt.setName('transcripts_channel')
+            .setDescription('Optional transcript log channel')
+            .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+            .setRequired(false)
         )
     )
     .addSubcommand(sub =>
