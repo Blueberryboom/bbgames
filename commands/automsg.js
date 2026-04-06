@@ -1,7 +1,8 @@
 const {
   SlashCommandBuilder,
   MessageFlags,
-  ChannelType
+  ChannelType,
+  PermissionFlagsBits
 } = require('discord.js');
 
 const { query } = require('../database');
@@ -11,6 +12,23 @@ const { getPremiumLimit } = require('../utils/premiumPerks');
 
 const MIN_INTERVAL_MS = 30 * 60 * 1000;
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const PERMISSION_LABELS = {
+  [PermissionFlagsBits.ViewChannel]: 'View Channel',
+  [PermissionFlagsBits.SendMessages]: 'Send Messages'
+};
+
+function getMissingBotPermissionsForChannel(channel, me, requiredPermissions) {
+  const permissions = channel.permissionsFor(me);
+  if (!permissions) {
+    return requiredPermissions;
+  }
+
+  return requiredPermissions.filter(permission => !permissions.has(permission));
+}
+
+function formatPermissionList(permissionBits) {
+  return permissionBits.map(permission => PERMISSION_LABELS[permission] || `Permission ${permission}`).join(', ');
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -74,6 +92,18 @@ module.exports = {
       const channel = interaction.options.getChannel('channel', true);
       const intervalInput = interaction.options.getString('interval', true);
       const content = interaction.options.getString('message', true).trim();
+      const requiredPermissions = [
+        PermissionFlagsBits.ViewChannel,
+        PermissionFlagsBits.SendMessages
+      ];
+      const missingPermissions = getMissingBotPermissionsForChannel(channel, interaction.guild.members.me || interaction.client.user, requiredPermissions);
+
+      if (missingPermissions.length) {
+        return interaction.reply({
+          content: `❌ I can't send automatic messages in ${channel}. Missing: ${formatPermissionList(missingPermissions)}.`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
 
       const intervalMs = parseDurationMs(intervalInput);
       if (!intervalMs) {
