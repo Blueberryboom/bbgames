@@ -498,6 +498,21 @@ async function handleTicketPanelSelect(interaction) {
     return interaction.reply({ content: '❌ You are blacklisted from opening tickets in this server.', flags: MessageFlags.Ephemeral });
   }
 
+  const maxOpenTickets = await getPremiumLimit(interaction.client, interaction.guildId, 55, Number.POSITIVE_INFINITY);
+  if (Number.isFinite(maxOpenTickets)) {
+    const guildOpenRows = await query(
+      `SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ?`,
+      [interaction.guildId]
+    );
+    const guildOpenCount = Number(guildOpenRows[0]?.total || 0);
+    if (guildOpenCount >= maxOpenTickets) {
+      return interaction.reply({
+        content: `❌ This server already has ${guildOpenCount}/${maxOpenTickets} open tickets. Free servers can have up to ${maxOpenTickets} open tickets at once.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+  }
+
   const maxTickets = Math.min(5, Math.max(1, Number(settings.max_tickets_per_user || 1)));
   const openRows = await query(
     `SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ? AND user_id = ?`,
@@ -554,6 +569,21 @@ async function handleTicketButtons(interaction) {
 
     if (!type || !settings?.category_id) {
       return interaction.update({ content: '❌ Ticket setup is missing or invalid.', components: [] });
+    }
+
+    const maxOpenTickets = await getPremiumLimit(interaction.client, interaction.guildId, 55, Number.POSITIVE_INFINITY);
+    if (Number.isFinite(maxOpenTickets)) {
+      const guildOpenRows = await query(
+        `SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ?`,
+        [interaction.guildId]
+      );
+      const guildOpenCount = Number(guildOpenRows[0]?.total || 0);
+      if (guildOpenCount >= maxOpenTickets) {
+        return interaction.update({
+          content: `❌ This server already has ${guildOpenCount}/${maxOpenTickets} open tickets. Free servers can have up to ${maxOpenTickets} open tickets at once.`,
+          components: []
+        });
+      }
     }
 
     const category = await ensureTicketCategory(interaction.guild, settings.category_id);
