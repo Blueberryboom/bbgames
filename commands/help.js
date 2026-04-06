@@ -36,6 +36,20 @@ module.exports = {
           ].join('\n')
         },
         {
+          name: 'Ticket System (Updated)',
+          value: [
+            '`/ticket config` • Configure category, transcript channel, limits, claiming',
+            '`/tickets create_type` • Create a ticket type',
+            '`/ticket delete_type` • Delete a ticket type (no open tickets)',
+            '`/ticket panel` • Send panel + optional live workload block',
+            '`/ticket creation_cooldown` • Set how often users can open tickets',
+            '`/ticket close_request` • Assigned ticket staff can request owner close',
+            '`/ticket reset` • Delete all ticket channels + wipe all ticket data',
+            'Transcripts are now posted as plaintext messages, not files.',
+            'Sensitive ticket setup commands require Admin, Bot Manager, or bot owner.'
+          ].join('\n')
+        },
+        {
           name: 'Fun & Utilities',
           value: [
             '`/rps` • Rock paper scissors vs bot or users',
@@ -54,7 +68,7 @@ module.exports = {
             '`/help`, `/about`, `/status`, `/support`, `/donate`',
             '`/config`, `/count`, `/giveaway`, `/youtube`, `/sticky`, `/automsg`',
             '`/leveling`, `/level`, `/birthday`, `/afk`, `/afk_leaderboard`',
-            '`/variableslowmode`, `/welcome`, `/leave`, `/boostmsg`, `/logs`, `/premium`, `/say`, `/owner`',
+            '`/variableslowmode`, `/welcome`, `/leave`, `/boostmsg`, `/logs`, `/premium`, `/say`, `/owner`, `/ticket`, `/tickets`',
             '`/tag`, `/onewordstory`, `/starboard`, `/servertag`, `/coinflip`, `/dadjoke`, `/dice`, `/minecraft`, `/rps`, `/tictactoe`'
           ].join('\n')
         }

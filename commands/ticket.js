@@ -93,11 +93,27 @@ module.exports = {
             .setRequired(true)
         )
         .addStringOption(opt =>
-          opt.setName('open_hours')
-            .setDescription('Optional open-hours note shown in panel')
+          opt.setName('active_hours')
+            .setDescription('Optional active-hours note shown in panel')
             .setRequired(false)
             .setMaxLength(300)
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('delete_type')
+        .setDescription('Delete an existing ticket type')
+        .addStringOption(opt =>
+          opt.setName('name')
+            .setDescription('Name of the ticket type to delete')
+            .setRequired(true)
+            .setMaxLength(80)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('reset')
+        .setDescription('Delete all ticket channels and remove all ticket configuration')
     )
     .addSubcommand(sub =>
       sub
@@ -109,7 +125,7 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'close_request') {
-      const ticketRows = await query('SELECT id, user_id, type_id FROM tickets WHERE guild_id = ? AND channel_id = ? LIMIT 1', [interaction.guildId, interaction.channelId]);
+      const ticketRows = await query('SELECT id, user_id, type_id, claimed_by FROM tickets WHERE guild_id = ? AND channel_id = ? LIMIT 1', [interaction.guildId, interaction.channelId]);
       const ticket = ticketRows[0];
       if (!ticket) {
         return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
@@ -117,15 +133,16 @@ module.exports = {
 
       const typeRows = await query('SELECT staff_role_ids FROM ticket_types WHERE guild_id = ? AND id = ? LIMIT 1', [interaction.guildId, ticket.type_id]);
       const staffRoleIds = typeRows[0] ? JSON.parse(typeRows[0].staff_role_ids || '[]') : [];
-      const isStaff = await checkPerms(interaction) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
+      const isAssigned = ticket.claimed_by && interaction.user.id === ticket.claimed_by;
+      const isStaff = await checkPerms(interaction) || isAssigned || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       if (!isStaff) {
-        return interaction.reply({ content: '❌ Only ticket staff can send close requests.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '❌ Only assigned ticket staff or administrators can send close requests.', flags: MessageFlags.Ephemeral });
       }
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`ticket_close_request_yes:${ticket.id}`)
-          .setLabel('Yes, close this ticket')
+          .setLabel('✅ Yes, close this ticket')
           .setStyle(ButtonStyle.Danger)
       );
 
@@ -224,7 +241,7 @@ module.exports = {
     if (sub === 'panel') {
       const targetChannel = interaction.options.getChannel('channel', true);
       const showWorkload = interaction.options.getBoolean('show_workload', true);
-      const openHours = interaction.options.getString('open_hours')?.trim();
+      const activeHours = interaction.options.getString('active_hours')?.trim();
 
       const settings = await getGuildTicketSettings(interaction.guildId);
       if (!settings?.category_id) {
@@ -247,7 +264,7 @@ module.exports = {
         .setTitle('Tickets')
         .setDescription([
           settings.panel_message || 'Open a ticket by selecting an option below.',
-          openHours ? `\n🕒 **Open Hours:** ${openHours}` : ''
+          activeHours ? `\n🕒 **Active Hours:** ${activeHours}` : ''
         ].filter(Boolean).join('\n'));
 
       const select = new StringSelectMenuBuilder()
@@ -262,12 +279,85 @@ module.exports = {
         const useEmojis = process.env.CUSTOM_BOT_INSTANCE !== 'true';
         const workloadEmbed = await buildWorkloadEmbed(interaction.guildId, useEmojis);
         if (workloadEmbed) {
-          await targetChannel.send({ embeds: [workloadEmbed] });
+          const workloadMessage = await targetChannel.send({ embeds: [workloadEmbed] });
+          await query(
+            `UPDATE ticket_settings
+             SET workload_channel_id = ?, workload_message_id = ?, updated_by = ?, updated_at = ?
+             WHERE guild_id = ?`,
+            [targetChannel.id, workloadMessage.id, interaction.user.id, Date.now(), interaction.guildId]
+          );
         }
+      } else {
+        await query(
+          `UPDATE ticket_settings
+           SET workload_channel_id = NULL, workload_message_id = NULL, updated_by = ?, updated_at = ?
+           WHERE guild_id = ?`,
+          [interaction.user.id, Date.now(), interaction.guildId]
+        );
       }
 
       return interaction.reply({
         content: `✅ Ticket panel sent in ${targetChannel}.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (sub === 'delete_type') {
+      const name = interaction.options.getString('name', true).trim();
+      const typeRows = await query(
+        `SELECT id, name
+         FROM ticket_types
+         WHERE guild_id = ? AND LOWER(name) = LOWER(?)
+         LIMIT 1`,
+        [interaction.guildId, name]
+      );
+      const type = typeRows[0];
+      if (!type) {
+        return interaction.reply({ content: '❌ Ticket type not found.', flags: MessageFlags.Ephemeral });
+      }
+
+      const openRows = await query(
+        'SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ? AND type_id = ?',
+        [interaction.guildId, type.id]
+      );
+      const openCount = Number(openRows[0]?.total || 0);
+      if (openCount > 0) {
+        return interaction.reply({
+          content: `❌ Cannot delete **${type.name}** while it has open tickets (${openCount}).`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      await query('DELETE FROM ticket_types WHERE guild_id = ? AND id = ?', [interaction.guildId, type.id]);
+      return interaction.reply({
+        content: `✅ Deleted ticket type **${type.name}**.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (sub === 'reset') {
+      const openTickets = await query(
+        'SELECT id, channel_id FROM tickets WHERE guild_id = ?',
+        [interaction.guildId]
+      );
+
+      let deletedChannels = 0;
+      for (const ticket of openTickets) {
+        const channel = await interaction.guild.channels.fetch(ticket.channel_id).catch(() => null);
+        if (channel) {
+          await channel.delete(`Ticket reset by ${interaction.user.tag} (${interaction.user.id})`).catch(() => null);
+          deletedChannels += 1;
+        }
+      }
+
+      await query('DELETE FROM tickets WHERE guild_id = ?', [interaction.guildId]);
+      await query('DELETE FROM ticket_types WHERE guild_id = ?', [interaction.guildId]);
+      await query('DELETE FROM ticket_blacklist WHERE guild_id = ?', [interaction.guildId]);
+      await query('DELETE FROM ticket_user_activity WHERE guild_id = ?', [interaction.guildId]);
+      await query('DELETE FROM ticket_settings WHERE guild_id = ?', [interaction.guildId]);
+
+      return interaction.reply({
+        content: `✅ Ticket system fully reset. Removed ${deletedChannels} ticket channel(s) and all ticket configuration.`,
         flags: MessageFlags.Ephemeral
       });
     }

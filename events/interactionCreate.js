@@ -6,9 +6,6 @@ const {
   EmbedBuilder,
   ButtonStyle,
   ComponentType,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
   ChannelType,
   PermissionFlagsBits
 } = require('discord.js');
@@ -22,7 +19,8 @@ const {
   getGuildTicketSettings,
   getTicketTypeById,
   buildTicketControls,
-  ensureTicketCategory
+  ensureTicketCategory,
+  refreshWorkloadPanel
 } = require('../utils/ticketSystem');
 const {
   resolveRequiredPermissions,
@@ -150,10 +148,6 @@ module.exports = async (interaction) => {
 
   if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_panel_select') {
     return handleTicketPanelSelect(interaction);
-  }
-
-  if (interaction.isModalSubmit() && interaction.customId.startsWith('ticket_close_reason_modal:')) {
-    return handleTicketCloseWithReasonModal(interaction);
   }
 
   if (!interaction.isButton()) return;
@@ -533,11 +527,11 @@ async function handleTicketPanelSelect(interaction) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`ticket_open_confirm:${type.id}`)
-      .setLabel('Yes')
+      .setLabel('✅ Yes')
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`ticket_open_cancel:${type.id}`)
-      .setLabel('No')
+      .setLabel('❌ No')
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -643,9 +637,9 @@ async function handleTicketButtons(interaction) {
       .setDescription(type.welcome_message);
 
     const actionRow = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId(controls.claim).setLabel('Claim').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId(controls.close).setLabel('Close').setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId(controls.closeReason).setLabel('Close With Reason').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(controls.claim).setLabel('🙋 Claim').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId(controls.close).setLabel('🔒 Close').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(controls.closeReason).setLabel('📝 Close With Reason').setStyle(ButtonStyle.Secondary)
     );
 
     await channel.send({
@@ -683,6 +677,7 @@ async function handleTicketButtons(interaction) {
       }
     }
 
+    await refreshWorkloadPanel(interaction.guild);
     return interaction.update({ content: `✅ Your ticket has been created: ${channel}`, components: [] });
   }
 
@@ -720,19 +715,26 @@ async function handleTicketButtons(interaction) {
 
   if (interaction.customId.startsWith('ticket_close_reason:')) {
     const ticketId = Number(interaction.customId.split(':')[1]);
-    const modal = new ModalBuilder()
-      .setCustomId(`ticket_close_reason_modal:${ticketId}`)
-      .setTitle('Close Ticket With Reason');
+    await interaction.reply({
+      content: '📝 Please type the close reason in this ticket within **30 seconds**. I will only accept your message.',
+      flags: MessageFlags.Ephemeral
+    });
 
-    const reasonInput = new TextInputBuilder()
-      .setCustomId('close_reason')
-      .setLabel('Reason for closing')
-      .setStyle(TextInputStyle.Paragraph)
-      .setRequired(true)
-      .setMaxLength(1000);
+    const reasonMessage = await interaction.channel.awaitMessages({
+      filter: msg => msg.author.id === interaction.user.id,
+      max: 1,
+      time: 30_000
+    }).catch(() => null);
 
-    modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
-    return interaction.showModal(modal);
+    const reason = reasonMessage?.first()?.content?.trim();
+    if (!reason) {
+      return interaction.followUp({
+        content: '⏱️ No close reason received in time. Ticket close cancelled.',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    return closeTicket(interaction, ticketId, reason.slice(0, 1000));
   }
 
   if (interaction.customId.startsWith('ticket_close_request_yes:')) {
@@ -752,12 +754,6 @@ async function handleTicketButtons(interaction) {
     const ticketId = Number(interaction.customId.split(':')[1]);
     return closeTicket(interaction, ticketId, null);
   }
-}
-
-async function handleTicketCloseWithReasonModal(interaction) {
-  const ticketId = Number(interaction.customId.split(':')[1]);
-  const reason = interaction.fields.getTextInputValue('close_reason')?.trim();
-  return closeTicket(interaction, ticketId, reason || null);
 }
 
 async function closeTicket(interaction, ticketId, closeReason) {
@@ -808,12 +804,21 @@ async function closeTicket(interaction, ticketId, closeReason) {
         const attachments = msg.attachments?.map(a => a.url).join(' ') || '';
         return `[${new Date(msg.createdTimestamp).toISOString()}] ${msg.author?.tag || msg.author?.id || 'unknown'}: ${clean} ${attachments}`.trim();
       });
-      const text = `${header.join('\\n')}\\n${body.join('\\n')}`.slice(0, 1900000);
-      const fileBuffer = Buffer.from(text, 'utf8');
-      await transcriptTarget.send({
-        content: `🧾 Ticket transcript for <#${ticket.channel_id}>`,
-        files: [{ attachment: fileBuffer, name: `ticket-${ticketId}.txt` }]
-      }).catch(() => null);
+      const text = `${header.join('\n')}\n${body.join('\n')}`.slice(0, 1900000);
+      const chunks = [];
+      for (let i = 0; i < text.length; i += 1800) {
+        chunks.push(text.slice(i, i + 1800));
+      }
+
+      await transcriptTarget.send({ content: `🧾 Ticket transcript for <#${ticket.channel_id}>` }).catch(() => null);
+      for (let i = 0; i < Math.min(chunks.length, 12); i++) {
+        await transcriptTarget.send({ content: `\`\`\`\n${chunks[i]}\n\`\`\`` }).catch(() => null);
+      }
+      if (chunks.length > 12) {
+        await transcriptTarget.send({
+          content: `... transcript truncated (${chunks.length - 12} additional chunk(s) omitted to avoid spam).`
+        }).catch(() => null);
+      }
 
       const closeEmbed = new EmbedBuilder()
         .setColor(0xED4245)
@@ -836,10 +841,9 @@ async function closeTicket(interaction, ticketId, closeReason) {
     await channel.delete(`Ticket closed by ${interaction.user.tag} (${interaction.user.id})`).catch(() => null);
   }
 
+  await refreshWorkloadPanel(interaction.guild);
+
   const responseText = `✅ Closed ticket #${ticketId}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
-  if (interaction.isModalSubmit()) {
-    return interaction.reply({ content: responseText, flags: MessageFlags.Ephemeral });
-  }
   if (interaction.deferred || interaction.replied) {
     return interaction.followUp({ content: responseText, flags: MessageFlags.Ephemeral });
   }

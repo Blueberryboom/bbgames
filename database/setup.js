@@ -248,6 +248,8 @@ module.exports = async () => {
         guild_id VARCHAR(32) PRIMARY KEY,
         category_id VARCHAR(32) NULL,
         transcripts_channel_id VARCHAR(32) NULL,
+        workload_channel_id VARCHAR(32) NULL,
+        workload_message_id VARCHAR(32) NULL,
         max_tickets_per_user TINYINT NOT NULL DEFAULT 1,
         panel_message TEXT NULL,
         claiming_enabled BOOLEAN NOT NULL DEFAULT 1,
@@ -255,6 +257,16 @@ module.exports = async () => {
         updated_by VARCHAR(32) NULL,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE ticket_settings
+      ADD COLUMN IF NOT EXISTS workload_channel_id VARCHAR(32) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE ticket_settings
+      ADD COLUMN IF NOT EXISTS workload_message_id VARCHAR(32) NULL
     `);
 
     await pool.query(`

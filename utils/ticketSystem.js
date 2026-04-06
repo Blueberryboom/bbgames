@@ -118,6 +118,27 @@ async function buildWorkloadEmbed(guildId, useEmojis = true) {
     .setDescription(lines.join('\n'));
 }
 
+async function refreshWorkloadPanel(guild) {
+  if (!guild?.id) return false;
+
+  const settings = await getGuildTicketSettings(guild.id);
+  if (!settings?.workload_channel_id || !settings?.workload_message_id) {
+    return false;
+  }
+
+  const channel = await guild.channels.fetch(settings.workload_channel_id).catch(() => null);
+  if (!channel?.isTextBased()) return false;
+
+  const message = await channel.messages.fetch(settings.workload_message_id).catch(() => null);
+  if (!message) return false;
+
+  const embed = await buildWorkloadEmbed(guild.id, true);
+  if (!embed) return false;
+
+  await message.edit({ embeds: [embed] }).catch(() => null);
+  return true;
+}
+
 async function ensureTicketCategory(guild, categoryId) {
   if (!categoryId) return null;
   const category = await guild.channels.fetch(categoryId).catch(() => null);
@@ -144,6 +165,7 @@ module.exports = {
   isStaffForTicket,
   buildTicketControls,
   buildWorkloadEmbed,
+  refreshWorkloadPanel,
   ensureTicketCategory,
   safeReply
 };
