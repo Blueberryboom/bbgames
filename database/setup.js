@@ -270,6 +270,11 @@ module.exports = async () => {
     `);
 
     await pool.query(`
+      ALTER TABLE ticket_settings
+      ADD COLUMN IF NOT EXISTS next_ticket_display_id BIGINT NOT NULL DEFAULT 1
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ticket_types (
         id BIGINT NOT NULL AUTO_INCREMENT,
         guild_id VARCHAR(32) NOT NULL,
@@ -322,6 +327,27 @@ module.exports = async () => {
     await pool.query(`
       ALTER TABLE tickets
       ADD COLUMN IF NOT EXISTS transcript_thread_id VARCHAR(32) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE tickets
+      ADD COLUMN IF NOT EXISTS display_id BIGINT NULL
+    `);
+
+    await pool.query(`
+      UPDATE tickets
+      SET display_id = id
+      WHERE display_id IS NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE tickets
+      MODIFY COLUMN display_id BIGINT NOT NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE tickets
+      ADD UNIQUE INDEX IF NOT EXISTS uniq_ticket_display_id (guild_id, display_id)
     `);
 
     await pool.query(`
