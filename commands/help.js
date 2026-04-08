@@ -3,84 +3,131 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  ButtonBuilder,
-  ButtonStyle
+  ComponentType
 } = require('discord.js');
 
-const SUPPORT_URL = 'https://www.buymeacoffee.com/blueberryboom';
+
+const HELP_MODULES = {
+  counting: {
+    label: 'Counting',
+    summary: 'Set up a counting channel, track progress, and manage resets/leaderboards.',
+    commands: [
+      ['/count channel', 'Set the counting channel.'],
+      ['/count current', 'Show the current number.'],
+      ['/count leaderboard', 'Show top counting users.'],
+      ['/count set', 'Set current count value.'],
+      ['/count reset', 'Reset counting progress.'],
+      ['/count removechannel', 'Disable counting channel.']
+    ]
+  },
+  giveaways: {
+    label: 'Giveaways',
+    summary: 'Create and manage giveaways, including role requirements and entries.',
+    commands: [
+      ['/giveaway start', 'Create a new giveaway.'],
+      ['/giveaway reroll', 'Pick a new winner.'],
+      ['/giveaway end', 'End a giveaway now.'],
+      ['/giveaway list', 'List active giveaways.']
+    ]
+  },
+  fun: {
+    label: 'Fun',
+    summary: 'Lightweight mini-games and random fun commands for your server.',
+    commands: [
+      ['/coinflip', 'Flip a coin.'],
+      ['/dadjoke', 'Get a random dad joke.'],
+      ['/dice', 'Roll dice with optional sides.'],
+      ['/rps', 'Rock-paper-scissors challenge.'],
+      ['/tictactoe', 'Start a tic-tac-toe game.']
+    ]
+  },
+  youtube: {
+    label: 'YouTube',
+    summary: 'Post automatic upload notifications for selected YouTube channels.',
+    commands: [
+      ['/youtube add', 'Add a YouTube notification feed.'],
+      ['/youtube remove', 'Remove a configured feed.'],
+      ['/youtube list', 'Show all configured feeds.']
+    ]
+  },
+  tags: {
+    label: 'Tags',
+    summary: 'Save reusable responses and send them quickly with slash commands.',
+    commands: [
+      ['/tag create', 'Create a new tag.'],
+      ['/tag send', 'Send an existing tag.'],
+      ['/tag edit', 'Edit a tag content/title.'],
+      ['/tag delete', 'Delete a tag.'],
+      ['/tags usage', 'Show top used tags.']
+    ]
+  },
+  onewordstory: {
+    label: 'One Word Story',
+    summary: 'Build collaborative stories one word at a time in a dedicated channel.',
+    commands: [
+      ['/onewordstory channel', 'Set the story channel.'],
+      ['/onewordstory delay', 'Set per-user word delay.'],
+      ['/onewordstory disable', 'Disable story mode.'],
+      ['/onewordstory view', 'View current story text.'],
+      ['/onewordstory leaderboard', 'Show top contributors.'],
+      ['/onewordstory restart', 'Restart the story.']
+    ]
+  },
+  misc: {
+    label: 'Misc',
+    summary: 'General utility, moderation, ticket, and configuration commands.',
+    commands: [
+      ['/help', 'Open this help menu.'],
+      ['/about', 'Show bot information.'],
+      ['/status', 'Show bot/server status.'],
+      ['/support', 'Get support links.'],
+      ['/ticket', 'Ticket panel/config commands.'],
+      ['/tickets', 'Ticket type/automation management.'],
+      ['/logs', 'Set log channel and events.'],
+      ['/config', 'Configure server bot settings.']
+    ]
+  }
+};
+
+function buildCommandTable(rows) {
+  const leftWidth = Math.max(...rows.map(([name]) => name.length), 7);
+  const headerLeft = 'Command'.padEnd(leftWidth, ' ');
+  const divider = `${'-'.repeat(leftWidth)} | ------------------------------`;
+  const body = rows.map(([name, usage]) => `${name.padEnd(leftWidth, ' ')} | ${usage}`);
+  return ['```', `${headerLeft} | Description`, divider, ...body, '```'].join('\n');
+}
+
+function buildWelcomeEmbed() {
+  return new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle('Welcome to BBGames Help')
+    .setDescription('Choose a module from the dropdown below to view commands and what each command does.');
+}
+
+function buildModuleEmbed(moduleData) {
+  return new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle(`Help • ${moduleData.label}`)
+    .setDescription(moduleData.summary)
+    .addFields(
+      { name: 'Commands', value: buildCommandTable(moduleData.commands) },
+      {
+        name: 'Want to support us and help update the bot more?',
+        value: 'Get BBGames Premium by visiting https://buymeacoffee.com/blueberryboom'
+      }
+    );
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('Show help categories, permissions, and command list'),
+    .setDescription('Show help categories and command list'),
 
   async execute(interaction) {
-    const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setTitle('BBGames Help')
-      .setDescription('Select a category below for focused help.\n\n**Quick commands:** `/help`, `/status`, `/about`, `/support`')
-      .addFields(
-        {
-          name: 'Setup Essentials',
-          value: [
-            '`/config panel` • Open settings overview',
-            '`/config bot_manager_role` • Assign full bot-manager role',
-            '`/logs channel` • Set bot activity log channel',
-            '`/logs choose` • Choose activity types to log',
-            '`/count channel` • Set counting channel',
-            '`/youtube add` • Add upload notifications',
-            '`/sticky create` • Set channel sticky message',
-            '`/welcome config` • Configure member join messages',
-            '`/leave config` • Configure member leave messages',
-            '`/boostmsg config` • Configure server boost messages'
-          ].join('\n')
-        },
-        {
-          name: 'Ticket System (Updated)',
-          value: [
-            '`/ticket config` • Configure category, transcript channel, limits, claiming',
-            '`/tickets create_type` • Create a ticket type',
-            '`/ticket delete_type` • Delete a ticket type (no open tickets)',
-            '`/ticket panel` • Send panel + optional live workload block',
-            '`/ticket creation_cooldown` • Set how often users can open tickets',
-            '`/ticket claim` • Claim current ticket via slash command',
-            '`/ticket add_user` • Add a user to current ticket channel',
-            '`/ticket close_request` • Assigned ticket staff can request owner close',
-            '`/ticket reset` • Delete all ticket channels + wipe all ticket data',
-            'Transcripts are now posted as plaintext messages, not files.',
-            'Sensitive ticket setup commands require Admin, Bot Manager, or bot owner.'
-          ].join('\n')
-        },
-        {
-          name: 'Fun & Utilities',
-          value: [
-            '`/rps` • Rock paper scissors vs bot or users',
-            '`/dadjoke` • Random dad joke',
-            '`/coinflip` • Heads or tails',
-            '`/minecraft status` • Check Minecraft server status',
-            '`/tag send` • Send a saved tag',
-            '`/onewordstory view` • View story progress',
-            '`/starboard configure` • Auto-post popular messages',
-            '`/servertag rewards` • Sync role by server tag',
-            '`/suggest` • Submit a server suggestion'
-          ].join('\n')
-        },
-        {
-          name: 'All Commands',
-          value: [
-            '`/about`, `/achievements`, `/afk`, `/afk_leaderboard`, `/automsg`',
-            '`/birthday`, `/boostmsg`, `/coinflip`, `/config`, `/count`, `/dadjoke`',
-            '`/dice`, `/donate`, `/giveaway`, `/help`, `/leave`, `/level`, `/leveling`',
-            '`/logs`, `/minecraft`, `/onewordstory`, `/owner`, `/premium`, `/purge`, `/rps`, `/say`, `/suggest`, `/suggestions`',
-            '`/servertag`, `/starboard`, `/status`, `/sticky`, `/support`, `/tag`, `/tags`, `/ticket`, `/tickets`, `/tictactoe`, `/variableslowmode`, `/welcome`, `/youtube`'
-          ].join('\n')
-        }
-      )
-      .setFooter({ text: 'Tip: Bot owner can run protected commands globally.' });
-
+    const menuCustomId = `help_category:${interaction.id}`;
     const dropdown = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
-        .setCustomId('help_category')
+        .setCustomId(menuCustomId)
         .setPlaceholder('Select a module')
         .addOptions(
           { label: 'Counting', value: 'counting' },
@@ -93,13 +140,46 @@ module.exports = {
         )
     );
 
-    const supportButton = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel('Support Us')
-        .setStyle(ButtonStyle.Link)
-        .setURL(SUPPORT_URL)
-    );
+    await interaction.reply({ embeds: [buildWelcomeEmbed()], components: [dropdown] });
 
-    await interaction.reply({ embeds: [embed], components: [dropdown, supportButton] });
+    const message = await interaction.fetchReply().catch(() => null);
+    if (!message) return;
+
+    const collector = message.createMessageComponentCollector({
+      componentType: ComponentType.StringSelect,
+      time: 5 * 60 * 1000,
+      filter: menuInteraction => menuInteraction.customId === menuCustomId
+    });
+
+    collector.on('collect', async menuInteraction => {
+      if (menuInteraction.user.id !== interaction.user.id) {
+        await menuInteraction.reply({
+          content: '❌ Only the user who ran `/help` can use this dropdown.',
+          ephemeral: true
+        }).catch(() => null);
+        return;
+      }
+
+      const key = menuInteraction.values[0];
+      const moduleData = HELP_MODULES[key];
+
+      if (!moduleData) {
+        await menuInteraction.reply({ content: '❌ Unknown help module.', ephemeral: true }).catch(() => null);
+        return;
+      }
+
+      await menuInteraction.update({
+        embeds: [buildModuleEmbed(moduleData)],
+        components: [dropdown]
+      }).catch(() => null);
+    });
+
+    collector.on('end', async () => {
+      const disabledDropdown = new ActionRowBuilder().addComponents(
+        StringSelectMenuBuilder.from(dropdown.components[0]).setDisabled(true)
+      );
+
+      await interaction.editReply({ components: [disabledDropdown] }).catch(() => null);
+    });
   }
 };
