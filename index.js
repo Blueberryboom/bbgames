@@ -23,6 +23,7 @@ const { queueOneWordStoryMessage, clearGuildOneWordStoryState, updateContributio
 const { processStarboardReaction, cleanupStarboardSourceMessage } = require('./utils/starboardManager');
 const { initServerTagRewardManager } = require('./utils/serverTagRewardManager');
 const { startStatsApiServer } = require('./utils/statsApiServer');
+const { initSuggestionManager } = require('./utils/suggestionManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -98,6 +99,9 @@ client.once('clientReady', async () => {
 
     // Server-tag rewards scheduler.
     initServerTagRewardManager(client);
+
+    // Suggestions stale/auto-close scheduler.
+    initSuggestionManager(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);

@@ -43,6 +43,8 @@ module.exports = {
             '`/ticket delete_type` • Delete a ticket type (no open tickets)',
             '`/ticket panel` • Send panel + optional live workload block',
             '`/ticket creation_cooldown` • Set how often users can open tickets',
+            '`/ticket claim` • Claim current ticket via slash command',
+            '`/ticket add_user` • Add a user to current ticket channel',
             '`/ticket close_request` • Assigned ticket staff can request owner close',
             '`/ticket reset` • Delete all ticket channels + wipe all ticket data',
             'Transcripts are now posted as plaintext messages, not files.',
@@ -59,7 +61,8 @@ module.exports = {
             '`/tag send` • Send a saved tag',
             '`/onewordstory view` • View story progress',
             '`/starboard configure` • Auto-post popular messages',
-            '`/servertag rewards` • Sync role by server tag'
+            '`/servertag rewards` • Sync role by server tag',
+            '`/suggest` • Submit a server suggestion'
           ].join('\n')
         },
         {
@@ -68,7 +71,7 @@ module.exports = {
             '`/about`, `/achievements`, `/afk`, `/afk_leaderboard`, `/automsg`',
             '`/birthday`, `/boostmsg`, `/coinflip`, `/config`, `/count`, `/dadjoke`',
             '`/dice`, `/donate`, `/giveaway`, `/help`, `/leave`, `/level`, `/leveling`',
-            '`/logs`, `/minecraft`, `/onewordstory`, `/owner`, `/premium`, `/purge`, `/rps`, `/say`',
+            '`/logs`, `/minecraft`, `/onewordstory`, `/owner`, `/premium`, `/purge`, `/rps`, `/say`, `/suggest`, `/suggestions`',
             '`/servertag`, `/starboard`, `/status`, `/sticky`, `/support`, `/tag`, `/tags`, `/ticket`, `/tickets`, `/tictactoe`, `/variableslowmode`, `/welcome`, `/youtube`'
           ].join('\n')
         }

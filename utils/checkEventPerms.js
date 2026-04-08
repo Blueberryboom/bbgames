@@ -30,6 +30,17 @@ module.exports = async (interaction, options = {}) => {
   }
 
   if (scope !== 'giveaway') {
+    if (scope === 'staff') {
+      const staffRoles = await pool.query(
+        'SELECT role_id FROM staff_roles WHERE guild_id = ?',
+        [interaction.guildId]
+      );
+
+      return staffRoles.some(role =>
+        interaction.member.roles.cache.has(role.role_id)
+      );
+    }
+
     return false;
   }
 

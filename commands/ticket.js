@@ -122,6 +122,21 @@ module.exports = {
       sub
         .setName('unclaim')
         .setDescription('Unclaim a claimed ticket in a ticket channel')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('claim')
+        .setDescription('Claim a ticket in a ticket channel')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('add_user')
+        .setDescription('Add a user to the current ticket channel')
+        .addUserOption(opt =>
+          opt.setName('user')
+            .setDescription('User to add to the ticket')
+            .setRequired(true)
+        )
     ),
 
   async execute(interaction) {
@@ -178,7 +193,7 @@ module.exports = {
       }
 
       const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
-      const isStaff = await checkPerms(interaction) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
+      const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       const isClaimer = interaction.user.id === ticket.claimed_by;
       if (!isStaff && !isClaimer) {
         return interaction.reply({ content: '❌ Only the claimer, ticket staff, or admins can unclaim this ticket.', flags: MessageFlags.Ephemeral });
@@ -216,6 +231,80 @@ module.exports = {
       await interaction.channel.send({ embeds: [unclaimEmbed] }).catch(() => null);
 
       return interaction.reply({ content: '✅ Ticket is now unclaimed.', flags: MessageFlags.Ephemeral });
+    }
+
+    if (sub === 'claim') {
+      const ticketRows = await query(
+        `SELECT t.id, t.user_id, t.type_id, t.claimed_by, tt.staff_role_ids
+         FROM tickets t
+         INNER JOIN ticket_types tt ON tt.guild_id = t.guild_id AND tt.id = t.type_id
+         WHERE t.guild_id = ? AND t.channel_id = ?
+         LIMIT 1`,
+        [interaction.guildId, interaction.channelId]
+      );
+      const ticket = ticketRows[0];
+      if (!ticket) {
+        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+      }
+
+      const settings = await getGuildTicketSettings(interaction.guildId);
+      if (!Number(settings?.claiming_enabled || 0)) {
+        return interaction.reply({ content: '❌ Ticket claiming is disabled by configuration.', flags: MessageFlags.Ephemeral });
+      }
+
+      const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
+      const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
+      if (!isStaff) {
+        return interaction.reply({ content: '❌ Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
+      }
+      if (ticket.claimed_by && ticket.claimed_by !== interaction.user.id) {
+        return interaction.reply({ content: '❌ This ticket has already been claimed by another staff member.', flags: MessageFlags.Ephemeral });
+      }
+      if (ticket.claimed_by === interaction.user.id) {
+        return interaction.reply({ content: '❌ You already claimed this ticket.', flags: MessageFlags.Ephemeral });
+      }
+
+      await query('UPDATE tickets SET claimed_by = ? WHERE id = ?', [interaction.user.id, ticket.id]);
+      return interaction.reply({ content: `✅ You claimed this ticket.`, flags: MessageFlags.Ephemeral });
+    }
+
+    if (sub === 'add_user') {
+      const target = interaction.options.getUser('user', true);
+      const ticketRows = await query(
+        `SELECT t.id, t.user_id, t.type_id, tt.staff_role_ids
+         FROM tickets t
+         INNER JOIN ticket_types tt ON tt.guild_id = t.guild_id AND tt.id = t.type_id
+         WHERE t.guild_id = ? AND t.channel_id = ?
+         LIMIT 1`,
+        [interaction.guildId, interaction.channelId]
+      );
+      const ticket = ticketRows[0];
+      if (!ticket) {
+        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+      }
+
+      const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
+      const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
+      if (!isStaff) {
+        return interaction.reply({ content: '❌ Only ticket staff can add users to a ticket.', flags: MessageFlags.Ephemeral });
+      }
+
+      await interaction.channel.permissionOverwrites.edit(target.id, {
+        ViewChannel: true,
+        SendMessages: true,
+        ReadMessageHistory: true
+      }).catch(() => null);
+
+      await interaction.channel.send({
+        content: `➕ ${target} was added to this ticket by ${interaction.user}.`,
+        allowedMentions: { users: [target.id, interaction.user.id] }
+      }).catch(() => null);
+
+      return interaction.reply({
+        content: `✅ Added ${target} to this ticket.`,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
     }
 
     if (!await checkPerms(interaction)) {

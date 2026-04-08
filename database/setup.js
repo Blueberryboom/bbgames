@@ -203,6 +203,14 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS staff_roles (
+        guild_id VARCHAR(32) NOT NULL,
+        role_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (guild_id, role_id)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── COUNTING SYSTEM ────────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS counting (
@@ -368,6 +376,90 @@ module.exports = async () => {
         PRIMARY KEY (guild_id, user_id),
         INDEX idx_ticket_user_activity (guild_id, last_opened_at)
       ) ENGINE=InnoDB;
+    `);
+
+    // ─── SUGGESTIONS ───────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS suggestion_settings (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        channel_id VARCHAR(32) NOT NULL,
+        panel_channel_id VARCHAR(32) NULL,
+        create_thread BOOLEAN NOT NULL DEFAULT 1,
+        allowed_role_ids JSON NULL,
+        cooldown_ms BIGINT NOT NULL DEFAULT 0,
+        disabled_until BIGINT NULL,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS suggestion_categories (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        name VARCHAR(80) NOT NULL,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_suggestion_category (guild_id, name),
+        INDEX idx_suggestion_categories_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS suggestion_blacklist (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        created_by VARCHAR(32) NULL,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (guild_id, user_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS suggestion_user_activity (
+        guild_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        last_suggested_at BIGINT NOT NULL,
+        PRIMARY KEY (guild_id, user_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS suggestions (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        message_id VARCHAR(32) NOT NULL,
+        thread_id VARCHAR(32) NULL,
+        author_id VARCHAR(32) NOT NULL,
+        title VARCHAR(120) NOT NULL,
+        description TEXT NOT NULL,
+        category_name VARCHAR(80) NULL,
+        status ENUM('na', 'accepted', 'denied', 'considering') NOT NULL DEFAULT 'na',
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        stale_marked_at BIGINT NULL,
+        stale_exempt BOOLEAN NOT NULL DEFAULT 0,
+        created_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_suggestion_message (guild_id, message_id),
+        INDEX idx_suggestions_guild (guild_id),
+        INDEX idx_suggestions_author (guild_id, author_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE suggestions
+      ADD COLUMN IF NOT EXISTS updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+    `);
+
+    await pool.query(`
+      ALTER TABLE suggestions
+      ADD COLUMN IF NOT EXISTS stale_marked_at BIGINT NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE suggestions
+      ADD COLUMN IF NOT EXISTS stale_exempt BOOLEAN NOT NULL DEFAULT 0
     `);
 
 
