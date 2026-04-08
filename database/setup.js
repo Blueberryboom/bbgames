@@ -150,6 +150,21 @@ module.exports = async () => {
       ADD COLUMN IF NOT EXISTS is_embed BOOLEAN NOT NULL DEFAULT 0
     `);
 
+    await pool.query(`
+      ALTER TABLE sticky_messages
+      ADD COLUMN IF NOT EXISTS embed_footer_text VARCHAR(2048) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE sticky_messages
+      ADD COLUMN IF NOT EXISTS button_label VARCHAR(80) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE sticky_messages
+      ADD COLUMN IF NOT EXISTS button_url VARCHAR(512) NULL
+    `);
+
 
     // ─── AUTO MESSAGES ────────────────────
     await pool.query(`
@@ -356,6 +371,54 @@ module.exports = async () => {
     await pool.query(`
       ALTER TABLE tickets
       ADD UNIQUE INDEX IF NOT EXISTS uniq_ticket_display_id (guild_id, display_id)
+    `);
+
+    await pool.query(`
+      ALTER TABLE tickets
+      ADD COLUMN IF NOT EXISTS last_activity_at BIGINT NULL
+    `);
+
+    await pool.query(`
+      UPDATE tickets
+      SET last_activity_at = created_at
+      WHERE last_activity_at IS NULL
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ticket_automations (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        name VARCHAR(64) NOT NULL,
+        ticket_type_id BIGINT NOT NULL,
+        trigger_mode ENUM('time','time_without_message') NOT NULL,
+        duration_ms BIGINT NOT NULL,
+        action_type ENUM('send_message','send_close_request','close','send_alert') NOT NULL,
+        action_message TEXT NULL,
+        disabled_until BIGINT NULL,
+        created_by VARCHAR(32) NULL,
+        created_at BIGINT NOT NULL,
+        updated_at BIGINT NOT NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_ticket_automation_name (guild_id, name),
+        INDEX idx_ticket_automation_guild (guild_id),
+        INDEX idx_ticket_automation_type (guild_id, ticket_type_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ticket_automation_close_requests (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        ticket_id BIGINT NOT NULL,
+        channel_id VARCHAR(32) NOT NULL,
+        automation_name VARCHAR(64) NOT NULL,
+        expires_at BIGINT NOT NULL,
+        resolved BOOLEAN NOT NULL DEFAULT 0,
+        created_at BIGINT NOT NULL,
+        PRIMARY KEY (id),
+        INDEX idx_ticket_automation_close_expiry (expires_at),
+        INDEX idx_ticket_automation_close_ticket (ticket_id)
+      ) ENGINE=InnoDB;
     `);
 
     await pool.query(`

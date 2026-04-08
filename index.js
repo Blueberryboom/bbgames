@@ -24,6 +24,7 @@ const { processStarboardReaction, cleanupStarboardSourceMessage } = require('./u
 const { initServerTagRewardManager } = require('./utils/serverTagRewardManager');
 const { startStatsApiServer } = require('./utils/statsApiServer');
 const { initSuggestionManager } = require('./utils/suggestionManager');
+const { initTicketAutomationManager, trackTicketMessageActivity } = require('./utils/ticketAutomationManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -102,6 +103,9 @@ client.once('clientReady', async () => {
 
     // Suggestions stale/auto-close scheduler.
     initSuggestionManager(client);
+
+    // Ticket automation scheduler.
+    initTicketAutomationManager(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
@@ -198,6 +202,7 @@ client.on('messageCreate', async message => {
     await levelingHandler(message);
     await handleStickyMessage(message);
     await relayTicketMessageToTranscript(message);
+    await trackTicketMessageActivity(message);
     trackVariableSlowmodeMessage(message);
     await queueOneWordStoryMessage(message);
   } catch (err) {

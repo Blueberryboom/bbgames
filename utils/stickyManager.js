@@ -13,7 +13,7 @@ async function handleStickyMessage(message) {
   const guildId = message.guildId;
 
   const rows = await query(
-    `SELECT id, content, is_embed, last_post_message_id, cooldown_ms
+    `SELECT id, content, is_embed, embed_footer_text, button_label, button_url, last_post_message_id, cooldown_ms
      FROM sticky_messages
      WHERE guild_id = ? AND channel_id = ? AND enabled = 1
      LIMIT 1`,
@@ -52,7 +52,7 @@ async function handleStickyMessage(message) {
     resendTimersByChannel.delete(channelId);
 
     const freshRows = await query(
-      `SELECT id, content, is_embed, last_post_message_id
+      `SELECT id, content, is_embed, embed_footer_text, button_label, button_url, last_post_message_id
        FROM sticky_messages
        WHERE guild_id = ? AND channel_id = ? AND enabled = 1
        LIMIT 1`,
@@ -67,19 +67,34 @@ async function handleStickyMessage(message) {
       if (!removedPreviousSticky) return;
     }
 
-    // Force mention parsing off as a second safety layer in case legacy sticky content
-    // still contains mention-like tokens saved before validation rules were added.
+    const components = freshSticky.button_label && freshSticky.button_url
+      ? [{
+          type: 1,
+          components: [{
+            type: 2,
+            style: 5,
+            label: freshSticky.button_label.slice(0, 80),
+            url: freshSticky.button_url.slice(0, 512)
+          }]
+        }]
+      : [];
+
     const payload = freshSticky.is_embed
       ? {
-          embeds: [
-            new EmbedBuilder()
+          embeds: [(() => {
+            const embed = new EmbedBuilder()
               .setDescription(freshSticky.content)
-              .setColor(0x5865F2)
-          ],
-          allowedMentions: { parse: [] }
+              .setColor(0x5865F2);
+            if (freshSticky.embed_footer_text) {
+              embed.setFooter({ text: freshSticky.embed_footer_text.slice(0, 2048) });
+            }
+            return embed;
+          })()],
+          components
         }
       : {
           content: freshSticky.content,
+          components,
           allowedMentions: { parse: [] }
         };
 
