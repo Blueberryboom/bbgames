@@ -40,9 +40,9 @@ module.exports = {
       });
     }
 
-    if (!await checkPerms(interaction)) {
+    if (!await checkPerms(interaction, { scope: 'staff' })) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '❌ You need administrator, the configured bot manager role, or the configured staff role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }

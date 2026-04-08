@@ -23,6 +23,7 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM auto_messages WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM admin_roles WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM giveaway_admin_roles WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM staff_roles WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM counting WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM counting_leaderboard WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM leveling_users WHERE guild_id = ?', [guildId]);
@@ -46,6 +47,11 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM starboard_posts WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM starboard_configs WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM starboard_banned_users WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM suggestion_settings WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM suggestion_categories WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM suggestion_blacklist WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM suggestion_user_activity WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM suggestions WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM servertag_reward_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_data_deletion_approvals WHERE guild_id = ?', [guildId]);

@@ -45,6 +45,16 @@ module.exports = {
     )
     .addSubcommand(sub =>
       sub
+        .setName('staff_role')
+        .setDescription('Set the staff role for moderation actions (tickets/suggestions)')
+        .addRoleOption(o =>
+          o.setName('role')
+            .setDescription('Role allowed for staff-only actions')
+            .setRequired(true)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
         .setName('system_messages')
         .setDescription('Enable or disable system announcements for counting')
         .addStringOption(o =>
@@ -113,6 +123,24 @@ module.exports = {
       });
     }
 
+    if (sub === 'staff_role') {
+      const role = interaction.options.getRole('role', true);
+
+      await pool.query('DELETE FROM staff_roles WHERE guild_id = ?', [interaction.guildId]);
+      await pool.query('INSERT INTO staff_roles (guild_id, role_id) VALUES (?, ?)', [interaction.guildId, role.id]);
+
+      await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.configuration_changes, {
+        title: '⚙️ Configuration Updated',
+        description: `/config staff_role used by <@${interaction.user.id}>.`,
+        fields: [{ name: 'Staff Role', value: `<@&${role.id}>` }]
+      });
+
+      return interaction.reply({
+        content: `✅ Staff role set to ${role}.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
     if (sub === 'system_messages') {
       const enabled = interaction.options.getString('state', true) === 'on' ? 1 : 0;
 
@@ -139,10 +167,12 @@ module.exports = {
 
     const roleRows = await pool.query('SELECT role_id FROM admin_roles WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const giveawayRows = await pool.query('SELECT role_id FROM giveaway_admin_roles WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const staffRows = await pool.query('SELECT role_id FROM staff_roles WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const countRows = await pool.query('SELECT announcements_enabled FROM counting WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
 
     const roleText = roleRows[0]?.role_id ? `<@&${roleRows[0].role_id}>` : 'Not set';
     const giveawayRoleText = giveawayRows[0]?.role_id ? `<@&${giveawayRows[0].role_id}>` : 'Not set';
+    const staffRoleText = staffRows[0]?.role_id ? `<@&${staffRows[0].role_id}>` : 'Not set';
     const msgsEnabled = Number(countRows[0]?.announcements_enabled ?? 1) === 1;
 
     const embed = new EmbedBuilder()
@@ -151,6 +181,7 @@ module.exports = {
       .setDescription('Select a menu below.')
       .addFields(
         { name: 'Permissions', value: `Bot manager role: ${roleText}\nGiveaway admin role: ${giveawayRoleText}` },
+        { name: 'Staff Access', value: `Staff role: ${staffRoleText}` },
         { name: 'Messages', value: `System messages: ${msgsEnabled ? 'On' : 'Off'}` }
       );
 

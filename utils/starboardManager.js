@@ -162,11 +162,12 @@ async function upsertStarboardPost({ message, reactionCount, config }) {
 }
 
 async function removeStarboardPost(guildId, configId, sourceMessageId) {
-  // Keep the DB clean when reactions drop below threshold.
+  // Keep mapping so if reactions rise again we edit the existing starboard post instead of duplicating.
   await query(
-    `DELETE FROM starboard_posts
+    `UPDATE starboard_posts
+     SET last_count = 0, updated_at = ?
      WHERE guild_id = ? AND config_id = ? AND source_message_id = ?`,
-    [guildId, configId, sourceMessageId]
+    [Date.now(), guildId, configId, sourceMessageId]
   );
 }
 

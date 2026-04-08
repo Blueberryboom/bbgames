@@ -964,7 +964,7 @@ async function leaveGuildById(client, guildId) {
 }
 
 async function buildServerDetail(client, guildId) {
-  const [premiumRows, countingRows, levelingRows, welcomeRows, stickyRows, autoRows, youtubeRows, giveawayRows, adminRoleRows, giveawayAdminRoleRows] = await Promise.all([
+  const [premiumRows, countingRows, levelingRows, welcomeRows, stickyRows, autoRows, youtubeRows, giveawayRows, adminRoleRows, giveawayAdminRoleRows, staffRoleRows, ticketSettingsRows, ticketTypeRows, ticketOpenRows, variableSlowmodeRows, suggestionSettingsRows, suggestionOpenRows] = await Promise.all([
     pool.query(
       `SELECT owner_user_id, source_user_id, source_type, code, active, expires_at
        FROM premium_guild_perks
@@ -980,13 +980,22 @@ async function buildServerDetail(client, guildId) {
     pool.query(`SELECT COUNT(*) AS total FROM youtube_subscriptions WHERE guild_id = ?`, [guildId]),
     pool.query(`SELECT COUNT(*) AS total FROM giveaways WHERE guild_id = ? AND ended = 0`, [guildId]),
     pool.query(`SELECT COUNT(*) AS total FROM admin_roles WHERE guild_id = ?`, [guildId]),
-    pool.query(`SELECT COUNT(*) AS total FROM giveaway_admin_roles WHERE guild_id = ?`, [guildId])
+    pool.query(`SELECT COUNT(*) AS total FROM giveaway_admin_roles WHERE guild_id = ?`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM staff_roles WHERE guild_id = ?`, [guildId]),
+    pool.query(`SELECT category_id, claiming_enabled FROM ticket_settings WHERE guild_id = ? LIMIT 1`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM ticket_types WHERE guild_id = ?`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ?`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM variable_slowmode_configs WHERE guild_id = ? AND enabled = 1`, [guildId]),
+    pool.query(`SELECT channel_id, create_thread, cooldown_ms, disabled_until FROM suggestion_settings WHERE guild_id = ? LIMIT 1`, [guildId]),
+    pool.query(`SELECT COUNT(*) AS total FROM suggestions WHERE guild_id = ?`, [guildId])
   ]);
 
   const premium = premiumRows[0] || null;
   const counting = countingRows[0] || null;
   const leveling = levelingRows[0] || null;
   const welcome = welcomeRows[0] || null;
+  const ticketSettings = ticketSettingsRows[0] || null;
+  const suggestionsSettings = suggestionSettingsRows[0] || null;
 
   const moduleSummary = [
     `Counting: ${counting ? 'enabled' : 'disabled'}`,
@@ -995,7 +1004,10 @@ async function buildServerDetail(client, guildId) {
     `Sticky: ${Number(stickyRows[0]?.total || 0)} active`,
     `Auto Messages: ${Number(autoRows[0]?.total || 0)} active`,
     `YouTube: ${Number(youtubeRows[0]?.total || 0)} channels`,
-    `Giveaways: ${Number(giveawayRows[0]?.total || 0)} running`
+    `Giveaways: ${Number(giveawayRows[0]?.total || 0)} running`,
+    `Tickets: ${ticketSettings ? 'configured' : 'disabled'} • ${Number(ticketOpenRows[0]?.total || 0)} open`,
+    `Variable Slowmode: ${Number(variableSlowmodeRows[0]?.total || 0)} active`,
+    `Suggestions: ${suggestionsSettings ? 'configured' : 'disabled'} • ${Number(suggestionOpenRows[0]?.total || 0)} open`
   ];
 
   const configSummary = [
@@ -1004,7 +1016,9 @@ async function buildServerDetail(client, guildId) {
     leveling ? `Leveling channel: ${leveling.levelup_channel_id ? `<#${leveling.levelup_channel_id}>` : 'current channel'} • difficulty ${leveling.difficulty}` : 'Leveling settings: not configured',
     leveling?.channel_mode ? `Leveling channel filter: ${leveling.channel_mode}` : 'Leveling channel filter: none',
     welcome ? `Welcome channel: <#${welcome.channel_id}> • template: \`${welcome.message_key}\`` : 'Welcome settings: not configured',
-    `Admin roles: ${Number(adminRoleRows[0]?.total || 0)} • Giveaway admin roles: ${Number(giveawayAdminRoleRows[0]?.total || 0)}`
+    ticketSettings ? `Ticket category: <#${ticketSettings.category_id}> • claiming: ${ticketSettings.claiming_enabled ? 'on' : 'off'} • types: ${Number(ticketTypeRows[0]?.total || 0)}` : 'Ticket settings: not configured',
+    suggestionsSettings ? `Suggestions channel: <#${suggestionsSettings.channel_id}> • thread: ${suggestionsSettings.create_thread ? 'on' : 'off'} • cooldown: ${Math.floor(Number(suggestionsSettings.cooldown_ms || 0) / 60000)}m` : 'Suggestions settings: not configured',
+    `Admin roles: ${Number(adminRoleRows[0]?.total || 0)} • Giveaway admin roles: ${Number(giveawayAdminRoleRows[0]?.total || 0)} • Staff roles: ${Number(staffRoleRows[0]?.total || 0)}`
   ];
 
   const premiumText = premium

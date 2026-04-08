@@ -7,7 +7,10 @@ const {
   ButtonStyle,
   ComponentType,
   ChannelType,
-  PermissionFlagsBits
+  PermissionFlagsBits,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle
 } = require('discord.js');
 const youtubeSetupState = require('../utils/youtubeSetupState');
 const rpsState = require('../utils/rpsState');
@@ -30,6 +33,8 @@ const {
   isMissingPermissionsError,
   DEFAULT_REQUIRED_PERMISSIONS
 } = require('../utils/permissionGuard');
+const { canManageSuggestions, getSuggestionSettings, statusLabel } = require('../utils/suggestionSystem');
+const suggestCommand = require('../commands/suggest');
 
 const HELP_MODULES = {
   counting: {
@@ -58,7 +63,7 @@ const HELP_MODULES = {
   },
   misc: {
     name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`, `/birthday`, `/leveling`, `/level`, `/premium`, `/owner`, `/variableslowmode`, `/welcome`, `/leave`, `/boostmsg`, `/logs`, `/starboard`, `/servertag`, `/dice`, `/tictactoe`.'
+    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`, `/birthday`, `/leveling`, `/level`, `/premium`, `/owner`, `/variableslowmode`, `/welcome`, `/leave`, `/boostmsg`, `/logs`, `/starboard`, `/servertag`, `/suggest`, `/suggestions`, `/dice`, `/tictactoe`.'
   }
 };
 const RPS_CHOICE_EMOJI = {
@@ -132,7 +137,7 @@ module.exports = async (interaction) => {
 
     if (key === 'permissions') {
       return interaction.reply({
-        content: 'Use `/config bot_manager_role` for global management access and `/config giveaway_admin_role` for giveaway-only access.',
+        content: 'Use `/config bot_manager_role` for global management access, `/config giveaway_admin_role` for giveaway-only access, and `/config staff_role` for staff moderation access.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -154,6 +159,63 @@ module.exports = async (interaction) => {
   if (!interaction.isButton()) return;
 
   try {
+    if (interaction.customId === 'suggestions_open_modal') {
+      const settings = await getSuggestionSettings(interaction.guildId);
+      if (!settings) return interaction.reply({ content: '❌ Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
+      const modal = new ModalBuilder().setCustomId('suggestions_open_modal_submit').setTitle('Create Suggestion');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('title').setLabel('Title').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120)),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('description').setLabel('Suggestion details').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(2000)),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('category').setLabel('Category (optional)').setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(80))
+      );
+      await interaction.showModal(modal);
+      const modalSubmit = await interaction.awaitModalSubmit({
+        time: 10 * 60 * 1000,
+        filter: submit => submit.customId === 'suggestions_open_modal_submit' && submit.user.id === interaction.user.id
+      }).catch(() => null);
+      if (!modalSubmit) return;
+      return suggestCommand.createSuggestion(modalSubmit, modalSubmit.fields.getTextInputValue('title').trim(), modalSubmit.fields.getTextInputValue('description').trim(), modalSubmit.fields.getTextInputValue('category')?.trim() || null);
+    }
+
+    if (interaction.customId === 'suggestion_accept' || interaction.customId === 'suggestion_deny' || interaction.customId === 'suggestion_considering' || interaction.customId === 'suggestion_remove_stale') {
+      if (!await canManageSuggestions(interaction)) return interaction.reply({ content: '❌ Only admins, bot managers, or the configured staff role can manage suggestions.', flags: MessageFlags.Ephemeral });
+      const rows = await query('SELECT * FROM suggestions WHERE guild_id = ? AND message_id = ? LIMIT 1', [interaction.guildId, interaction.message.id]);
+      const suggestion = rows[0];
+      if (!suggestion) return interaction.reply({ content: '❌ Suggestion data not found.', flags: MessageFlags.Ephemeral });
+      if (interaction.customId === 'suggestion_remove_stale') {
+        const embed = EmbedBuilder.from(interaction.message.embeds[0] || new EmbedBuilder());
+        const baseColor = suggestion.status === 'accepted' ? 0x57F287 : suggestion.status === 'denied' ? 0xED4245 : 0xFEE75C;
+        embed.setColor(baseColor);
+        const updatedFields = (embed.data.fields || []).map(field => field.name.toLowerCase() === 'status' ? { ...field, value: statusLabel(suggestion.status) } : field);
+        embed.setFields(updatedFields);
+        const retainedRows = interaction.message.components.filter(row => !row.components.some(component => component.customId === 'suggestion_remove_stale'));
+        await query('UPDATE suggestions SET stale_marked_at = NULL, stale_exempt = 1, updated_at = ? WHERE id = ?', [Date.now(), suggestion.id]);
+        return interaction.update({ embeds: [embed], components: retainedRows });
+      }
+
+      const nextStatus = interaction.customId === 'suggestion_accept' ? 'accepted' : interaction.customId === 'suggestion_deny' ? 'denied' : 'considering';
+      const embed = EmbedBuilder.from(interaction.message.embeds[0] || new EmbedBuilder());
+      embed.setColor(nextStatus === 'accepted' ? 0x57F287 : nextStatus === 'denied' ? 0xED4245 : 0xFEE75C);
+      const updatedFields = (embed.data.fields || []).map(field => field.name.toLowerCase() === 'status' ? { ...field, value: statusLabel(nextStatus) } : field);
+      if (!updatedFields.some(field => field.name.toLowerCase() === 'status')) updatedFields.push({ name: 'Status', value: statusLabel(nextStatus), inline: true });
+      embed.setFields(updatedFields);
+      const retainedRows = interaction.message.components.filter(row => !row.components.some(component => component.customId === 'suggestion_remove_stale'));
+
+      await query('UPDATE suggestions SET status = ?, updated_at = ?, stale_marked_at = NULL WHERE id = ?', [nextStatus, Date.now(), suggestion.id]);
+      if (nextStatus === 'accepted' || nextStatus === 'denied') {
+        if (suggestion.thread_id) {
+          const thread = await interaction.guild.channels.fetch(suggestion.thread_id).catch(() => null);
+          if (thread && typeof thread.setLocked === 'function') {
+            await thread.setLocked(true).catch(() => null);
+            await thread.setArchived(true).catch(() => null);
+          }
+        }
+        await query('DELETE FROM suggestions WHERE id = ?', [suggestion.id]);
+        return interaction.update({ embeds: [embed], components: [] });
+      }
+      return interaction.update({ embeds: [embed], components: retainedRows });
+    }
+
     if (interaction.customId.startsWith('youtube_test_') || interaction.customId.startsWith('youtube_confirm_')) {
       const [, action, token] = interaction.customId.split('_');
       const pendingConfig = youtubeSetupState.get(token);
@@ -748,7 +810,7 @@ async function handleTicketButtons(interaction) {
     }
 
     const staffRoles = parseRoleIds(ticket.staff_role_ids);
-    const isStaff = await checkPerms(interaction) || staffRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+    const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoles.some(roleId => interaction.member.roles.cache.has(roleId));
     if (!isStaff) {
       return interaction.reply({ content: '❌ Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
     }
@@ -825,7 +887,7 @@ async function closeTicket(interaction, ticketId, closeReason) {
   }
 
   const isOwner = interaction.user.id === ticket.user_id;
-  const isStaff = await checkPerms(interaction) || parseRoleIds(ticket.staff_role_ids).some(roleId => interaction.member.roles.cache.has(roleId));
+  const isStaff = await checkPerms(interaction, { scope: 'staff' }) || parseRoleIds(ticket.staff_role_ids).some(roleId => interaction.member.roles.cache.has(roleId));
   if (!isOwner && !isStaff) {
     return interaction.reply({ content: '❌ You are not allowed to close this ticket.', flags: MessageFlags.Ephemeral });
   }
