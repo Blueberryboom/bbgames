@@ -58,7 +58,15 @@ async function createSuggestion(interaction, title, description, categoryName) {
     ]
   }];
 
-  const message = await channel.send({ embeds: [embed], components });
+  const pingContent = settings.ping_role_id ? `<@&${settings.ping_role_id}>` : null;
+  const message = await channel.send({
+    content: pingContent || undefined,
+    allowedMentions: pingContent ? { parse: [], roles: [settings.ping_role_id] } : { parse: [] },
+    embeds: [embed],
+    components
+  });
+  await message.react('✅').catch(() => null);
+  await message.react('❌').catch(() => null);
 
   let threadId = null;
   if (Number(settings.create_thread || 0) === 1 && typeof message.startThread === 'function') {
@@ -84,7 +92,26 @@ module.exports = {
     .setDescription('Create a server suggestion')
     .addStringOption(opt => opt.setName('title').setDescription('Suggestion title').setRequired(true).setMaxLength(120))
     .addStringOption(opt => opt.setName('suggestion').setDescription('Suggestion details').setRequired(true).setMaxLength(2000))
-    .addStringOption(opt => opt.setName('category').setDescription('Optional category').setRequired(false).setMaxLength(80)),
+    .addStringOption(opt => opt
+      .setName('category')
+      .setDescription('Optional category')
+      .setRequired(false)
+      .setAutocomplete(true)),
+
+  async autocomplete(interaction) {
+    const focused = interaction.options.getFocused(true);
+    if (focused.name !== 'category') return interaction.respond([]);
+
+    const term = String(focused.value || '').trim();
+    const rows = await query('SELECT name FROM suggestion_categories WHERE guild_id = ? ORDER BY name ASC LIMIT 100', [interaction.guildId]);
+    const filtered = rows
+      .map(row => row.name)
+      .filter(name => !term || name.toLowerCase().includes(term.toLowerCase()))
+      .slice(0, 25)
+      .map(name => ({ name, value: name }));
+
+    return interaction.respond(filtered);
+  },
 
   async execute(interaction) {
     const title = interaction.options.getString('title', true).trim();

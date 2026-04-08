@@ -384,6 +384,7 @@ module.exports = async () => {
         guild_id VARCHAR(32) PRIMARY KEY,
         channel_id VARCHAR(32) NOT NULL,
         panel_channel_id VARCHAR(32) NULL,
+        ping_role_id VARCHAR(32) NULL,
         create_thread BOOLEAN NOT NULL DEFAULT 1,
         allowed_role_ids JSON NULL,
         cooldown_ms BIGINT NOT NULL DEFAULT 0,
@@ -391,6 +392,11 @@ module.exports = async () => {
         updated_by VARCHAR(32) NULL,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE suggestion_settings
+      ADD COLUMN IF NOT EXISTS ping_role_id VARCHAR(32) NULL
     `);
 
     await pool.query(`
