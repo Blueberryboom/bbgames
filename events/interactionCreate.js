@@ -74,6 +74,19 @@ const RPS_CHOICE_EMOJI = {
 
 module.exports = async (interaction) => {
 
+  if (interaction.isAutocomplete()) {
+    const command = interaction.client.commands.get(interaction.commandName);
+    if (!command?.autocomplete) return;
+
+    try {
+      await command.autocomplete(interaction);
+    } catch {
+      await interaction.respond([]).catch(() => null);
+    }
+
+    return;
+  }
+
   if (interaction.isChatInputCommand()) {
     const command = interaction.client.commands.get(interaction.commandName);
     if (!command) return;

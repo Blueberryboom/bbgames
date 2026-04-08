@@ -82,6 +82,19 @@ module.exports = {
           .setDescription('Where to send the panel')
           .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
           .setRequired(true))
+        .addBooleanOption(opt => opt
+          .setName('show_categories')
+          .setDescription('Show current categories in the panel embed')
+          .setRequired(false))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('ping_role')
+        .setDescription('Set or clear role pinged for new suggestions')
+        .addRoleOption(opt => opt
+          .setName('role')
+          .setDescription('Role to ping (leave empty to clear)')
+          .setRequired(false))
     ),
 
   async execute(interaction) {
@@ -182,11 +195,22 @@ module.exports = {
 
     if (sub === 'panel') {
       const channel = interaction.options.getChannel('channel', true);
+      const showCategories = interaction.options.getBoolean('show_categories') ?? false;
+
+      let panelDescription = 'Click the button below to suggest a change to the server!';
+      if (showCategories) {
+        const categories = await query('SELECT name FROM suggestion_categories WHERE guild_id = ? ORDER BY name ASC', [interaction.guildId]);
+        if (categories.length) {
+          panelDescription += `\n\n**Categories**\n${categories.map(row => `• ${row.name}`).join('\n')}`;
+        } else {
+          panelDescription += '\n\n**Categories**\nNo categories configured yet.';
+        }
+      }
 
       const panelEmbed = new EmbedBuilder()
         .setColor(0xFEE75C)
         .setTitle('Suggestions')
-        .setDescription('Click the button below to suggest a change to the server!');
+        .setDescription(panelDescription);
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -199,6 +223,20 @@ module.exports = {
       await query('UPDATE suggestion_settings SET panel_channel_id = ? WHERE guild_id = ?', [channel.id, interaction.guildId]);
 
       return interaction.reply({ content: `✅ Suggestions panel sent in ${channel}.`, flags: MessageFlags.Ephemeral });
+    }
+
+    if (sub === 'ping_role') {
+      const exists = await query('SELECT guild_id FROM suggestion_settings WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+      if (!exists.length) {
+        return interaction.reply({ content: '❌ Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
+      }
+
+      const role = interaction.options.getRole('role');
+      await query('UPDATE suggestion_settings SET ping_role_id = ?, updated_by = ?, updated_at = ? WHERE guild_id = ?', [role?.id || null, interaction.user.id, Date.now(), interaction.guildId]);
+      if (!role) {
+        return interaction.reply({ content: '✅ Cleared suggestions ping role.', flags: MessageFlags.Ephemeral });
+      }
+      return interaction.reply({ content: `✅ Suggestions will now ping ${role} on new suggestions.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [], roles: [role.id] } });
     }
   }
 };
