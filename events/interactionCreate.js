@@ -723,9 +723,9 @@ async function handleTicketButtons(interaction) {
     const now = Date.now();
     const displayTicketId = await allocateGuildTicketDisplayId(interaction.guildId);
     const insert = await query(
-      `INSERT INTO tickets (guild_id, channel_id, user_id, type_id, display_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [interaction.guildId, channel.id, interaction.user.id, type.id, displayTicketId, now]
+      `INSERT INTO tickets (guild_id, channel_id, user_id, type_id, display_id, created_at, last_activity_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [interaction.guildId, channel.id, interaction.user.id, type.id, displayTicketId, now, now]
     );
     const ticketId = Number(insert.insertId);
     const controls = buildTicketControls(ticketId);
@@ -877,6 +877,12 @@ async function handleTicketButtons(interaction) {
     if (interaction.user.id !== ticket.user_id) {
       return interaction.reply({ content: '❌ Only the ticket owner can confirm this close request.', flags: MessageFlags.Ephemeral });
     }
+    await query(
+      `UPDATE ticket_automation_close_requests
+       SET resolved = 1
+       WHERE guild_id = ? AND ticket_id = ? AND resolved = 0`,
+      [interaction.guildId, ticketId]
+    ).catch(() => null);
     return closeTicket(interaction, ticketId, 'Closed by owner approval from close request.');
   }
 
