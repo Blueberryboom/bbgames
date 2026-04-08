@@ -116,16 +116,12 @@ module.exports = async function handleLevelingMessage(message) {
 
     await outputChannel.send({
       content: rendered,
-      allowedMentions: { parse: [], users: [message.author.id], roles: grantedRoleMention ? parseRoleIds(grantedRoleMention) : [] }
+      allowedMentions: { parse: [], users: [message.author.id] }
     }).catch(() => null);
   } catch (error) {
     console.error('❌ Leveling message handler failed:', error);
   }
 };
-
-function parseRoleIds(content) {
-  return (content.match(/\d{16,20}/g) || []).slice(0, 1);
-}
 
 async function syncRewardRoles({ guild, member, rewardMap, level }) {
   const rewardEntries = [...rewardMap.entries()];
@@ -134,7 +130,7 @@ async function syncRewardRoles({ guild, member, rewardMap, level }) {
     .map(([, roleId]) => roleId);
   const rewardRoleIds = rewardEntries.map(([, roleId]) => roleId);
 
-  let firstGrantedRole = null;
+  let firstGrantedRoleLabel = null;
 
   for (const roleId of eligibleRoleIds) {
     const role = guild.roles.cache.get(roleId);
@@ -142,7 +138,7 @@ async function syncRewardRoles({ guild, member, rewardMap, level }) {
 
     try {
       await member.roles.add(roleId, `Level reward sync for level ${level}`);
-      if (!firstGrantedRole) firstGrantedRole = roleId;
+      if (!firstGrantedRoleLabel) firstGrantedRoleLabel = `@${role.name}`;
     } catch (error) {
       console.warn('⚠️ Could not assign level reward role:', error?.message || error);
     }
@@ -157,7 +153,7 @@ async function syncRewardRoles({ guild, member, rewardMap, level }) {
     }
   }
 
-  return firstGrantedRole ? `<@&${firstGrantedRole}>` : null;
+  return firstGrantedRoleLabel;
 }
 
 async function getRewardMap(guildId) {
