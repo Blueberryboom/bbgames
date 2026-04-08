@@ -36,36 +36,6 @@ const {
 const { canManageSuggestions, getSuggestionSettings, statusLabel } = require('../utils/suggestionSystem');
 const suggestCommand = require('../commands/suggest');
 
-const HELP_MODULES = {
-  counting: {
-    name: 'Counting',
-    value: 'Commands: `/count current`, `/count channel`, `/count leaderboard`, `/count removechannel`, `/count reset`, `/count set`.'
-  },
-  giveaways: {
-    name: 'Giveaways',
-    value: 'Command: `/giveaway` to start and manage giveaways with role options.'
-  },
-  fun: {
-    name: 'Fun',
-    value: 'Commands: `/coinflip`, `/dadjoke`, `/dice`, `/tictactoe`, `/rps`.'
-  },
-  youtube: {
-    name: 'YouTube',
-    value: 'Command: `/youtube` with add/remove/list for upload notifications.'
-  },
-  tags: {
-    name: 'Tags',
-    value: 'Commands: `/tag send`, `/tag create`, `/tags usage`.'
-  },
-  onewordstory: {
-    name: 'One Word Story',
-    value: 'Commands: `/onewordstory channel`, `/onewordstory delay`, `/onewordstory disable`, `/onewordstory view`, `/onewordstory restart`, `/onewordstory leaderboard`.'
-  },
-  misc: {
-    name: 'Misc',
-    value: 'Commands: `/help`, `/about`, `/status`, `/support`, `/minecraft`, `/donate`, `/config`, `/sticky`, `/automsg`, `/afk`, `/afk_leaderboard`, `/birthday`, `/leveling`, `/level`, `/premium`, `/owner`, `/variableslowmode`, `/welcome`, `/leave`, `/boostmsg`, `/logs`, `/starboard`, `/servertag`, `/suggest`, `/suggestions`, `/dice`, `/tictactoe`.'
-  }
-};
 const RPS_CHOICE_EMOJI = {
   rock: '🪨',
   paper: '📄',
@@ -127,22 +97,6 @@ module.exports = async (interaction) => {
     }
 
     return;
-  }
-
-  if (interaction.isStringSelectMenu() && interaction.customId === 'help_category') {
-    const key = interaction.values[0];
-    const moduleData = HELP_MODULES[key];
-
-    if (!moduleData) {
-      return interaction.reply({ content: '❌ Unknown help category.', flags: MessageFlags.Ephemeral });
-    }
-
-    const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setTitle(`Help • ${moduleData.name}`)
-      .setDescription(moduleData.value);
-
-    return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === 'config_menu') {

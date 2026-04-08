@@ -2,8 +2,9 @@ const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('
 const { query } = require('../database');
 const { getGuildTicketSettings } = require('./ticketSystem');
 
-const PROCESS_INTERVAL_MS = 60_000;
+const PROCESS_INTERVAL_MS = 15_000;
 let processTimer = null;
+let isProcessing = false;
 
 async function trackTicketMessageActivity(message) {
   if (!message?.guildId || !message.channelId || message.author?.bot) return;
@@ -130,7 +131,8 @@ async function processTicketAutomations(client) {
   const automationRows = await query(
     `SELECT id, guild_id, name, ticket_type_id, trigger_mode, duration_ms, action_type, action_message, disabled_until
      FROM ticket_automations
-     WHERE disabled_until IS NULL OR disabled_until <= ?`,
+     WHERE (disabled_until IS NULL OR disabled_until <= ?)
+       AND guild_id NOT IN (SELECT guild_id FROM guild_deletion_queue)`,
     [now]
   );
 
@@ -209,6 +211,16 @@ async function processTicketAutomations(client) {
   }
 }
 
+async function processTicketAutomationsSafely(client) {
+  if (isProcessing) return;
+  isProcessing = true;
+  try {
+    await processTicketAutomations(client);
+  } finally {
+    isProcessing = false;
+  }
+}
+
 function initTicketAutomationManager(client) {
   if (processTimer) {
     clearInterval(processTimer);
@@ -216,12 +228,13 @@ function initTicketAutomationManager(client) {
   }
 
   processTimer = setInterval(() => {
-    processTicketAutomations(client).catch(error => {
+    processTicketAutomationsSafely(client).catch(error => {
       console.error('❌ Ticket automation processor error:', error);
     });
   }, PROCESS_INTERVAL_MS);
+  processTimer.unref?.();
 
-  processTicketAutomations(client).catch(error => {
+  processTicketAutomationsSafely(client).catch(error => {
     console.error('❌ Ticket automation startup run failed:', error);
   });
 }

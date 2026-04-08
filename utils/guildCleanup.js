@@ -36,6 +36,8 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM ticket_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM ticket_types WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM tickets WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM ticket_automations WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM ticket_automation_close_requests WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM ticket_blacklist WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM ticket_user_activity WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM blacklist WHERE guild_id = ?', [guildId]);
