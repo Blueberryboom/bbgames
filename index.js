@@ -25,6 +25,7 @@ const { initServerTagRewardManager } = require('./utils/serverTagRewardManager')
 const { startStatsApiServer } = require('./utils/statsApiServer');
 const { initSuggestionManager } = require('./utils/suggestionManager');
 const { initTicketAutomationManager, trackTicketMessageActivity } = require('./utils/ticketAutomationManager');
+const { initMinecraftMonitorManager } = require('./utils/minecraftMonitorManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -106,6 +107,9 @@ client.once('clientReady', async () => {
 
     // Ticket automation scheduler.
     initTicketAutomationManager(client);
+
+    // Minecraft monitor scheduler.
+    initMinecraftMonitorManager(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);

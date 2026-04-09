@@ -15,6 +15,7 @@ async function clearGuildData(guildId) {
 
   await query('DELETE FROM giveaways WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM youtube_subscriptions WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM minecraft_monitors WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM welcome_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM member_event_messages WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_logs_events WHERE guild_id = ?', [guildId]);

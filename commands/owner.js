@@ -964,7 +964,7 @@ async function leaveGuildById(client, guildId) {
 }
 
 async function buildServerDetail(client, guildId) {
-  const [premiumRows, countingRows, levelingRows, welcomeRows, stickyRows, autoRows, youtubeRows, giveawayRows, adminRoleRows, giveawayAdminRoleRows, staffRoleRows, ticketSettingsRows, ticketTypeRows, ticketOpenRows, variableSlowmodeRows, suggestionSettingsRows, suggestionOpenRows] = await Promise.all([
+  const [premiumRows, countingRows, levelingRows, welcomeRows, stickyRows, autoRows, youtubeRows, giveawayRows, adminRoleRows, giveawayAdminRoleRows, staffRoleRows, ticketSettingsRows, ticketTypeRows, ticketOpenRows, variableSlowmodeRows, suggestionSettingsRows, suggestionOpenRows, minecraftRows] = await Promise.all([
     pool.query(
       `SELECT owner_user_id, source_user_id, source_type, code, active, expires_at
        FROM premium_guild_perks
@@ -987,7 +987,8 @@ async function buildServerDetail(client, guildId) {
     pool.query(`SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ?`, [guildId]),
     pool.query(`SELECT COUNT(*) AS total FROM variable_slowmode_configs WHERE guild_id = ? AND enabled = 1`, [guildId]),
     pool.query(`SELECT channel_id, create_thread, cooldown_ms, disabled_until FROM suggestion_settings WHERE guild_id = ? LIMIT 1`, [guildId]),
-    pool.query(`SELECT COUNT(*) AS total FROM suggestions WHERE guild_id = ?`, [guildId])
+    pool.query(`SELECT COUNT(*) AS total FROM suggestions WHERE guild_id = ?`, [guildId]),
+    pool.query(`SELECT server_ip, display_ip, display_player_count, display_max_players, display_player_record, current_players, max_players, player_record, last_online, last_checked_at FROM minecraft_monitors WHERE guild_id = ? LIMIT 1`, [guildId])
   ]);
 
   const premium = premiumRows[0] || null;
@@ -996,6 +997,7 @@ async function buildServerDetail(client, guildId) {
   const welcome = welcomeRows[0] || null;
   const ticketSettings = ticketSettingsRows[0] || null;
   const suggestionsSettings = suggestionSettingsRows[0] || null;
+  const minecraft = minecraftRows[0] || null;
 
   const moduleSummary = [
     `Counting: ${counting ? 'enabled' : 'disabled'}`,
@@ -1007,7 +1009,8 @@ async function buildServerDetail(client, guildId) {
     `Giveaways: ${Number(giveawayRows[0]?.total || 0)} running`,
     `Tickets: ${ticketSettings ? 'configured' : 'disabled'} • ${Number(ticketOpenRows[0]?.total || 0)} open`,
     `Variable Slowmode: ${Number(variableSlowmodeRows[0]?.total || 0)} active`,
-    `Suggestions: ${suggestionsSettings ? 'configured' : 'disabled'} • ${Number(suggestionOpenRows[0]?.total || 0)} open`
+    `Suggestions: ${suggestionsSettings ? 'configured' : 'disabled'} • ${Number(suggestionOpenRows[0]?.total || 0)} open`,
+    `Minecraft Monitor: ${minecraft ? 'enabled' : 'disabled'}`
   ];
 
   const configSummary = [
@@ -1018,6 +1021,12 @@ async function buildServerDetail(client, guildId) {
     welcome ? `Welcome channel: <#${welcome.channel_id}> • template: \`${welcome.message_key}\`` : 'Welcome settings: not configured',
     ticketSettings ? `Ticket category: <#${ticketSettings.category_id}> • claiming: ${ticketSettings.claiming_enabled ? 'on' : 'off'} • types: ${Number(ticketTypeRows[0]?.total || 0)}` : 'Ticket settings: not configured',
     suggestionsSettings ? `Suggestions channel: <#${suggestionsSettings.channel_id}> • thread: ${suggestionsSettings.create_thread ? 'on' : 'off'} • cooldown: ${Math.floor(Number(suggestionsSettings.cooldown_ms || 0) / 60000)}m` : 'Suggestions settings: not configured',
+    minecraft
+      ? `Minecraft monitor: \`${minecraft.server_ip}\` • players: ${Number(minecraft.current_players || 0)}/${Number(minecraft.max_players || 0)} • record: ${Number(minecraft.player_record || 0)} • online: ${Number(minecraft.last_online) ? 'yes' : 'no'}`
+      : 'Minecraft monitor: not configured',
+    minecraft
+      ? `Minecraft display options: IP ${Number(minecraft.display_ip) ? 'on' : 'off'} • count ${Number(minecraft.display_player_count) ? 'on' : 'off'} • max ${Number(minecraft.display_max_players) ? 'on' : 'off'} • record ${Number(minecraft.display_player_record) ? 'on' : 'off'}`
+      : 'Minecraft display options: n/a',
     `Admin roles: ${Number(adminRoleRows[0]?.total || 0)} • Giveaway admin roles: ${Number(giveawayAdminRoleRows[0]?.total || 0)} • Staff roles: ${Number(staffRoleRows[0]?.total || 0)}`
   ];
 
