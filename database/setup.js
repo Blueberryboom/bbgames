@@ -59,6 +59,28 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+    // ─── MINECRAFT MONITOR ────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS minecraft_monitors (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        server_ip VARCHAR(255) NOT NULL,
+        display_ip BOOLEAN NOT NULL DEFAULT 1,
+        display_player_count BOOLEAN NOT NULL DEFAULT 1,
+        display_max_players BOOLEAN NOT NULL DEFAULT 1,
+        display_player_record BOOLEAN NOT NULL DEFAULT 1,
+        ip_channel_id VARCHAR(32) NULL,
+        players_channel_id VARCHAR(32) NULL,
+        record_channel_id VARCHAR(32) NULL,
+        current_players INT NOT NULL DEFAULT 0,
+        max_players INT NOT NULL DEFAULT 0,
+        player_record INT NOT NULL DEFAULT 0,
+        last_online TINYINT(1) NOT NULL DEFAULT 0,
+        last_checked_at BIGINT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_minecraft_updated (updated_at)
+      ) ENGINE=InnoDB;
+    `);
+
     // ─── WELCOME SETTINGS ─────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS welcome_settings (

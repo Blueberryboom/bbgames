@@ -84,7 +84,10 @@ const HELP_MODULES = {
       ['/ticket', 'Ticket panel/config commands.'],
       ['/tickets', 'Ticket type/automation management.'],
       ['/logs', 'Set log channel and events.'],
-      ['/config', 'Configure server bot settings.']
+      ['/config', 'Configure server bot settings.'],
+      ['/minecraft status', 'Check a Minecraft server status.'],
+      ['/minecraft monitor', 'Create or overwrite a Minecraft monitor setup.'],
+      ['/minecraft stop_monitoring', 'Disable Minecraft monitor and delete its channels.']
     ]
   }
 };
