@@ -1,8 +1,7 @@
 const { query } = require('../database');
 
-const WINDOW_SLICE_MS = 5_000;
-const WINDOW_SLICES = 12; // 1 minute / 5 seconds
-const ADJUST_INTERVAL_MS = 15 * 1000;
+const MESSAGE_WINDOW_MS = 10_000;
+const CHECK_INTERVAL_MS = 2 * 60 * 1000;
 
 const channelStates = new Map();
 let adjustTimer = null;
@@ -10,34 +9,15 @@ let adjustTimer = null;
 function makeState(config) {
   return {
     ...config,
-    buckets: new Uint16Array(WINDOW_SLICES),
-    totalCount: 0,
-    bucketIndex: 0,
-    lastTick: Math.floor(Date.now() / WINDOW_SLICE_MS)
+    timestamps: []
   };
 }
 
-function advanceState(state, now = Date.now()) {
-  const currentTick = Math.floor(now / WINDOW_SLICE_MS);
-  let delta = currentTick - state.lastTick;
-  if (delta <= 0) return;
-
-  if (delta >= WINDOW_SLICES) {
-    state.buckets.fill(0);
-    state.totalCount = 0;
-    state.bucketIndex = 0;
-    state.lastTick = currentTick;
-    return;
+function pruneOldTimestamps(state, now = Date.now()) {
+  const cutoff = now - MESSAGE_WINDOW_MS;
+  while (state.timestamps.length && state.timestamps[0] < cutoff) {
+    state.timestamps.shift();
   }
-
-  while (delta > 0) {
-    state.bucketIndex = (state.bucketIndex + 1) % WINDOW_SLICES;
-    state.totalCount -= state.buckets[state.bucketIndex];
-    state.buckets[state.bucketIndex] = 0;
-    delta -= 1;
-  }
-
-  state.lastTick = currentTick;
 }
 
 function trackMessage(message) {
@@ -46,13 +26,8 @@ function trackMessage(message) {
   const state = channelStates.get(message.channelId);
   if (!state || state.guildId !== message.guildId) return;
 
-  advanceState(state);
-
-  const currentValue = state.buckets[state.bucketIndex];
-  if (currentValue < 65535) {
-    state.buckets[state.bucketIndex] = currentValue + 1;
-    state.totalCount += 1;
-  }
+  state.timestamps.push(Date.now());
+  pruneOldTimestamps(state);
 }
 
 async function applySlowmode(client, state) {
@@ -64,20 +39,18 @@ async function applySlowmode(client, state) {
 
   if (!channel?.isTextBased() || typeof channel.rateLimitPerUser !== 'number') return;
 
-  advanceState(state);
+  pruneOldTimestamps(state);
+  const messagesInWindow = state.timestamps.length;
 
-  const avgMessagesPerFiveSeconds = state.totalCount / WINDOW_SLICES;
-  const targetSlowmode = Math.max(
-    state.minSlowmode,
-    Math.min(state.maxSlowmode, Math.round(avgMessagesPerFiveSeconds))
-  );
-
-  if (channel.rateLimitPerUser === targetSlowmode) {
-    return;
+  let targetSlowmode = 0;
+  if (messagesInWindow >= 3) {
+    targetSlowmode = state.minSlowmode + (messagesInWindow - 3);
   }
+  targetSlowmode = Math.max(state.minSlowmode, Math.min(state.maxSlowmode, targetSlowmode));
 
-  const reason = `Variable slowmode auto-adjust: ${avgMessagesPerFiveSeconds.toFixed(2)} msgs/5s over 1m (range ${state.minSlowmode}-${state.maxSlowmode}s)`;
+  if (channel.rateLimitPerUser === targetSlowmode) return;
 
+  const reason = `Variable slowmode auto-adjust: ${messagesInWindow} message(s)/10s (range ${state.minSlowmode}-${state.maxSlowmode}s)`;
   await channel.setRateLimitPerUser(targetSlowmode, reason);
 }
 
@@ -89,7 +62,6 @@ async function runAdjustment(client) {
       await applySlowmode(client, state);
     } catch (err) {
       if (err?.code === 50013 || err?.code === 50001) {
-        // Missing permissions/access; keep config and retry later if permissions are fixed.
         continue;
       }
       console.error(`❌ Variable slowmode adjustment failed for channel ${state.channelId}:`, err);
@@ -124,7 +96,7 @@ async function initializeVariableSlowmodeManager(client) {
     runAdjustment(client).catch(err => {
       console.error('❌ Variable slowmode scheduler error:', err);
     });
-  }, ADJUST_INTERVAL_MS);
+  }, CHECK_INTERVAL_MS);
 
   adjustTimer.unref?.();
 }

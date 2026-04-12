@@ -23,18 +23,24 @@ async function fetchMinecraftServerStats(serverIp) {
   };
 }
 
-function buildIpChannelName(serverIp) {
-  return `IP: ${serverIp}`.slice(0, 100);
+function sanitizeEmojiPrefix(raw) {
+  const trimmed = String(raw || '').trim();
+  if (!trimmed) return '';
+  return `${trimmed} `.slice(0, 20);
 }
 
-function buildPlayersChannelName(displayMaxPlayers, currentPlayers, maxPlayers, online) {
-  if (!online) return 'Server Offline';
-  if (displayMaxPlayers) return `${currentPlayers}/${maxPlayers} Active Players`.slice(0, 100);
-  return `${currentPlayers} Active Players`.slice(0, 100);
+function buildIpChannelName(serverIp, emojiPrefix = '') {
+  return `${sanitizeEmojiPrefix(emojiPrefix)}IP: ${serverIp}`.slice(0, 100);
 }
 
-function buildRecordChannelName(playerRecord) {
-  return `Record: ${playerRecord} Players`.slice(0, 100);
+function buildPlayersChannelName(displayMaxPlayers, currentPlayers, maxPlayers, online, emojiPrefix = '') {
+  if (!online) return `${sanitizeEmojiPrefix(emojiPrefix)}Server Offline`.slice(0, 100);
+  if (displayMaxPlayers) return `${sanitizeEmojiPrefix(emojiPrefix)}${currentPlayers}/${maxPlayers} Active Players`.slice(0, 100);
+  return `${sanitizeEmojiPrefix(emojiPrefix)}${currentPlayers} Active Players`.slice(0, 100);
+}
+
+function buildRecordChannelName(playerRecord, emojiPrefix = '') {
+  return `${sanitizeEmojiPrefix(emojiPrefix)}Record: ${playerRecord} Players`.slice(0, 100);
 }
 
 function buildVoiceOverwrite(guild) {
@@ -108,7 +114,7 @@ async function deleteMonitorChannels(guild, monitorConfig) {
 async function syncGuildMonitor(client, guildId) {
   const rows = await query(
     `SELECT guild_id, server_ip, display_ip, display_player_count, display_max_players, display_player_record,
-            ip_channel_id, players_channel_id, record_channel_id, player_record
+            ip_channel_id, players_channel_id, record_channel_id, player_record, ip_emoji, players_emoji, record_emoji
      FROM minecraft_monitors
      WHERE guild_id = ?
      LIMIT 1`,
@@ -131,12 +137,12 @@ async function syncGuildMonitor(client, guildId) {
 
   const playerRecord = Math.max(Number(monitorConfig.player_record || 0), stats.currentPlayers);
 
-  const ipName = Number(monitorConfig.display_ip) ? buildIpChannelName(monitorConfig.server_ip) : null;
+  const ipName = Number(monitorConfig.display_ip) ? buildIpChannelName(monitorConfig.server_ip, monitorConfig.ip_emoji) : null;
   const playersName = Number(monitorConfig.display_player_count)
-    ? buildPlayersChannelName(Number(monitorConfig.display_max_players) === 1, stats.currentPlayers, stats.maxPlayers, stats.online)
+    ? buildPlayersChannelName(Number(monitorConfig.display_max_players) === 1, stats.currentPlayers, stats.maxPlayers, stats.online, monitorConfig.players_emoji)
     : null;
   const recordName = Number(monitorConfig.display_player_record)
-    ? buildRecordChannelName(playerRecord)
+    ? buildRecordChannelName(playerRecord, monitorConfig.record_emoji)
     : null;
 
   const ipChannelId = await ensureVoiceChannel(guild, monitorConfig.ip_channel_id, ipName);

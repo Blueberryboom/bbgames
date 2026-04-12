@@ -1,0 +1,131 @@
+const { SlashCommandBuilder, MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { query } = require('../database');
+const { guildHasPremiumPerks } = require('../utils/premiumPerks');
+
+const USER_BUMP_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const STANDARD_RECEIVE_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+const PREMIUM_RECEIVE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+async function ensureInvite(channel, existingCode) {
+  if (existingCode) {
+    const invite = await channel.client.fetchInvite(existingCode).catch(() => null);
+    if (invite?.code) return invite;
+  }
+  const created = await channel.createInvite({ maxAge: 0, maxUses: 0, unique: false, reason: 'BBGames bumping invite' }).catch(() => null);
+  return created;
+}
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('bump')
+    .setDescription('Bump your server advertisement to other BBGames servers'),
+
+  async execute(interaction) {
+    const guild = interaction.guild;
+    const isPremium = await guildHasPremiumPerks(interaction.client, interaction.guildId);
+
+    const memberCount = guild.members.cache.filter(m => !m.user.bot).size || (await guild.members.fetch()).filter(m => !m.user.bot).size;
+    if (memberCount < 20) {
+      return interaction.reply({ content: '❌ Servers need at least 20 human members to use bumping.', flags: MessageFlags.Ephemeral });
+    }
+
+    const configRows = await query('SELECT * FROM bumping_configs WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const config = configRows[0];
+    if (!isPremium) {
+      if (!config?.channel_id || !config?.advertisement || !Number(config?.enabled || 0)) {
+        return interaction.reply({ content: '❌ Configure `/bumping channel` and `/bumping advertisement` first.', flags: MessageFlags.Ephemeral });
+      }
+    }
+
+    const usageRows = await query('SELECT last_bump_at, joined_count FROM bumping_usage WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const last = Number(usageRows[0]?.last_bump_at || 0);
+    const remaining = (last + USER_BUMP_COOLDOWN_MS) - Date.now();
+    if (remaining > 0) {
+      return interaction.reply({ content: `⏳ You can bump again <t:${Math.floor((Date.now() + remaining) / 1000)}:R>.`, flags: MessageFlags.Ephemeral });
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const sourceChannel = config?.channel_id ? await guild.channels.fetch(config.channel_id).catch(() => null) : null;
+    const inviteChannel = sourceChannel?.isTextBased() ? sourceChannel : guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has(['CreateInstantInvite', 'SendMessages']));
+    if (!inviteChannel) {
+      return interaction.editReply('❌ Could not find a channel to create/reuse invite link.');
+    }
+
+    const invite = await ensureInvite(inviteChannel, config?.invite_code || null);
+    if (!invite?.code) return interaction.editReply('❌ Failed to create/reuse invite link for bumping.');
+
+    await query('UPDATE bumping_configs SET invite_code = ?, updated_at = ? WHERE guild_id = ?', [invite.code, Date.now(), interaction.guildId]);
+
+    const eligibleRows = await query(
+      `SELECT bc.guild_id, bc.channel_id
+       FROM bumping_configs bc
+       WHERE bc.enabled = 1
+         AND bc.guild_id != ?
+         AND bc.channel_id IS NOT NULL
+         AND bc.advertisement IS NOT NULL`,
+      [interaction.guildId]
+    );
+
+    const randomTargets = shuffle(eligibleRows).slice(0, 50);
+
+    let posted = 0;
+    for (const target of randomTargets) {
+      const cooldownRows = await query('SELECT last_received_at FROM bumping_channel_usage WHERE guild_id = ? LIMIT 1', [target.guild_id]);
+      const lastReceived = Number(cooldownRows[0]?.last_received_at || 0);
+      const targetIsPremium = await guildHasPremiumPerks(interaction.client, target.guild_id);
+      const receiveCooldownMs = targetIsPremium ? PREMIUM_RECEIVE_COOLDOWN_MS : STANDARD_RECEIVE_COOLDOWN_MS;
+      if (lastReceived + receiveCooldownMs > Date.now()) continue;
+
+      const targetGuild = interaction.client.guilds.cache.get(target.guild_id) || await interaction.client.guilds.fetch(target.guild_id).catch(() => null);
+      if (!targetGuild) continue;
+
+      const targetChannel = await targetGuild.channels.fetch(target.channel_id).catch(() => null);
+      if (!targetChannel?.isTextBased()) continue;
+
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`📣 ${guild.name}`)
+        .setDescription(`${config?.advertisement || 'A premium server bump.'}\n\nInvite: https://discord.gg/${invite.code}`)
+        .setFooter({ text: `Server ID: ${guild.id}` });
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
+        new ButtonBuilder().setCustomId(`bump_report:${guild.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger)
+      );
+
+      const sent = await targetChannel.send({ embeds: [embed], components: [row] }).catch(() => null);
+      if (!sent) continue;
+      posted += 1;
+      await query(
+        `INSERT INTO bumping_channel_usage (guild_id, last_received_at, updated_at)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE last_received_at = VALUES(last_received_at), updated_at = VALUES(updated_at)`,
+        [target.guild_id, Date.now(), Date.now()]
+      );
+    }
+
+    await query(
+      `INSERT INTO bumping_usage (guild_id, last_bump_at, updated_at)
+       VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE last_bump_at = VALUES(last_bump_at), updated_at = VALUES(updated_at)`,
+      [interaction.guildId, Date.now(), Date.now()]
+    );
+
+    const joinedCount = Number(usageRows[0]?.joined_count || 0);
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle('🔥 Server Bumped')
+      .setDescription(`Thanks for bumping your server with BBGames! Your server AD has been sent to **${posted}** servers, and **${joinedCount}** have joined so far using the bot's invite link.`);
+
+    return interaction.editReply({ embeds: [embed] });
+  }
+};

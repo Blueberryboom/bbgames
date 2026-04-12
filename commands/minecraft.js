@@ -51,6 +51,30 @@ module.exports = {
             .setRequired(true)
         )
     )
+
+    .addSubcommand(sub =>
+      sub
+        .setName('monitor_channel_emojis')
+        .setDescription('Set emoji prefixes for monitor channel names')
+        .addStringOption(o =>
+          o.setName('ip_emoji')
+            .setDescription('Emoji shown before the IP channel name')
+            .setRequired(false)
+            .setMaxLength(20)
+        )
+        .addStringOption(o =>
+          o.setName('active_players_emoji')
+            .setDescription('Emoji shown before the active players channel name')
+            .setRequired(false)
+            .setMaxLength(20)
+        )
+        .addStringOption(o =>
+          o.setName('record_emoji')
+            .setDescription('Emoji shown before the record channel name')
+            .setRequired(false)
+            .setMaxLength(20)
+        )
+    )
     .addSubcommand(sub =>
       sub
         .setName('stop_monitoring')
@@ -58,7 +82,7 @@ module.exports = {
     ),
   requiredBotPermissions(interaction) {
     const sub = interaction.options.getSubcommand(false);
-    if (sub === 'monitor' || sub === 'stop_monitoring') {
+    if (sub === 'monitor' || sub === 'stop_monitoring' || sub === 'monitor_channel_emojis') {
       return [
         PermissionFlagsBits.ViewChannel,
         PermissionFlagsBits.ManageChannels
@@ -88,6 +112,10 @@ module.exports = {
 
     if (sub === 'monitor') {
       return handleMonitor(interaction);
+    }
+
+    if (sub === 'monitor_channel_emojis') {
+      return handleMonitorEmojis(interaction);
     }
 
     if (sub === 'stop_monitoring') {
@@ -160,9 +188,9 @@ async function handleMonitor(interaction) {
   await query(
     `REPLACE INTO minecraft_monitors
      (guild_id, server_ip, display_ip, display_player_count, display_max_players, display_player_record,
-      ip_channel_id, players_channel_id, record_channel_id,
+      ip_channel_id, players_channel_id, record_channel_id, ip_emoji, players_emoji, record_emoji,
       current_players, max_players, player_record, last_online, last_checked_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?, ?, 1, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, 1, ?, ?)`,
     [
       guild.id,
       ip,
@@ -183,6 +211,45 @@ async function handleMonitor(interaction) {
   return interaction.editReply(
     '✅ Minecraft monitor configured. Existing monitor settings (if any) were overwritten, and channels will update every 5 minutes.'
   );
+}
+
+
+async function handleMonitorEmojis(interaction) {
+  const ipEmoji = interaction.options.getString('ip_emoji')?.trim() || null;
+  const playersEmoji = interaction.options.getString('active_players_emoji')?.trim() || null;
+  const recordEmoji = interaction.options.getString('record_emoji')?.trim() || null;
+
+  const rows = await query(
+    `SELECT guild_id
+     FROM minecraft_monitors
+     WHERE guild_id = ?
+     LIMIT 1`,
+    [interaction.guildId]
+  );
+
+  if (!rows.length) {
+    return interaction.reply({
+      content: '❌ Set up monitoring first with `/minecraft monitor`.',
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  await query(
+    `UPDATE minecraft_monitors
+     SET ip_emoji = ?,
+         players_emoji = ?,
+         record_emoji = ?,
+         updated_at = ?
+     WHERE guild_id = ?`,
+    [ipEmoji, playersEmoji, recordEmoji, Date.now(), interaction.guildId]
+  );
+
+  await syncGuildMonitor(interaction.client, interaction.guildId);
+
+  return interaction.reply({
+    content: '✅ Updated Minecraft monitor channel emoji prefixes.',
+    flags: MessageFlags.Ephemeral
+  });
 }
 
 async function handleStopMonitoring(interaction) {

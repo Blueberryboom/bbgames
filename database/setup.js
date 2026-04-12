@@ -71,6 +71,9 @@ module.exports = async () => {
         ip_channel_id VARCHAR(32) NULL,
         players_channel_id VARCHAR(32) NULL,
         record_channel_id VARCHAR(32) NULL,
+        ip_emoji VARCHAR(32) NULL,
+        players_emoji VARCHAR(32) NULL,
+        record_emoji VARCHAR(32) NULL,
         current_players INT NOT NULL DEFAULT 0,
         max_players INT NOT NULL DEFAULT 0,
         player_record INT NOT NULL DEFAULT 0,
@@ -79,6 +82,22 @@ module.exports = async () => {
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
         INDEX idx_minecraft_updated (updated_at)
       ) ENGINE=InnoDB;
+    `);
+
+
+    await pool.query(`
+      ALTER TABLE minecraft_monitors
+      ADD COLUMN IF NOT EXISTS ip_emoji VARCHAR(32) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE minecraft_monitors
+      ADD COLUMN IF NOT EXISTS players_emoji VARCHAR(32) NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE minecraft_monitors
+      ADD COLUMN IF NOT EXISTS record_emoji VARCHAR(32) NULL
     `);
 
     // ─── WELCOME SETTINGS ─────────────────
@@ -207,6 +226,57 @@ module.exports = async () => {
     `);
 
 
+
+
+    // ─── AUTO RESPONDERS ─────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS auto_responders (
+        id BIGINT NOT NULL AUTO_INCREMENT,
+        guild_id VARCHAR(32) NOT NULL,
+        name VARCHAR(64) NOT NULL,
+        triggers_json JSON NOT NULL,
+        response_type VARCHAR(16) NOT NULL,
+        response_payload JSON NOT NULL,
+        channel_whitelist_json JSON NULL,
+        disabled_until BIGINT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        created_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        PRIMARY KEY (id),
+        UNIQUE KEY uniq_auto_responder_name (guild_id, name),
+        INDEX idx_auto_responder_guild (guild_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    // ─── BUMPING ─────────────────────────
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bumping_configs (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        channel_id VARCHAR(32) NULL,
+        advertisement TEXT NULL,
+        invite_code VARCHAR(32) NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bumping_usage (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        last_bump_at BIGINT NULL,
+        joined_count BIGINT NOT NULL DEFAULT 0,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bumping_channel_usage (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        last_received_at BIGINT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
 
     // ─── VARIABLE SLOWMODE ───────────────
     await pool.query(`

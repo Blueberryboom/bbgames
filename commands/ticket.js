@@ -137,6 +137,16 @@ module.exports = {
             .setDescription('User to add to the ticket')
             .setRequired(true)
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('remove_user')
+        .setDescription('Remove a user from the current ticket channel')
+        .addUserOption(opt =>
+          opt.setName('user')
+            .setDescription('User to remove from the ticket')
+            .setRequired(true)
+        )
     ),
 
   async execute(interaction) {
@@ -302,6 +312,46 @@ module.exports = {
 
       return interaction.reply({
         content: `✅ Added ${target} to this ticket.`,
+        flags: MessageFlags.Ephemeral,
+        allowedMentions: { parse: [] }
+      });
+    }
+
+
+    if (sub === 'remove_user') {
+      const target = interaction.options.getUser('user', true);
+      const ticketRows = await query(
+        `SELECT t.id, t.user_id, t.type_id, tt.staff_role_ids
+         FROM tickets t
+         INNER JOIN ticket_types tt ON tt.guild_id = t.guild_id AND tt.id = t.type_id
+         WHERE t.guild_id = ? AND t.channel_id = ?
+         LIMIT 1`,
+        [interaction.guildId, interaction.channelId]
+      );
+      const ticket = ticketRows[0];
+      if (!ticket) {
+        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+      }
+
+      const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
+      const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
+      if (!isStaff) {
+        return interaction.reply({ content: '❌ Only ticket staff can remove users from a ticket.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (target.id === ticket.user_id) {
+        return interaction.reply({ content: '❌ You cannot remove the ticket owner from their own ticket.', flags: MessageFlags.Ephemeral });
+      }
+
+      await interaction.channel.permissionOverwrites.delete(target.id).catch(() => null);
+
+      await interaction.channel.send({
+        content: `➖ ${target} was removed from this ticket by ${interaction.user}.`,
+        allowedMentions: { users: [target.id, interaction.user.id] }
+      }).catch(() => null);
+
+      return interaction.reply({
+        content: `✅ Removed ${target} from this ticket.`,
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
