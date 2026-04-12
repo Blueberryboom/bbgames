@@ -36,6 +36,8 @@ const {
 const { canManageSuggestions, getSuggestionSettings, statusLabel } = require('../utils/suggestionSystem');
 const suggestCommand = require('../commands/suggest');
 
+const ticketCreateLocks = new Map();
+
 const RPS_CHOICE_EMOJI = {
   rock: '🪨',
   paper: '📄',
@@ -352,6 +354,24 @@ module.exports = async (interaction) => {
       return handleTicketButtons(interaction);
     }
 
+
+    if (interaction.customId.startsWith('bump_report:')) {
+      const sourceGuildId = interaction.customId.split(':')[1];
+      await interaction.reply({ content: '✅ Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral });
+
+      const app = await interaction.client.application.fetch().catch(() => null);
+      const owner = app?.owner;
+      const ownerId = owner?.id || owner?.ownerId || process.env.BOT_OWNER_ID;
+      if (!ownerId) return;
+
+      const ownerUser = await interaction.client.users.fetch(ownerId).catch(() => null);
+      if (!ownerUser) return;
+
+      const info = `Report from guild **${interaction.guild?.name || interaction.guildId}** (${interaction.guildId})\nSource guild: **${sourceGuildId}**`;
+      await ownerUser.send({ content: info }).catch(() => null);
+      return;
+    }
+
     const parts = interaction.customId.split('_');
     if (parts.length < 3 || parts[0] !== 'giveaway') return;
 
@@ -595,12 +615,22 @@ async function handleTicketButtons(interaction) {
 
   if (interaction.customId.startsWith('ticket_open_confirm:')) {
     const typeId = Number(interaction.customId.split(':')[1]);
-    const type = await getTicketTypeById(interaction.guildId, typeId);
-    const settings = await getGuildTicketSettings(interaction.guildId);
-
-    if (!type || !settings?.category_id) {
-      return interaction.update({ content: '❌ Ticket setup is missing or invalid.', components: [] });
+    const lockKey = `${interaction.guildId}:${interaction.user.id}:${typeId}`;
+    if (ticketCreateLocks.has(lockKey)) {
+      return interaction.reply({ content: '⏳ Your ticket is already being created. Please wait a moment.', flags: MessageFlags.Ephemeral });
     }
+
+    ticketCreateLocks.set(lockKey, Date.now());
+
+    try {
+      await interaction.update({ content: '⏳ Creating your ticket...', components: [] });
+
+      const type = await getTicketTypeById(interaction.guildId, typeId);
+      const settings = await getGuildTicketSettings(interaction.guildId);
+
+      if (!type || !settings?.category_id) {
+        return interaction.followUp({ content: '❌ Ticket setup is missing or invalid.', flags: MessageFlags.Ephemeral });
+      }
 
     const maxOpenTickets = await getPremiumLimit(interaction.client, interaction.guildId, 55, Number.POSITIVE_INFINITY);
     if (Number.isFinite(maxOpenTickets)) {
@@ -610,16 +640,34 @@ async function handleTicketButtons(interaction) {
       );
       const guildOpenCount = Number(guildOpenRows[0]?.total || 0);
       if (guildOpenCount >= maxOpenTickets) {
-        return interaction.update({
+        return interaction.followUp({
           content: `❌ This server already has ${guildOpenCount}/${maxOpenTickets} open tickets. Free servers can have up to ${maxOpenTickets} open tickets at once.`,
-          components: []
+          flags: MessageFlags.Ephemeral
         });
       }
     }
 
     const category = await ensureTicketCategory(interaction.guild, settings.category_id);
     if (!category) {
-      return interaction.update({ content: '❌ The configured ticket category is missing. Ask staff to run `/ticket config` again.', components: [] });
+      return interaction.followUp({ content: '❌ The configured ticket category is missing. Ask staff to run `/ticket config` again.', flags: MessageFlags.Ephemeral });
+    }
+
+    const maxTickets = Math.min(5, Math.max(1, Number(settings.max_tickets_per_user || 1)));
+    const openRows = await query(
+      `SELECT COUNT(*) AS total FROM tickets WHERE guild_id = ? AND user_id = ?`,
+      [interaction.guildId, interaction.user.id]
+    );
+    const openCount = Number(openRows[0]?.total || 0);
+    if (openCount >= maxTickets) {
+      return interaction.followUp({ content: `❌ You already have ${openCount}/${maxTickets} open tickets.`, flags: MessageFlags.Ephemeral });
+    }
+
+    const existingSameTypeRows = await query(
+      `SELECT channel_id FROM tickets WHERE guild_id = ? AND user_id = ? AND type_id = ? LIMIT 1`,
+      [interaction.guildId, interaction.user.id, type.id]
+    );
+    if (existingSameTypeRows.length) {
+      return interaction.followUp({ content: `ℹ️ You already have this ticket type open: <#${existingSameTypeRows[0].channel_id}>`, flags: MessageFlags.Ephemeral });
     }
 
     const staffRoleIds = parseRoleIds(type.staff_role_ids);
@@ -671,7 +719,7 @@ async function handleTicketButtons(interaction) {
     }).catch(() => null);
 
     if (!channel) {
-      return interaction.update({ content: '❌ Failed to create the ticket channel. Check bot permissions.', components: [] });
+      return interaction.followUp({ content: '❌ Failed to create the ticket channel. Check bot permissions.', flags: MessageFlags.Ephemeral });
     }
 
     const now = Date.now();
@@ -754,7 +802,10 @@ async function handleTicketButtons(interaction) {
     }
 
     await refreshWorkloadPanel(interaction.guild);
-    return interaction.update({ content: `✅ Your ticket has been created: ${channel}`, components: [] });
+    return interaction.followUp({ content: `✅ Your ticket has been created: ${channel}`, flags: MessageFlags.Ephemeral });
+    } finally {
+      ticketCreateLocks.delete(lockKey);
+    }
   }
 
   if (interaction.customId.startsWith('ticket_claim:')) {

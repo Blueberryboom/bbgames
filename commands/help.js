@@ -82,12 +82,25 @@ const HELP_MODULES = {
       ['/status', 'Show bot/server status.'],
       ['/support', 'Get support links.'],
       ['/ticket', 'Ticket panel/config commands.'],
+      ['/ticket add_user', 'Add a user to the current ticket.'],
+      ['/ticket remove_user', 'Remove a user from the current ticket.'],
       ['/tickets', 'Ticket type/automation management.'],
       ['/logs', 'Set log channel and events.'],
       ['/config', 'Configure server bot settings.'],
       ['/minecraft status', 'Check a Minecraft server status.'],
       ['/minecraft monitor', 'Create or overwrite a Minecraft monitor setup.'],
-      ['/minecraft stop_monitoring', 'Disable Minecraft monitor and delete its channels.']
+      ['/minecraft monitor_channel_emojis', 'Set emoji prefixes for monitor channels.'],
+      ['/minecraft stop_monitoring', 'Disable Minecraft monitor and delete its channels.'],
+      ['/variableslowmode start', 'Enable variable slowmode for a channel.'],
+      ['/auto_responder create', 'Create interactive auto responders.'],
+      ['/auto_responder list', 'List configured auto responders.'],
+      ['/auto_responder edit', 'Edit an auto responder reply.'],
+      ['/auto_responder disable', 'Disable a responder for a duration.'],
+      ['/auto_responder delete', 'Delete a configured auto responder.'],
+      ['/bumping channel', 'Set your bumping channel.'],
+      ['/bumping advertisement', 'Set your bumping advertisement text.'],
+      ['/bumping disable', 'Disable bumping and clear data.'],
+      ['/bump', 'Broadcast your server advertisement.']
     ]
   }
 };
@@ -103,8 +116,22 @@ function buildCommandTable(rows) {
 function buildWelcomeEmbed() {
   return new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle('Welcome to BBGames Help')
-    .setDescription('Choose a module from the dropdown below to view commands and what each command does.');
+    .setTitle('🧀 Welcome to BBGames')
+    .setDescription(
+      'BBGames is a powerful bot build to replace multiple discord bots with just a single one!\n' +
+      "It is insanely customizable and isn't just for games, somehow it became a utility bot too!\n" +
+      "This project began as a private custom bot for Blueberryboom's discord server, so if you could donate to support the bot's development and hosting that would help a ton! Use **/donate** to checkout the amazing perks that you can get :)\n\n" +
+      '**Features**\n' +
+      '• Counting — **OG**\n' +
+      '• Giveaways — **OG**\n' +
+      '• Variable Slowmode — **UNIQUE**\n' +
+      '• Tickets — **POWERFUL**\n' +
+      '• One word story — **POPULAR 🔥**\n' +
+      '• Minecraft monitoring — **UNIQUE 👀**\n' +
+      '• Premium bot — **7 DAY TRIAL**\n' +
+      '• Bumping — **NEW**\n\n' +
+      'Use the dropdown below to view feature details and commands.'
+    );
 }
 
 function buildModuleEmbed(moduleData) {

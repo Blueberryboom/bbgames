@@ -26,6 +26,7 @@ const { startStatsApiServer } = require('./utils/statsApiServer');
 const { initSuggestionManager } = require('./utils/suggestionManager');
 const { initTicketAutomationManager, trackTicketMessageActivity } = require('./utils/ticketAutomationManager');
 const { initMinecraftMonitorManager } = require('./utils/minecraftMonitorManager');
+const { handleAutoResponderMessage, invalidateGuild: invalidateGuildAutoResponderCache } = require('./utils/autoResponderManager');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -209,6 +210,7 @@ client.on('messageCreate', async message => {
     await trackTicketMessageActivity(message);
     trackVariableSlowmodeMessage(message);
     await queueOneWordStoryMessage(message);
+    await handleAutoResponderMessage(message);
   } catch (err) {
     console.error('❌ Message handler error:', err);
   }
@@ -280,6 +282,7 @@ client.on('guildDelete', async guild => {
   try {
     clearGuildAutoMessages(client, guild.id);
     clearGuildOneWordStoryState(guild.id);
+    invalidateGuildAutoResponderCache(guild.id);
     await scheduleGuildDataDeletion(guild.id, 'main_left');
     console.log(`🕒 Scheduled guild data cleanup for ${guild.id} in 3 days`);
   } catch (err) {

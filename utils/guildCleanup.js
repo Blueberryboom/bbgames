@@ -22,6 +22,7 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM guild_logs_settings WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM sticky_messages WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM auto_messages WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM auto_responders WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM admin_roles WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM giveaway_admin_roles WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM staff_roles WHERE guild_id = ?', [guildId]);
@@ -56,6 +57,9 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM suggestion_user_activity WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM suggestions WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM servertag_reward_settings WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM bumping_configs WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM bumping_usage WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM bumping_channel_usage WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_data_deletion_approvals WHERE guild_id = ?', [guildId]);
 }

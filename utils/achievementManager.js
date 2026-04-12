@@ -205,7 +205,12 @@ async function trackAchievementEvent({ userId, event, amount = 1, context = {} }
           `${context.userMention || `<@${userId}>`} just earned **${achievement.name}** (${achievement.tier}).\n${achievement.description}`
         );
 
-      await context.channel.send({ embeds: [embed] }).catch(() => null);
+      const notice = await context.channel.send({ embeds: [embed] }).catch(() => null);
+      if (notice) {
+        setTimeout(() => {
+          notice.delete().catch(() => null);
+        }, 10_000);
+      }
     }
   }
 
