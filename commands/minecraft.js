@@ -183,7 +183,13 @@ async function handleMonitor(interaction) {
   );
 
   if (existingRows.length) {
-    await deleteMonitorChannels(guild, existingRows[0]);
+    const cleanupResult = await deleteMonitorChannels(guild, existingRows[0]);
+    if (cleanupResult.failed.length) {
+      console.warn(
+        `⚠️ Minecraft monitor cleanup had ${cleanupResult.failed.length} channel deletion failure(s) in guild ${guild.id}:`,
+        cleanupResult.failed
+      );
+    }
   }
 
   const now = Date.now();
@@ -250,7 +256,7 @@ async function handleMonitorEmojis(interaction) {
   await syncGuildMonitor(interaction.client, interaction.guildId);
 
   return interaction.reply({
-    content: '✅ Updated Minecraft monitor channel emoji prefixes.',
+    content: '✅ Updated Minecraft monitor channel emoji prefixes and forced an immediate monitor refresh.',
     flags: MessageFlags.Ephemeral
   });
 }
@@ -273,11 +279,21 @@ async function handleStopMonitoring(interaction) {
     });
   }
 
-  await deleteMonitorChannels(guild, rows[0]);
+  const cleanupResult = await deleteMonitorChannels(guild, rows[0]);
+
+  if (cleanupResult.failed.length) {
+    return interaction.reply({
+      content: `❌ I could not delete ${cleanupResult.failed.length} monitor channel(s), so I kept the saved config.\n` +
+        `Give me **Manage Channels** permission and run \`/minecraft stop_monitoring\` again.\n` +
+        `Debug: ${cleanupResult.failed.map(f => `${f.channelId} (${f.reason})`).join(', ')}`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
   await query('DELETE FROM minecraft_monitors WHERE guild_id = ?', [guild.id]);
 
   return interaction.reply({
-    content: '✅ Stopped Minecraft monitoring, deleted monitor channels, and removed saved monitor data.',
+    content: `✅ Stopped Minecraft monitoring. Deleted ${cleanupResult.deleted.length} channel(s), ${cleanupResult.missing.length} were already missing, and removed saved monitor data.`,
     flags: MessageFlags.Ephemeral
   });
 }
