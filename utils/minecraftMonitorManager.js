@@ -51,7 +51,14 @@ function buildVoiceOverwrite(guild) {
 }
 
 async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
-  if (!desiredName) return null;
+  if (!desiredName) {
+    if (existingChannelId) {
+      const existing = guild.channels.cache.get(existingChannelId)
+        || await guild.channels.fetch(existingChannelId).catch(() => null);
+      if (existing) await existing.delete('Minecraft monitor channel disabled').catch(() => null);
+    }
+    return null;
+  }
 
   const existing = existingChannelId
     ? (guild.channels.cache.get(existingChannelId)
@@ -188,7 +195,12 @@ async function runSweep(client) {
   runningSweepClients.add(client);
 
   try {
-    const monitors = await query('SELECT guild_id FROM minecraft_monitors');
+    const guildIds = [...client.guilds.cache.keys()];
+    if (!guildIds.length) return;
+
+    const placeholders = guildIds.map(() => '?').join(',');
+    const monitors = await query(`SELECT guild_id FROM minecraft_monitors WHERE guild_id IN (${placeholders})`, guildIds);
+
     for (const monitor of monitors) {
       try {
         await syncGuildMonitor(client, monitor.guild_id);
@@ -209,9 +221,6 @@ function stopMinecraftMonitorManager() {
 }
 
 function initMinecraftMonitorManager(client) {
-  const shardId = client.shard?.ids?.[0] ?? 0;
-  if (client.shard && shardId !== 0) return;
-
   stopMinecraftMonitorManager();
 
   runSweep(client).catch(err => {

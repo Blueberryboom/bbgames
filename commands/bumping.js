@@ -66,7 +66,7 @@ module.exports = {
     const modalId = `bumping_ad:${interaction.id}`;
     const modal = new ModalBuilder().setCustomId(modalId).setTitle('Configure Advertisement');
     modal.addComponents(new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('ad').setLabel('Advertisement (max 10 lines, no links/mentions)').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800)
+      new TextInputBuilder().setCustomId('ad').setLabel('Advertisement (max 10 lines, no links)').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800)
     ));
 
     await interaction.showModal(modal);

@@ -35,6 +35,7 @@ const {
 } = require('../utils/permissionGuard');
 const { canManageSuggestions, getSuggestionSettings, statusLabel } = require('../utils/suggestionSystem');
 const suggestCommand = require('../commands/suggest');
+const { BUMP_REPORT_CHANNEL_ID } = require('../commands/bump');
 
 const ticketCreateLocks = new Map();
 
@@ -359,6 +360,22 @@ module.exports = async (interaction) => {
       const sourceGuildId = interaction.customId.split(':')[1];
       await interaction.reply({ content: '✅ Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral }).catch(() => null);
 
+      const reportLines = [
+        '🚨 **Bump AD Report**',
+        `Reporter: ${interaction.user.tag} (${interaction.user.id})`,
+        `Reported from guild: **${interaction.guild?.name || interaction.guildId}** (${interaction.guildId})`,
+        `Source guild advertised: **${sourceGuildId}**`,
+        `Message jump: ${interaction.message?.url || 'Unavailable'}`
+      ];
+
+      if (BUMP_REPORT_CHANNEL_ID && BUMP_REPORT_CHANNEL_ID !== 'PASTE_BUMP_REPORT_CHANNEL_ID_HERE') {
+        const reportChannel = await interaction.client.channels.fetch(BUMP_REPORT_CHANNEL_ID).catch(() => null);
+        if (reportChannel?.isTextBased()) {
+          await reportChannel.send({ content: reportLines.join('\n') }).catch(() => null);
+          return;
+        }
+      }
+
       const app = await interaction.client.application.fetch().catch(() => null);
       const owner = app?.owner;
       const teamOwnerId = owner?.members?.find?.(member => member?.membershipState === 2)?.id;
@@ -367,14 +384,7 @@ module.exports = async (interaction) => {
 
       const ownerUser = await interaction.client.users.fetch(ownerId).catch(() => null);
       if (!ownerUser) return;
-
-      const info = [
-        '🚨 **Bump AD Report**',
-        `Reporter: ${interaction.user.tag} (${interaction.user.id})`,
-        `Reported from guild: **${interaction.guild?.name || interaction.guildId}** (${interaction.guildId})`,
-        `Source guild advertised: **${sourceGuildId}**`
-      ].join('\n');
-      await ownerUser.send({ content: info }).catch(() => null);
+      await ownerUser.send({ content: reportLines.join('\n') }).catch(() => null);
       return;
     }
 
