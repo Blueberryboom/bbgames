@@ -14,6 +14,9 @@ const USER_BUMP_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const STANDARD_RECEIVE_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const PREMIUM_RECEIVE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
+// Set this to the channel ID where bump reports should be sent.
+const BUMP_REPORT_CHANNEL_ID = 'PASTE_BUMP_REPORT_CHANNEL_ID_HERE';
+
 function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -32,6 +35,7 @@ async function ensureInvite(channel, existingCode) {
 }
 
 module.exports = {
+  BUMP_REPORT_CHANNEL_ID,
   data: new SlashCommandBuilder()
     .setName('bump')
     .setDescription('Bump your server advertisement to other BBGames servers'),

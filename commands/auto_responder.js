@@ -56,13 +56,14 @@ async function collectWord(interactionBase, buttonInteraction, mode) {
   return { mode, word };
 }
 
-async function collectResponse(interactionBase, promptMessage) {
+async function collectResponse(interactionBase) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ar_response_plain').setLabel('Plaintext').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('ar_response_embed').setLabel('Embed').setStyle(ButtonStyle.Secondary)
   );
 
-  await promptMessage.edit({ content: 'Choose response type.', components: [row] });
+  await interactionBase.editReply({ content: 'Choose response type.', components: [row] });
+  const promptMessage = await interactionBase.fetchReply();
   const button = await promptMessage.awaitMessageComponent({
     time: SETUP_TIMEOUT_MS,
     filter: i => i.user.id === interactionBase.user.id && ['ar_response_plain', 'ar_response_embed'].includes(i.customId)
@@ -114,12 +115,13 @@ async function collectResponse(interactionBase, promptMessage) {
   return { responseType: 'embed', responsePayload: payload };
 }
 
-async function collectWhitelist(interactionBase, promptMessage) {
+async function collectWhitelist(interactionBase) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId('ar_channels_all').setLabel('Allow in all channels').setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId('ar_channels_whitelist').setLabel('Whitelist').setStyle(ButtonStyle.Secondary)
   );
-  await promptMessage.edit({ content: 'Configure channel scope.', components: [row] });
+  await interactionBase.editReply({ content: 'Configure channel scope.', components: [row] });
+  const promptMessage = await interactionBase.fetchReply();
 
   const button = await promptMessage.awaitMessageComponent({
     time: SETUP_TIMEOUT_MS,
@@ -318,17 +320,17 @@ module.exports = {
       if (!triggers.some(t => t.word === created.word && t.mode === created.mode)) triggers.push(created);
       if (triggers.length >= MAX_TRIGGERS) break;
 
-      await msg.edit({ content: `Current triggers (${triggers.length}/${MAX_TRIGGERS}): ${triggers.map(t => `\`${t.mode}:${t.word}\``).join(', ') || 'none'}. Add another trigger or click **Finish**.`, components: [triggerButtons(true)] }).catch(() => null);
+      await interaction.editReply({ content: `Current triggers (${triggers.length}/${MAX_TRIGGERS}): ${triggers.map(t => `\`${t.mode}:${t.word}\``).join(', ') || 'none'}. Add another trigger or click **Finish**.`, components: [triggerButtons(true)] }).catch(() => null);
     }
 
     if (!triggers.length) {
       return interaction.editReply({ content: '❌ You must configure at least one trigger.', components: [] });
     }
 
-    const response = await collectResponse(interaction, msg);
+    const response = await collectResponse(interaction);
     if (!response) return interaction.editReply({ content: '⏱️ Auto responder setup expired after 10 minutes.', components: [] });
 
-    const whitelist = await collectWhitelist(interaction, msg);
+    const whitelist = await collectWhitelist(interaction);
     if (whitelist === false) return interaction.editReply({ content: '❌ Invalid whitelist selection. Run setup again.', components: [] });
 
     await query(
