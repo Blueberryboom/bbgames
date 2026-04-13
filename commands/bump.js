@@ -1,4 +1,12 @@
 const { SlashCommandBuilder, MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+
+function sanitizeAdvertisement(adText) {
+  return String(adText || '')
+    .replace(/@everyone|@here/gi, '[mention removed]')
+    .replace(/<@!?\d+>/g, '[user mention removed]')
+    .replace(/<@&\d+>/g, '[role mention removed]')
+    .trim();
+}
 const { query } = require('../database');
 const { guildHasPremiumPerks } = require('../utils/premiumPerks');
 
@@ -91,18 +99,17 @@ module.exports = {
       const targetChannel = await targetGuild.channels.fetch(target.channel_id).catch(() => null);
       if (!targetChannel?.isTextBased()) continue;
 
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle(`📣 ${guild.name}`)
-        .setDescription(`${config?.advertisement || 'A premium server bump.'}\n\nInvite: https://discord.gg/${invite.code}`)
-        .setFooter({ text: `Server ID: ${guild.id}` });
-
+      const sanitizedAd = sanitizeAdvertisement(config?.advertisement || 'A premium server bump.');
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
         new ButtonBuilder().setCustomId(`bump_report:${guild.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger)
       );
 
-      const sent = await targetChannel.send({ embeds: [embed], components: [row] }).catch(() => null);
+      const sent = await targetChannel.send({
+        content: `📣 **${guild.name}**\n${sanitizedAd}\n\nInvite: https://discord.gg/${invite.code}`,
+        components: [row],
+        allowedMentions: { parse: [] }
+      }).catch(() => null);
       if (!sent) continue;
       posted += 1;
       await query(

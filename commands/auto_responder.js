@@ -18,12 +18,12 @@ const { invalidateGuild } = require('../utils/autoResponderManager');
 const MAX_TRIGGERS = 10;
 const SETUP_TIMEOUT_MS = 10 * 60 * 1000;
 
-function triggerButtons(includeNope) {
+function triggerButtons(includeFinish) {
   const buttons = [
     new ButtonBuilder().setCustomId('ar_trigger_wildcard').setLabel('Wildcard').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('ar_trigger_strict').setLabel('Strict').setStyle(ButtonStyle.Secondary)
   ];
-  if (includeNope) buttons.push(new ButtonBuilder().setCustomId('ar_trigger_nope').setLabel('Nope').setStyle(ButtonStyle.Danger));
+  if (includeFinish) buttons.push(new ButtonBuilder().setCustomId('ar_trigger_finish').setLabel('Finish').setStyle(ButtonStyle.Success));
   return new ActionRowBuilder().addComponents(buttons);
 }
 
@@ -33,7 +33,7 @@ async function collectWord(interactionBase, buttonInteraction, mode) {
   modal.addComponents(new ActionRowBuilder().addComponents(
     new TextInputBuilder()
       .setCustomId('word')
-      .setLabel('Single trigger word (no spaces)')
+      .setLabel('Single trigger word (2-32 chars, no spaces)')
       .setStyle(TextInputStyle.Short)
       .setRequired(true)
       .setMaxLength(32)
@@ -47,8 +47,8 @@ async function collectWord(interactionBase, buttonInteraction, mode) {
 
   if (!submit) return null;
   const word = submit.fields.getTextInputValue('word').trim().toLowerCase();
-  if (!/^[^\s]{1,32}$/.test(word)) {
-    await submit.reply({ content: '❌ Trigger must be a single word (no spaces).', flags: MessageFlags.Ephemeral });
+  if (!/^[^\s]{2,32}$/.test(word)) {
+    await submit.reply({ content: '❌ Trigger must be a single word between 2 and 32 characters (no spaces).', flags: MessageFlags.Ephemeral });
     return false;
   }
 
@@ -287,22 +287,26 @@ module.exports = {
       return interaction.reply({ content: `❌ You can only have ${limit} auto responders on this bot tier.`, flags: MessageFlags.Ephemeral });
     }
 
-    await interaction.reply({ content: 'Configure trigger words. Choose Wildcard/Strict.', components: [triggerButtons(false)], flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: 'Configure trigger words. Add triggers, then click **Finish** when done (max 10).', components: [triggerButtons(true)], flags: MessageFlags.Ephemeral });
     const msg = await interaction.fetchReply();
     const triggers = [];
 
     while (triggers.length < MAX_TRIGGERS) {
       const button = await msg.awaitMessageComponent({
         time: SETUP_TIMEOUT_MS,
-        filter: i => i.user.id === interaction.user.id && ['ar_trigger_wildcard', 'ar_trigger_strict', 'ar_trigger_nope'].includes(i.customId)
+        filter: i => i.user.id === interaction.user.id && ['ar_trigger_wildcard', 'ar_trigger_strict', 'ar_trigger_finish'].includes(i.customId)
       }).catch(() => null);
 
       if (!button) {
         return interaction.editReply({ content: '⏱️ Auto responder setup expired after 10 minutes.', components: [] });
       }
 
-      if (button.customId === 'ar_trigger_nope') {
-        await button.update({ content: `✅ Trigger collection done (${triggers.length}).`, components: [] });
+      if (button.customId === 'ar_trigger_finish') {
+        if (!triggers.length) {
+          await button.reply({ content: '❌ Add at least one trigger before finishing.', flags: MessageFlags.Ephemeral }).catch(() => null);
+          continue;
+        }
+        await button.update({ content: `✅ Trigger collection done (${triggers.length}).`, components: [] }).catch(() => null);
         break;
       }
 
@@ -314,7 +318,7 @@ module.exports = {
       if (!triggers.some(t => t.word === created.word && t.mode === created.mode)) triggers.push(created);
       if (triggers.length >= MAX_TRIGGERS) break;
 
-      await msg.edit({ content: `Current triggers: ${triggers.map(t => `\`${t.mode}:${t.word}\``).join(', ') || 'none'}. Add more?`, components: [triggerButtons(true)] });
+      await msg.edit({ content: `Current triggers (${triggers.length}/${MAX_TRIGGERS}): ${triggers.map(t => `\`${t.mode}:${t.word}\``).join(', ') || 'none'}. Add another trigger or click **Finish**.`, components: [triggerButtons(true)] }).catch(() => null);
     }
 
     if (!triggers.length) {

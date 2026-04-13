@@ -163,13 +163,15 @@ async function handleMonitor(interaction) {
 
   let currentPlayers = 0;
   let maxPlayers = 0;
+  let lastOnline = 0;
 
   try {
     const stats = await fetchMinecraftServerStats(ip);
     currentPlayers = stats.currentPlayers;
     maxPlayers = stats.maxPlayers;
+    lastOnline = stats.online ? 1 : 0;
   } catch {
-    return interaction.editReply('❌ Could not reach that Minecraft server right now.');
+    lastOnline = 0;
   }
 
   const existingRows = await query(
@@ -190,7 +192,7 @@ async function handleMonitor(interaction) {
      (guild_id, server_ip, display_ip, display_player_count, display_max_players, display_player_record,
       ip_channel_id, players_channel_id, record_channel_id, ip_emoji, players_emoji, record_emoji,
       current_players, max_players, player_record, last_online, last_checked_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, 1, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?)`,
     [
       guild.id,
       ip,
@@ -201,6 +203,7 @@ async function handleMonitor(interaction) {
       currentPlayers,
       maxPlayers,
       currentPlayers,
+      lastOnline,
       now,
       now
     ]

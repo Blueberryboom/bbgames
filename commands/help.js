@@ -6,103 +6,34 @@ const {
   ComponentType
 } = require('discord.js');
 
-
-const HELP_MODULES = {
-  counting: {
-    label: 'Counting',
-    summary: 'Set up a counting channel, track progress, and manage resets/leaderboards.',
-    commands: [
-      ['/count channel', 'Set the counting channel.'],
-      ['/count current', 'Show the current number.'],
-      ['/count leaderboard', 'Show top counting users.'],
-      ['/count set', 'Set current count value.'],
-      ['/count reset', 'Reset counting progress.'],
-      ['/count removechannel', 'Disable counting channel.']
-    ]
-  },
-  giveaways: {
-    label: 'Giveaways',
-    summary: 'Create and manage giveaways, including role requirements and entries.',
-    commands: [
-      ['/giveaway start', 'Create a new giveaway.'],
-      ['/giveaway reroll', 'Pick a new winner.'],
-      ['/giveaway end', 'End a giveaway now.'],
-      ['/giveaway list', 'List active giveaways.']
-    ]
-  },
-  fun: {
-    label: 'Fun',
-    summary: 'Lightweight mini-games and random fun commands for your server.',
-    commands: [
-      ['/coinflip', 'Flip a coin.'],
-      ['/dadjoke', 'Get a random dad joke.'],
-      ['/dice', 'Roll dice with optional sides.'],
-      ['/rps', 'Rock-paper-scissors challenge.'],
-      ['/tictactoe', 'Start a tic-tac-toe game.']
-    ]
-  },
-  youtube: {
-    label: 'YouTube',
-    summary: 'Post automatic upload notifications for selected YouTube channels.',
-    commands: [
-      ['/youtube add', 'Add a YouTube notification feed.'],
-      ['/youtube remove', 'Remove a configured feed.'],
-      ['/youtube list', 'Show all configured feeds.']
-    ]
-  },
-  tags: {
-    label: 'Tags',
-    summary: 'Save reusable responses and send them quickly with slash commands.',
-    commands: [
-      ['/tag create', 'Create a new tag.'],
-      ['/tag send', 'Send an existing tag.'],
-      ['/tag edit', 'Edit a tag content/title.'],
-      ['/tag delete', 'Delete a tag.'],
-      ['/tags usage', 'Show top used tags.']
-    ]
-  },
-  onewordstory: {
-    label: 'One Word Story',
-    summary: 'Build collaborative stories one word at a time in a dedicated channel.',
-    commands: [
-      ['/onewordstory channel', 'Set the story channel.'],
-      ['/onewordstory delay', 'Set per-user word delay.'],
-      ['/onewordstory disable', 'Disable story mode.'],
-      ['/onewordstory view', 'View current story text.'],
-      ['/onewordstory leaderboard', 'Show top contributors.'],
-      ['/onewordstory restart', 'Restart the story.']
-    ]
-  },
-  misc: {
-    label: 'Misc',
-    summary: 'General utility, moderation, ticket, and configuration commands.',
-    commands: [
-      ['/help', 'Open this help menu.'],
-      ['/about', 'Show bot information.'],
-      ['/status', 'Show bot/server status.'],
-      ['/support', 'Get support links.'],
-      ['/ticket', 'Ticket panel/config commands.'],
-      ['/ticket add_user', 'Add a user to the current ticket.'],
-      ['/ticket remove_user', 'Remove a user from the current ticket.'],
-      ['/tickets', 'Ticket type/automation management.'],
-      ['/logs', 'Set log channel and events.'],
-      ['/config', 'Configure server bot settings.'],
-      ['/minecraft status', 'Check a Minecraft server status.'],
-      ['/minecraft monitor', 'Create or overwrite a Minecraft monitor setup.'],
-      ['/minecraft monitor_channel_emojis', 'Set emoji prefixes for monitor channels.'],
-      ['/minecraft stop_monitoring', 'Disable Minecraft monitor and delete its channels.'],
-      ['/variableslowmode start', 'Enable variable slowmode for a channel.'],
-      ['/auto_responder create', 'Create interactive auto responders.'],
-      ['/auto_responder list', 'List configured auto responders.'],
-      ['/auto_responder edit', 'Edit an auto responder reply.'],
-      ['/auto_responder disable', 'Disable a responder for a duration.'],
-      ['/auto_responder delete', 'Delete a configured auto responder.'],
-      ['/bumping channel', 'Set your bumping channel.'],
-      ['/bumping advertisement', 'Set your bumping advertisement text.'],
-      ['/bumping disable', 'Disable bumping and clear data.'],
-      ['/bump', 'Broadcast your server advertisement.']
-    ]
-  }
+const HELP_FEATURES = {
+  about: { label: 'About', summary: 'View bot details and project information.', commands: [['/about', 'Show bot information and links.']] },
+  achievements: { label: 'Achievements', summary: 'Track and view user achievement progress.', commands: [['/achievements', 'View achievement progress and rewards.']] },
+  afk: { label: 'AFK', summary: 'Set and manage your AFK status.', commands: [['/afk', 'Set or clear your AFK status.'], ['/afk_leaderboard', 'Show top AFK users.']] },
+  automsg: { label: 'Auto Message', summary: 'Schedule automatic recurring messages.', commands: [['/automsg', 'Configure recurring auto messages.']] },
+  autoresponder: { label: 'Auto Responder', summary: 'Create trigger-based automatic replies.', commands: [['/auto_responder create', 'Create an auto responder.'], ['/auto_responder list', 'List responders.'], ['/auto_responder edit', 'Edit responder output.'], ['/auto_responder disable', 'Disable a responder temporarily.'], ['/auto_responder delete', 'Delete a responder.']] },
+  birthdays: { label: 'Birthdays', summary: 'Configure birthday tracking and announcements.', commands: [['/birthday', 'Manage birthday settings.']] },
+  boosting: { label: 'Boost Messages', summary: 'Configure boost thank-you and leave messages.', commands: [['/boostmsg', 'Configure boost messages.'], ['/leave', 'Configure leave messages.'], ['/welcome', 'Configure welcome messages.']] },
+  bumping: { label: 'Bumping', summary: 'Advertise your server and receive server ads from others.', commands: [['/bumping channel', 'Set bump destination channel.'], ['/bumping advertisement', 'Set ad text.'], ['/bumping disable', 'Disable bumping.'], ['/bump', 'Send your ad to other servers.']] },
+  config: { label: 'Config', summary: 'Configure manager roles and system settings.', commands: [['/config', 'Open server configuration options.'], ['/logs', 'Configure logging options.']] },
+  counting: { label: 'Counting', summary: 'Run counting game channels and stats.', commands: [['/count channel', 'Set counting channel.'], ['/count current', 'Show current number.'], ['/count leaderboard', 'Show leaderboard.'], ['/count reset', 'Reset counting.']] },
+  fun: { label: 'Fun & Games', summary: 'Play mini-games and random fun commands.', commands: [['/coinflip', 'Flip a coin.'], ['/dadjoke', 'Get a dad joke.'], ['/dice', 'Roll dice.'], ['/rps', 'Play rock paper scissors.'], ['/tictactoe', 'Play tic tac toe.']] },
+  giveaways: { label: 'Giveaways', summary: 'Run and manage giveaways.', commands: [['/giveaway start', 'Start a giveaway.'], ['/giveaway list', 'List giveaways.'], ['/giveaway reroll', 'Reroll winner.'], ['/giveaway end', 'End giveaway now.']] },
+  help: { label: 'Help', summary: 'Browse all BBGames features and commands.', commands: [['/help', 'Open this help system.'], ['/support', 'Get support links.'], ['/donate', 'View premium perks.']] },
+  leveling: { label: 'Leveling', summary: 'Set up leveling system and rewards.', commands: [['/leveling', 'Configure leveling.'], ['/level', 'Check level/xp.']] },
+  minecraft: { label: 'Minecraft', summary: 'Check status and monitor Minecraft servers.', commands: [['/minecraft status', 'Check server status.'], ['/minecraft monitor', 'Create a live monitor.'], ['/minecraft monitor_channel_emojis', 'Set channel prefixes.'], ['/minecraft stop_monitoring', 'Stop monitoring.']] },
+  miscmod: { label: 'Moderation Utilities', summary: 'Moderation and utility admin tools.', commands: [['/purge', 'Bulk delete messages.'], ['/sticky', 'Set sticky messages.'], ['/starboard', 'Configure starboard.'], ['/suggestions', 'Configure suggestions system.']] },
+  onewordstory: { label: 'One Word Story', summary: 'Collaborative one-word story game.', commands: [['/onewordstory channel', 'Set story channel.'], ['/onewordstory delay', 'Set word delay.'], ['/onewordstory view', 'View current story.'], ['/onewordstory leaderboard', 'Top contributors.'], ['/onewordstory restart', 'Restart story.']] },
+  owner: { label: 'Owner', summary: 'Owner-only management commands.', commands: [['/owner', 'Owner diagnostics and controls.']] },
+  premium: { label: 'Premium', summary: 'Premium tiers and management.', commands: [['/premium', 'View/manage premium status.']] },
+  say: { label: 'Say', summary: 'Send custom bot messages.', commands: [['/say', 'Send a custom bot message.']] },
+  servertag: { label: 'Server Tag', summary: 'Manage custom server tags and rewards.', commands: [['/servertag', 'Configure server tag system.']] },
+  status: { label: 'Status', summary: 'Show bot/service status.', commands: [['/status', 'Show status details.']] },
+  suggestions: { label: 'Suggestions', summary: 'Suggestion channels and vote workflows.', commands: [['/suggest', 'Create suggestion.'], ['/suggestions', 'Manage suggestion system.']] },
+  tags: { label: 'Tags', summary: 'Reusable server snippets via slash commands.', commands: [['/tag create', 'Create a tag.'], ['/tag send', 'Send a tag.'], ['/tag edit', 'Edit a tag.'], ['/tag delete', 'Delete a tag.'], ['/tags usage', 'View tag usage stats.']] },
+  tickets: { label: 'Tickets', summary: 'Ticket panel and support workflows.', commands: [['/ticket', 'Open or manage tickets.'], ['/tickets', 'Configure ticket types and automations.']] },
+  variableslowmode: { label: 'Variable Slowmode', summary: 'Adaptive slowmode based on activity.', commands: [['/variableslowmode start', 'Enable adaptive slowmode.'], ['/variableslowmode stop', 'Disable adaptive slowmode.']] },
+  youtube: { label: 'YouTube', summary: 'Publish upload notifications automatically.', commands: [['/youtube add', 'Add channel feed.'], ['/youtube remove', 'Remove feed.'], ['/youtube list', 'List feeds.']] }
 };
 
 function buildCommandTable(rows) {
@@ -114,38 +45,55 @@ function buildCommandTable(rows) {
 }
 
 function buildWelcomeEmbed() {
+  const featureLines = Object.values(HELP_FEATURES)
+    .map(feature => `• ${feature.label}`)
+    .join('\n');
+
   return new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle('🧀 Welcome to BBGames')
     .setDescription(
-      'BBGames is a powerful bot build to replace multiple discord bots with just a single one!\n' +
-      "It is insanely customizable and isn't just for games, somehow it became a utility bot too!\n" +
-      "This project began as a private custom bot for Blueberryboom's discord server, so if you could donate to support the bot's development and hosting that would help a ton! Use **/donate** to checkout the amazing perks that you can get :)\n\n" +
-      '**Features**\n' +
-      '• Counting — **OG**\n' +
-      '• Giveaways — **OG**\n' +
-      '• Variable Slowmode — **UNIQUE**\n' +
-      '• Tickets — **POWERFUL**\n' +
-      '• One word story — **POPULAR 🔥**\n' +
-      '• Minecraft monitoring — **UNIQUE 👀**\n' +
-      '• Premium bot — **7 DAY TRIAL**\n' +
-      '• Bumping — **NEW**\n\n' +
-      'Use the dropdown below to view feature details and commands.'
+      'BBGames is an all-in-one utility and game bot with a lot of modular systems.\n\n' +
+      '**All Features**\n' +
+      `${featureLines}\n\n` +
+      'Use the dropdown menus below to view detailed commands for every feature.'
     );
 }
 
-function buildModuleEmbed(moduleData) {
+function buildFeatureEmbed(feature) {
   return new EmbedBuilder()
     .setColor(0x5865F2)
-    .setTitle(`Help • ${moduleData.label}`)
-    .setDescription(moduleData.summary)
+    .setTitle(`Help • ${feature.label}`)
+    .setDescription(feature.summary)
     .addFields(
-      { name: 'Commands', value: buildCommandTable(moduleData.commands) },
+      { name: 'Commands', value: buildCommandTable(feature.commands) },
       {
-        name: 'Want to support us and help update the bot more?',
-        value: 'Get BBGames Premium by visiting https://buymeacoffee.com/blueberryboom'
+        name: 'Support BBGames',
+        value: 'Get BBGames Premium: https://buymeacoffee.com/blueberryboom'
       }
     );
+}
+
+function buildDropdownRows(interactionId) {
+  const options = Object.entries(HELP_FEATURES).map(([value, feature]) => ({
+    label: feature.label.slice(0, 100),
+    value
+  }));
+
+  const rows = [];
+  for (let index = 0; index < options.length; index += 25) {
+    const chunk = options.slice(index, index + 25);
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(`help_feature:${interactionId}:${Math.floor(index / 25)}`)
+          .setPlaceholder('Select a feature')
+          .addOptions(chunk)
+      )
+    );
+  }
+
+  return rows;
 }
 
 module.exports = {
@@ -154,23 +102,8 @@ module.exports = {
     .setDescription('Show help categories and command list'),
 
   async execute(interaction) {
-    const menuCustomId = `help_category:${interaction.id}`;
-    const dropdown = new ActionRowBuilder().addComponents(
-      new StringSelectMenuBuilder()
-        .setCustomId(menuCustomId)
-        .setPlaceholder('Select a module')
-        .addOptions(
-          { label: 'Counting', value: 'counting' },
-          { label: 'Giveaways', value: 'giveaways' },
-          { label: 'Fun', value: 'fun' },
-          { label: 'YouTube', value: 'youtube' },
-          { label: 'Tags', value: 'tags' },
-          { label: 'One Word Story', value: 'onewordstory' },
-          { label: 'Misc', value: 'misc' }
-        )
-    );
-
-    await interaction.reply({ embeds: [buildWelcomeEmbed()], components: [dropdown] });
+    const rows = buildDropdownRows(interaction.id);
+    await interaction.reply({ embeds: [buildWelcomeEmbed()], components: rows });
 
     const message = await interaction.fetchReply().catch(() => null);
     if (!message) return;
@@ -178,7 +111,7 @@ module.exports = {
     const collector = message.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
       time: 5 * 60 * 1000,
-      filter: menuInteraction => menuInteraction.customId === menuCustomId
+      filter: menuInteraction => menuInteraction.customId.startsWith(`help_feature:${interaction.id}:`)
     });
 
     collector.on('collect', async menuInteraction => {
@@ -191,25 +124,25 @@ module.exports = {
       }
 
       const key = menuInteraction.values[0];
-      const moduleData = HELP_MODULES[key];
+      const feature = HELP_FEATURES[key];
 
-      if (!moduleData) {
-        await menuInteraction.reply({ content: '❌ Unknown help module.', ephemeral: true }).catch(() => null);
+      if (!feature) {
+        await menuInteraction.reply({ content: '❌ Unknown help feature.', ephemeral: true }).catch(() => null);
         return;
       }
 
       await menuInteraction.update({
-        embeds: [buildModuleEmbed(moduleData)],
-        components: [dropdown]
+        embeds: [buildFeatureEmbed(feature)],
+        components: rows
       }).catch(() => null);
     });
 
     collector.on('end', async () => {
-      const disabledDropdown = new ActionRowBuilder().addComponents(
-        StringSelectMenuBuilder.from(dropdown.components[0]).setDisabled(true)
-      );
+      const disabledRows = rows.map(row => new ActionRowBuilder().addComponents(
+        StringSelectMenuBuilder.from(row.components[0]).setDisabled(true)
+      ));
 
-      await interaction.editReply({ components: [disabledDropdown] }).catch(() => null);
+      await interaction.editReply({ components: disabledRows }).catch(() => null);
     });
   }
 };
