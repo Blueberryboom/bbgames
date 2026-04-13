@@ -26,7 +26,7 @@ async function fetchMinecraftServerStats(serverIp) {
 function sanitizeEmojiPrefix(raw) {
   const trimmed = String(raw || '').trim();
   if (!trimmed) return '';
-  return `${trimmed} `.slice(0, 20);
+  return `${trimmed} `;
 }
 
 function buildIpChannelName(serverIp, emojiPrefix = '') {
@@ -132,7 +132,11 @@ async function syncGuildMonitor(client, guildId) {
   try {
     stats = await fetchMinecraftServerStats(monitorConfig.server_ip);
   } catch {
-    return;
+    stats = {
+      online: false,
+      currentPlayers: 0,
+      maxPlayers: 0
+    };
   }
 
   const playerRecord = Math.max(Number(monitorConfig.player_record || 0), stats.currentPlayers);

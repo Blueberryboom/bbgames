@@ -357,17 +357,23 @@ module.exports = async (interaction) => {
 
     if (interaction.customId.startsWith('bump_report:')) {
       const sourceGuildId = interaction.customId.split(':')[1];
-      await interaction.reply({ content: '✅ Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: '✅ Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral }).catch(() => null);
 
       const app = await interaction.client.application.fetch().catch(() => null);
       const owner = app?.owner;
-      const ownerId = owner?.id || owner?.ownerId || process.env.BOT_OWNER_ID;
+      const teamOwnerId = owner?.members?.find?.(member => member?.membershipState === 2)?.id;
+      const ownerId = owner?.id || owner?.ownerId || teamOwnerId || process.env.BOT_OWNER_ID;
       if (!ownerId) return;
 
       const ownerUser = await interaction.client.users.fetch(ownerId).catch(() => null);
       if (!ownerUser) return;
 
-      const info = `Report from guild **${interaction.guild?.name || interaction.guildId}** (${interaction.guildId})\nSource guild: **${sourceGuildId}**`;
+      const info = [
+        '🚨 **Bump AD Report**',
+        `Reporter: ${interaction.user.tag} (${interaction.user.id})`,
+        `Reported from guild: **${interaction.guild?.name || interaction.guildId}** (${interaction.guildId})`,
+        `Source guild advertised: **${sourceGuildId}**`
+      ].join('\n');
       await ownerUser.send({ content: info }).catch(() => null);
       return;
     }

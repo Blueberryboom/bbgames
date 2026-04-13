@@ -15,6 +15,7 @@ const BLOCKED_WORDS = ['gay', 'lesbian', 'fag', 'faggot', 'nigger', 'nigga', 're
 function hasBlockedText(text) {
   const lower = text.toLowerCase();
   if (/(https?:\/\/|www\.|discord\.gg\/|discord\.com\/invite\/)/i.test(lower)) return true;
+  if (/@everyone|@here|<@!?\d+>|<@&\d+>/.test(text)) return true;
   return BLOCKED_WORDS.some(word => lower.includes(word));
 }
 
@@ -65,7 +66,7 @@ module.exports = {
     const modalId = `bumping_ad:${interaction.id}`;
     const modal = new ModalBuilder().setCustomId(modalId).setTitle('Configure Advertisement');
     modal.addComponents(new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('ad').setLabel('Advertisement (max 10 lines, no links)').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800)
+      new TextInputBuilder().setCustomId('ad').setLabel('Advertisement (max 10 lines, no links/mentions)').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800)
     ));
 
     await interaction.showModal(modal);
@@ -80,7 +81,7 @@ module.exports = {
       return submit.reply({ content: '❌ Advertisement cannot exceed 10 lines.', flags: MessageFlags.Ephemeral });
     }
     if (hasBlockedText(ad)) {
-      return submit.reply({ content: '❌ Advertisement contains blocked content (links/offensive text).', flags: MessageFlags.Ephemeral });
+      return submit.reply({ content: '❌ Advertisement contains blocked content (links, mentions, or offensive text).', flags: MessageFlags.Ephemeral });
     }
 
     await query(
