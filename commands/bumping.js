@@ -60,6 +60,7 @@ module.exports = {
       await query('DELETE FROM bumping_configs WHERE guild_id = ?', [interaction.guildId]);
       await query('DELETE FROM bumping_usage WHERE guild_id = ?', [interaction.guildId]);
       await query('DELETE FROM bumping_channel_usage WHERE guild_id = ?', [interaction.guildId]);
+      await query('DELETE FROM bumping_restrictions WHERE guild_id = ?', [interaction.guildId]);
       return interaction.reply({ content: '✅ Bumping module disabled and data removed.', flags: MessageFlags.Ephemeral });
     }
 

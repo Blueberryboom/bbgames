@@ -1,4 +1,5 @@
 const { ChannelType, PermissionFlagsBits } = require('discord.js');
+const https = require('https');
 const { query } = require('../database');
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
@@ -6,12 +7,7 @@ let monitorInterval = null;
 const runningSweepClients = new WeakSet();
 
 async function fetchMinecraftServerStats(serverIp) {
-  const response = await fetch(`https://api.mcsrvstat.us/3/${encodeURIComponent(serverIp)}`);
-  if (!response.ok) {
-    throw new Error(`minecraft_api_http_${response.status}`);
-  }
-
-  const payload = await response.json();
+  const payload = await fetchJson(`https://api.mcsrvstat.us/3/${encodeURIComponent(serverIp)}`);
   const online = Boolean(payload.online);
   const currentPlayers = Number(payload.players?.online || 0);
   const maxPlayers = Number(payload.players?.max || 0);
@@ -21,6 +17,38 @@ async function fetchMinecraftServerStats(serverIp) {
     currentPlayers,
     maxPlayers
   };
+}
+
+function fetchJson(url) {
+  if (typeof fetch === 'function') {
+    return fetch(url).then(async response => {
+      if (!response.ok) {
+        throw new Error(`minecraft_api_http_${response.status}`);
+      }
+      return response.json();
+    });
+  }
+
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: { 'User-Agent': 'BBGamesBot/1.0' } }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(`minecraft_api_http_${res.statusCode}`));
+          return;
+        }
+        try {
+          resolve(JSON.parse(body));
+        } catch {
+          reject(new Error('minecraft_api_invalid_json'));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
 }
 
 function sanitizeEmojiPrefix(raw) {
