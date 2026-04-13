@@ -7,8 +7,10 @@ const cache = new Map();
 const lastSendAt = new Map();
 
 function parseJson(raw, fallback) {
+  if (raw == null) return fallback;
+  if (typeof raw === 'object') return raw;
   try {
-    return raw ? JSON.parse(raw) : fallback;
+    return JSON.parse(raw);
   } catch {
     return fallback;
   }

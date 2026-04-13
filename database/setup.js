@@ -265,15 +265,31 @@ module.exports = async () => {
       CREATE TABLE IF NOT EXISTS bumping_usage (
         guild_id VARCHAR(32) PRIMARY KEY,
         last_bump_at BIGINT NULL,
+        bump_count BIGINT NOT NULL DEFAULT 0,
         joined_count BIGINT NOT NULL DEFAULT 0,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
       ) ENGINE=InnoDB;
     `);
 
     await pool.query(`
+      ALTER TABLE bumping_usage
+      ADD COLUMN IF NOT EXISTS bump_count BIGINT NOT NULL DEFAULT 0
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS bumping_channel_usage (
         guild_id VARCHAR(32) PRIMARY KEY,
         last_received_at BIGINT NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bumping_restrictions (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        timeout_until BIGINT NULL,
+        reason TEXT NULL,
+        updated_by VARCHAR(32) NULL,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
       ) ENGINE=InnoDB;
     `);

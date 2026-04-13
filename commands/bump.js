@@ -43,6 +43,17 @@ module.exports = {
   async execute(interaction) {
     const guild = interaction.guild;
     const isPremium = await guildHasPremiumPerks(interaction.client, interaction.guildId);
+    const restrictionRows = await query(
+      'SELECT timeout_until FROM bumping_restrictions WHERE guild_id = ? LIMIT 1',
+      [interaction.guildId]
+    );
+    const timeoutUntil = Number(restrictionRows[0]?.timeout_until || 0);
+    if (timeoutUntil > Date.now()) {
+      return interaction.reply({
+        content: `❌ This server is temporarily blocked from bumping until <t:${Math.floor(timeoutUntil / 1000)}:F>.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
 
     const memberCount = guild.members.cache.filter(m => !m.user.bot).size || (await guild.members.fetch()).filter(m => !m.user.bot).size;
     if (memberCount < 20) {
@@ -57,7 +68,7 @@ module.exports = {
       }
     }
 
-    const usageRows = await query('SELECT last_bump_at, joined_count FROM bumping_usage WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const usageRows = await query('SELECT last_bump_at, joined_count, bump_count FROM bumping_usage WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const last = Number(usageRows[0]?.last_bump_at || 0);
     const remaining = (last + USER_BUMP_COOLDOWN_MS) - Date.now();
     if (remaining > 0) {
@@ -89,6 +100,7 @@ module.exports = {
 
     const randomTargets = shuffle(eligibleRows).slice(0, 50);
 
+    const nextBumpNumber = Number(usageRows[0]?.bump_count || 0) + 1;
     let posted = 0;
     for (const target of randomTargets) {
       const cooldownRows = await query('SELECT last_received_at FROM bumping_channel_usage WHERE guild_id = ? LIMIT 1', [target.guild_id]);
@@ -104,17 +116,32 @@ module.exports = {
       if (!targetChannel?.isTextBased()) continue;
 
       const sanitizedAd = sanitizeAdvertisement(config?.advertisement || 'A premium server bump.');
-      const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
-        new ButtonBuilder().setCustomId(`bump_report:${guild.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger)
-      );
-
       const sent = await targetChannel.send({
-        content: `📣 **${guild.name}**\n${sanitizedAd}\n\nInvite: https://discord.gg/${invite.code}`,
-        components: [row],
+        content: `${sanitizedAd}\n\nInvite: https://discord.gg/${invite.code}`,
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle(`AD from ${guild.name}`)
+            .setDescription('Loading ad count...')
+        ],
         allowedMentions: { parse: [] }
       }).catch(() => null);
       if (!sent) continue;
+
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
+        new ButtonBuilder().setCustomId(`bump_report:${guild.id}:${sent.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger)
+      );
+      await sent.edit({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle(`AD from ${guild.name}`)
+            .setDescription(`This is the **#${nextBumpNumber}** AD sent by this server.`)
+        ],
+        components: [actionRow]
+      }).catch(() => null);
+
       posted += 1;
       await query(
         `INSERT INTO bumping_channel_usage (guild_id, last_received_at, updated_at)
@@ -125,10 +152,13 @@ module.exports = {
     }
 
     await query(
-      `INSERT INTO bumping_usage (guild_id, last_bump_at, updated_at)
-       VALUES (?, ?, ?)
-       ON DUPLICATE KEY UPDATE last_bump_at = VALUES(last_bump_at), updated_at = VALUES(updated_at)`,
-      [interaction.guildId, Date.now(), Date.now()]
+      `INSERT INTO bumping_usage (guild_id, last_bump_at, bump_count, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         last_bump_at = VALUES(last_bump_at),
+         bump_count = bump_count + 1,
+         updated_at = VALUES(updated_at)`,
+      [interaction.guildId, Date.now(), 1, Date.now()]
     );
 
     const joinedCount = Number(usageRows[0]?.joined_count || 0);

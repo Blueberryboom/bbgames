@@ -18,6 +18,16 @@ const { invalidateGuild } = require('../utils/autoResponderManager');
 const MAX_TRIGGERS = 10;
 const SETUP_TIMEOUT_MS = 10 * 60 * 1000;
 
+function parseJsonSafe(raw, fallback) {
+  if (raw == null) return fallback;
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
 function triggerButtons(includeFinish) {
   const buttons = [
     new ButtonBuilder().setCustomId('ar_trigger_wildcard').setLabel('Wildcard').setStyle(ButtonStyle.Primary),
@@ -208,8 +218,9 @@ module.exports = {
       }
 
       const lines = rows.map((row, i) => {
-        const triggers = JSON.parse(row.triggers_json || '[]');
-        const channelScope = row.channel_whitelist_json ? `${JSON.parse(row.channel_whitelist_json || '[]').length} whitelisted channel(s)` : 'All channels';
+        const triggers = parseJsonSafe(row.triggers_json, []);
+        const whitelist = parseJsonSafe(row.channel_whitelist_json, []);
+        const channelScope = row.channel_whitelist_json ? `${Array.isArray(whitelist) ? whitelist.length : 0} whitelisted channel(s)` : 'All channels';
         const disabled = row.disabled_until && Number(row.disabled_until) > Date.now() ? `Disabled until <t:${Math.floor(Number(row.disabled_until) / 1000)}:R>` : 'Enabled';
         return `${i + 1}. **${row.name}** • ${triggers.length} trigger(s) • ${row.response_type} • ${channelScope} • ${disabled}`;
       });

@@ -357,21 +357,55 @@ module.exports = async (interaction) => {
 
 
     if (interaction.customId.startsWith('bump_report:')) {
-      const sourceGuildId = interaction.customId.split(':')[1];
-      await interaction.reply({ content: '✅ Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral }).catch(() => null);
+      const [, sourceGuildId] = interaction.customId.split(':');
+      const modal = new ModalBuilder()
+        .setCustomId(`bump_report_reason:${sourceGuildId}`)
+        .setTitle('Report Server AD');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('reason')
+            .setLabel('Why are you reporting this ad?')
+            .setStyle(TextInputStyle.Paragraph)
+            .setMinLength(5)
+            .setMaxLength(1000)
+            .setRequired(true)
+        )
+      );
 
-      const reportLines = [
-        '🚨 **Bump AD Report**',
-        `Reporter: ${interaction.user.tag} (${interaction.user.id})`,
-        `Reported from guild: **${interaction.guild?.name || interaction.guildId}** (${interaction.guildId})`,
-        `Source guild advertised: **${sourceGuildId}**`,
-        `Message jump: ${interaction.message?.url || 'Unavailable'}`
-      ];
+      await interaction.showModal(modal);
+      const submit = await interaction.awaitModalSubmit({
+        time: 10 * 60 * 1000,
+        filter: m => m.customId === `bump_report_reason:${sourceGuildId}` && m.user.id === interaction.user.id
+      }).catch(() => null);
+      if (!submit) return;
+
+      const reason = submit.fields.getTextInputValue('reason').trim();
+      await submit.reply({ content: '✅ Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral }).catch(() => null);
+
+      const sourceGuild = await interaction.client.guilds.fetch(sourceGuildId).catch(() => null);
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`bump_report_action:blacklist:${sourceGuildId}`).setLabel('Blacklist Server').setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`bump_report_action:timeout:${sourceGuildId}`).setLabel('Timeout 30 Days').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`bump_report_action:ignore:${sourceGuildId}`).setLabel('Ignore').setStyle(ButtonStyle.Success)
+      );
+      const reportEmbed = new EmbedBuilder()
+        .setColor(0xED4245)
+        .setTitle('🚨 Bump AD Report')
+        .addFields(
+          { name: 'Reporter', value: `${interaction.user.tag} (${interaction.user.id})` },
+          { name: 'Reported from server', value: `${interaction.guild?.name || 'Unknown'} (${interaction.guildId || 'Unknown'})` },
+          { name: 'Advertised server', value: `${sourceGuild?.name || 'Unknown'} (${sourceGuildId})` },
+          { name: 'Reason', value: reason.slice(0, 1024) },
+          { name: 'Exact message', value: String(interaction.message?.content || '(no message content)').slice(0, 1024) },
+          { name: 'Jump URL', value: interaction.message?.url || 'Unavailable' }
+        )
+        .setTimestamp();
 
       if (BUMP_REPORT_CHANNEL_ID && BUMP_REPORT_CHANNEL_ID !== 'PASTE_BUMP_REPORT_CHANNEL_ID_HERE') {
         const reportChannel = await interaction.client.channels.fetch(BUMP_REPORT_CHANNEL_ID).catch(() => null);
         if (reportChannel?.isTextBased()) {
-          await reportChannel.send({ content: reportLines.join('\n') }).catch(() => null);
+          await reportChannel.send({ embeds: [reportEmbed], components: [actionRow] }).catch(() => null);
           return;
         }
       }
@@ -384,8 +418,40 @@ module.exports = async (interaction) => {
 
       const ownerUser = await interaction.client.users.fetch(ownerId).catch(() => null);
       if (!ownerUser) return;
-      await ownerUser.send({ content: reportLines.join('\n') }).catch(() => null);
+      await ownerUser.send({ embeds: [reportEmbed] }).catch(() => null);
       return;
+    }
+
+    if (interaction.customId.startsWith('bump_report_action:')) {
+      const [, action, sourceGuildId] = interaction.customId.split(':');
+      if (!await isBotOwnerInteraction(interaction)) {
+        return interaction.reply({ content: '❌ Only the bot owner can use these report actions.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (action === 'blacklist') {
+        await query(
+          `REPLACE INTO blacklist (guild_id, added_at)
+           VALUES (?, ?)`,
+          [sourceGuildId, Date.now()]
+        );
+        await query('DELETE FROM bumping_configs WHERE guild_id = ?', [sourceGuildId]);
+        await query('DELETE FROM bumping_restrictions WHERE guild_id = ?', [sourceGuildId]);
+        return interaction.update({ content: `✅ Blacklisted guild ${sourceGuildId} from the bot.`, components: [] });
+      }
+
+      if (action === 'timeout') {
+        const timeoutUntil = Date.now() + (30 * 24 * 60 * 60 * 1000);
+        await query(
+          `REPLACE INTO bumping_restrictions (guild_id, timeout_until, reason, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [sourceGuildId, timeoutUntil, 'Bump report action', interaction.user.id, Date.now()]
+        );
+        return interaction.update({ content: `✅ Applied 30-day bump timeout to guild ${sourceGuildId} (until <t:${Math.floor(timeoutUntil / 1000)}:F>).`, components: [] });
+      }
+
+      if (action === 'ignore') {
+        return interaction.update({ content: `✅ Ignored report for guild ${sourceGuildId}.`, components: [] });
+      }
     }
 
     const parts = interaction.customId.split('_');
@@ -522,6 +588,17 @@ function getEntryCount(member, extraEntriesRaw) {
   }
 
   return 1;
+}
+
+async function isBotOwnerInteraction(interaction) {
+  const app = await interaction.client.application.fetch().catch(() => null);
+  const owner = app?.owner;
+  const ownerId = owner?.id || owner?.ownerId || process.env.BOT_OWNER_ID;
+  if (!ownerId) return false;
+
+  if (interaction.user.id === ownerId) return true;
+  const teamMemberIds = owner?.members?.map?.(member => member?.id).filter(Boolean) || [];
+  return teamMemberIds.includes(interaction.user.id);
 }
 
 async function handleTicketPanelSelect(interaction) {
