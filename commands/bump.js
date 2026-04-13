@@ -15,7 +15,7 @@ const STANDARD_RECEIVE_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const PREMIUM_RECEIVE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 
 // Set this to the channel ID where bump reports should be sent.
-const BUMP_REPORT_CHANNEL_ID = 'PASTE_BUMP_REPORT_CHANNEL_ID_HERE';
+const BUMP_REPORT_CHANNEL_ID = '1493358474174664885';
 
 function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
