@@ -78,12 +78,19 @@ function buildVoiceOverwrite(guild) {
   };
 }
 
+function formatDiscordError(error) {
+  if (!error) return 'unknown_error';
+  return error.code ? `${error.code}: ${error.message}` : (error.message || String(error));
+}
+
 async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
   if (!desiredName) {
     if (existingChannelId) {
       const existing = guild.channels.cache.get(existingChannelId)
         || await guild.channels.fetch(existingChannelId).catch(() => null);
-      if (existing) await existing.delete('Minecraft monitor channel disabled').catch(() => null);
+      if (existing) {
+        await existing.delete('Minecraft monitor channel disabled');
+      }
     }
     return null;
   }
@@ -102,9 +109,7 @@ async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
       updates.permissionOverwrites = [buildVoiceOverwrite(guild)];
     }
 
-    if (Object.keys(updates).length) {
-      await existing.edit(updates).catch(() => null);
-    }
+    if (Object.keys(updates).length) await existing.edit(updates);
 
     return existing.id;
   }
@@ -131,6 +136,11 @@ async function applyTopPositions(guild, channelIds) {
 }
 
 async function deleteMonitorChannels(guild, monitorConfig) {
+  const result = {
+    deleted: [],
+    missing: [],
+    failed: []
+  };
   const channelIds = [
     monitorConfig?.ip_channel_id,
     monitorConfig?.players_channel_id,
@@ -141,9 +151,23 @@ async function deleteMonitorChannels(guild, monitorConfig) {
     const channel = guild.channels.cache.get(channelId)
       || await guild.channels.fetch(channelId).catch(() => null);
 
-    if (!channel) continue;
-    await channel.delete('Minecraft monitor stopped').catch(() => null);
+    if (!channel) {
+      result.missing.push(channelId);
+      continue;
+    }
+
+    try {
+      await channel.delete('Minecraft monitor stopped');
+      result.deleted.push(channelId);
+    } catch (error) {
+      result.failed.push({
+        channelId,
+        reason: formatDiscordError(error)
+      });
+    }
   }
+
+  return result;
 }
 
 async function syncGuildMonitor(client, guildId) {
@@ -184,9 +208,27 @@ async function syncGuildMonitor(client, guildId) {
     ? buildRecordChannelName(playerRecord, monitorConfig.record_emoji)
     : null;
 
-  const ipChannelId = await ensureVoiceChannel(guild, monitorConfig.ip_channel_id, ipName);
-  const playersChannelId = await ensureVoiceChannel(guild, monitorConfig.players_channel_id, playersName);
-  const recordChannelId = await ensureVoiceChannel(guild, monitorConfig.record_channel_id, recordName);
+  let ipChannelId = monitorConfig.ip_channel_id || null;
+  let playersChannelId = monitorConfig.players_channel_id || null;
+  let recordChannelId = monitorConfig.record_channel_id || null;
+
+  try {
+    ipChannelId = await ensureVoiceChannel(guild, monitorConfig.ip_channel_id, ipName);
+  } catch (error) {
+    console.error(`❌ Minecraft monitor IP channel sync failed for guild ${guildId}:`, formatDiscordError(error));
+  }
+
+  try {
+    playersChannelId = await ensureVoiceChannel(guild, monitorConfig.players_channel_id, playersName);
+  } catch (error) {
+    console.error(`❌ Minecraft monitor players channel sync failed for guild ${guildId}:`, formatDiscordError(error));
+  }
+
+  try {
+    recordChannelId = await ensureVoiceChannel(guild, monitorConfig.record_channel_id, recordName);
+  } catch (error) {
+    console.error(`❌ Minecraft monitor record channel sync failed for guild ${guildId}:`, formatDiscordError(error));
+  }
 
   const now = Date.now();
   await query(

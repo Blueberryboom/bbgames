@@ -11,6 +11,7 @@ const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
 
 const BLOCKED_WORDS = ['gay', 'lesbian', 'fag', 'faggot', 'nigger', 'nigga', 'retard', 'slut', 'whore', 'fuck', 'shit', 'bitch', 'cunt'];
+const REENABLE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 function hasBlockedText(text) {
   const lower = text.toLowerCase();
@@ -40,6 +41,16 @@ module.exports = {
     }
 
     if (sub === 'channel') {
+      const existingRows = await query('SELECT disabled_at FROM bumping_configs WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+      const disabledAt = Number(existingRows[0]?.disabled_at || 0);
+      const reenableAt = disabledAt + REENABLE_COOLDOWN_MS;
+      if (disabledAt && reenableAt > Date.now()) {
+        return interaction.reply({
+          content: `❌ Bumping was recently disabled. You can enable it again <t:${Math.floor(reenableAt / 1000)}:R> (at <t:${Math.floor(reenableAt / 1000)}:F>).`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
       const channel = interaction.options.getChannel('channel', true);
       const everyonePerms = channel.permissionsFor(interaction.guild.roles.everyone);
       if (!everyonePerms?.has('ViewChannel')) {
@@ -47,9 +58,9 @@ module.exports = {
       }
 
       await query(
-        `INSERT INTO bumping_configs (guild_id, channel_id, enabled, updated_by, updated_at)
-         VALUES (?, ?, 1, ?, ?)
-         ON DUPLICATE KEY UPDATE channel_id = VALUES(channel_id), enabled = 1, updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)`,
+        `INSERT INTO bumping_configs (guild_id, channel_id, enabled, updated_by, updated_at, disabled_at)
+         VALUES (?, ?, 1, ?, ?, NULL)
+         ON DUPLICATE KEY UPDATE channel_id = VALUES(channel_id), enabled = 1, updated_by = VALUES(updated_by), updated_at = VALUES(updated_at), disabled_at = NULL`,
         [interaction.guildId, channel.id, interaction.user.id, Date.now()]
       );
 
@@ -57,11 +68,30 @@ module.exports = {
     }
 
     if (sub === 'disable') {
-      await query('DELETE FROM bumping_configs WHERE guild_id = ?', [interaction.guildId]);
+      const now = Date.now();
+      await query(
+        `INSERT INTO bumping_configs (guild_id, enabled, updated_by, updated_at, disabled_at)
+         VALUES (?, 0, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE enabled = 0, updated_by = VALUES(updated_by), updated_at = VALUES(updated_at), disabled_at = VALUES(disabled_at)`,
+        [interaction.guildId, interaction.user.id, now, now]
+      );
       await query('DELETE FROM bumping_usage WHERE guild_id = ?', [interaction.guildId]);
       await query('DELETE FROM bumping_channel_usage WHERE guild_id = ?', [interaction.guildId]);
       await query('DELETE FROM bumping_restrictions WHERE guild_id = ?', [interaction.guildId]);
-      return interaction.reply({ content: '✅ Bumping module disabled and data removed.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({
+        content: `✅ Bumping module disabled and usage data removed. Re-enabling has a 1 day cooldown and will be available <t:${Math.floor((now + REENABLE_COOLDOWN_MS) / 1000)}:R>.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const existingRows = await query('SELECT disabled_at FROM bumping_configs WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const disabledAt = Number(existingRows[0]?.disabled_at || 0);
+    const reenableAt = disabledAt + REENABLE_COOLDOWN_MS;
+    if (disabledAt && reenableAt > Date.now()) {
+      return interaction.reply({
+        content: `❌ Bumping was recently disabled. You can enable it again <t:${Math.floor(reenableAt / 1000)}:R> (at <t:${Math.floor(reenableAt / 1000)}:F>).`,
+        flags: MessageFlags.Ephemeral
+      });
     }
 
     const modalId = `bumping_ad:${interaction.id}`;
@@ -86,9 +116,9 @@ module.exports = {
     }
 
     await query(
-      `INSERT INTO bumping_configs (guild_id, advertisement, enabled, updated_by, updated_at)
-       VALUES (?, ?, 1, ?, ?)
-       ON DUPLICATE KEY UPDATE advertisement = VALUES(advertisement), enabled = 1, updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)`,
+      `INSERT INTO bumping_configs (guild_id, advertisement, enabled, updated_by, updated_at, disabled_at)
+       VALUES (?, ?, 1, ?, ?, NULL)
+       ON DUPLICATE KEY UPDATE advertisement = VALUES(advertisement), enabled = 1, updated_by = VALUES(updated_by), updated_at = VALUES(updated_at), disabled_at = NULL`,
       [interaction.guildId, ad, interaction.user.id, Date.now()]
     );
 

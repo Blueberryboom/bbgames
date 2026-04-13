@@ -256,9 +256,15 @@ module.exports = async () => {
         advertisement TEXT NULL,
         invite_code VARCHAR(32) NULL,
         enabled BOOLEAN NOT NULL DEFAULT 1,
+        disabled_at BIGINT NULL,
         updated_by VARCHAR(32) NULL,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
       ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      ALTER TABLE bumping_configs
+      ADD COLUMN IF NOT EXISTS disabled_at BIGINT NULL
     `);
 
     await pool.query(`
