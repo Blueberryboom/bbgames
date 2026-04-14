@@ -12,6 +12,7 @@ const FRIENDLY_PERMISSION_NAMES = {
   EmbedLinks: 'Embed Links',
   ManageMessages: 'Manage Messages',
   ManageChannels: 'Manage Channels',
+  ManageRoles: 'Manage Roles',
   ManageGuild: 'Manage Server',
   CreateInstantInvite: 'Create Invite',
   MentionEveryone: 'Mention Everyone',

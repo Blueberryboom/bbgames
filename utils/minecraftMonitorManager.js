@@ -1,4 +1,4 @@
-const { ChannelType, PermissionFlagsBits } = require('discord.js');
+const { ChannelType } = require('discord.js');
 const https = require('https');
 const { query } = require('../database');
 
@@ -71,11 +71,9 @@ function buildRecordChannelName(playerRecord, emojiPrefix = '') {
   return `${sanitizeEmojiPrefix(emojiPrefix)}Record: ${playerRecord} Players`.slice(0, 100);
 }
 
-function buildVoiceOverwrite(guild) {
-  return {
-    id: guild.roles.everyone.id,
-    deny: [PermissionFlagsBits.Connect]
-  };
+function formatDiscordError(error) {
+  if (!error) return 'unknown_error';
+  return error.code ? `${error.code}: ${error.message}` : (error.message || String(error));
 }
 
 function formatDiscordError(error) {
@@ -101,23 +99,16 @@ async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
     : null;
 
   if (existing && existing.type === ChannelType.GuildVoice) {
-    const updates = {};
-    if (existing.name !== desiredName) updates.name = desiredName;
-
-    const everyoneOverwrite = existing.permissionOverwrites.cache.get(guild.roles.everyone.id);
-    if (!everyoneOverwrite?.deny?.has(PermissionFlagsBits.Connect)) {
-      updates.permissionOverwrites = [buildVoiceOverwrite(guild)];
+    if (existing.name !== desiredName) {
+      await existing.edit({ name: desiredName });
     }
-
-    if (Object.keys(updates).length) await existing.edit(updates);
 
     return existing.id;
   }
 
   const created = await guild.channels.create({
     name: desiredName,
-    type: ChannelType.GuildVoice,
-    permissionOverwrites: [buildVoiceOverwrite(guild)]
+    type: ChannelType.GuildVoice
   });
 
   return created.id;
@@ -214,21 +205,15 @@ async function syncGuildMonitor(client, guildId) {
 
   try {
     ipChannelId = await ensureVoiceChannel(guild, monitorConfig.ip_channel_id, ipName);
-  } catch (error) {
-    console.error(`❌ Minecraft monitor IP channel sync failed for guild ${guildId}:`, formatDiscordError(error));
-  }
+  } catch {}
 
   try {
     playersChannelId = await ensureVoiceChannel(guild, monitorConfig.players_channel_id, playersName);
-  } catch (error) {
-    console.error(`❌ Minecraft monitor players channel sync failed for guild ${guildId}:`, formatDiscordError(error));
-  }
+  } catch {}
 
   try {
     recordChannelId = await ensureVoiceChannel(guild, monitorConfig.record_channel_id, recordName);
-  } catch (error) {
-    console.error(`❌ Minecraft monitor record channel sync failed for guild ${guildId}:`, formatDiscordError(error));
-  }
+  } catch {}
 
   const now = Date.now();
   await query(

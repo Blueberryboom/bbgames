@@ -218,7 +218,7 @@ async function handleMonitor(interaction) {
   await syncGuildMonitor(interaction.client, guild.id);
 
   return interaction.editReply(
-    '✅ Minecraft monitor configured. Existing monitor settings (if any) were overwritten, and channels will update every 5 minutes.'
+    '✅ Minecraft monitor configured. Existing monitor settings (if any) were overwritten, and channels will update every 5 minutes.\nℹ️ For reliable monitoring, the bot needs **View Channel** and **Manage Channels** where you run this command and on the monitor channels (channel/category overwrites can still block it).'
   );
 }
 
