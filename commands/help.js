@@ -53,8 +53,7 @@ function buildWelcomeEmbed() {
     .setColor(0x5865F2)
     .setTitle('🧀 Welcome to BBGames')
     .setDescription(
-      `### 🧀 Welcome to BBGames
-BBGames is a powerful bot build to replace multiple discord bots with just a single one!
+      `BBGames is a powerful bot build to replace multiple discord bots with just a single one!
 It is insanely customizable and isn't just for games, somehow it became a utility bot too!
 This project began as a private custom bot for Blueberryboom's discord server, so if you could donate to support the bot's development and hosting that would help a ton! Use **/donate** to checkout the amazing perks that you can get :).\n\n` +
       '**All Features**\n' +
