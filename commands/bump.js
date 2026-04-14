@@ -55,11 +55,6 @@ module.exports = {
       });
     }
 
-    const memberCount = guild.members.cache.filter(m => !m.user.bot).size || (await guild.members.fetch()).filter(m => !m.user.bot).size;
-    if (memberCount < 20) {
-      return interaction.reply({ content: '❌ Servers need at least 20 human members to use bumping.', flags: MessageFlags.Ephemeral });
-    }
-
     const configRows = await query('SELECT * FROM bumping_configs WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const config = configRows[0];
     if (!isPremium) {
