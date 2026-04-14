@@ -1,4 +1,4 @@
-const { ChannelType, PermissionFlagsBits } = require('discord.js');
+const { ChannelType } = require('discord.js');
 const https = require('https');
 const { query } = require('../database');
 
@@ -71,11 +71,9 @@ function buildRecordChannelName(playerRecord, emojiPrefix = '') {
   return `${sanitizeEmojiPrefix(emojiPrefix)}Record: ${playerRecord} Players`.slice(0, 100);
 }
 
-function buildVoiceOverwrite(guild) {
-  return {
-    id: guild.roles.everyone.id,
-    deny: [PermissionFlagsBits.Connect]
-  };
+function formatDiscordError(error) {
+  if (!error) return 'unknown_error';
+  return error.code ? `${error.code}: ${error.message}` : (error.message || String(error));
 }
 
 async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
@@ -83,7 +81,9 @@ async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
     if (existingChannelId) {
       const existing = guild.channels.cache.get(existingChannelId)
         || await guild.channels.fetch(existingChannelId).catch(() => null);
-      if (existing) await existing.delete('Minecraft monitor channel disabled').catch(() => null);
+      if (existing) {
+        await existing.delete('Minecraft monitor channel disabled');
+      }
     }
     return null;
   }
@@ -94,16 +94,8 @@ async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
     : null;
 
   if (existing && existing.type === ChannelType.GuildVoice) {
-    const updates = {};
-    if (existing.name !== desiredName) updates.name = desiredName;
-
-    const everyoneOverwrite = existing.permissionOverwrites.cache.get(guild.roles.everyone.id);
-    if (!everyoneOverwrite?.deny?.has(PermissionFlagsBits.Connect)) {
-      updates.permissionOverwrites = [buildVoiceOverwrite(guild)];
-    }
-
-    if (Object.keys(updates).length) {
-      await existing.edit(updates).catch(() => null);
+    if (existing.name !== desiredName) {
+      await existing.edit({ name: desiredName });
     }
 
     return existing.id;
@@ -111,8 +103,7 @@ async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
 
   const created = await guild.channels.create({
     name: desiredName,
-    type: ChannelType.GuildVoice,
-    permissionOverwrites: [buildVoiceOverwrite(guild)]
+    type: ChannelType.GuildVoice
   });
 
   return created.id;
@@ -131,6 +122,11 @@ async function applyTopPositions(guild, channelIds) {
 }
 
 async function deleteMonitorChannels(guild, monitorConfig) {
+  const result = {
+    deleted: [],
+    missing: [],
+    failed: []
+  };
   const channelIds = [
     monitorConfig?.ip_channel_id,
     monitorConfig?.players_channel_id,
@@ -141,9 +137,23 @@ async function deleteMonitorChannels(guild, monitorConfig) {
     const channel = guild.channels.cache.get(channelId)
       || await guild.channels.fetch(channelId).catch(() => null);
 
-    if (!channel) continue;
-    await channel.delete('Minecraft monitor stopped').catch(() => null);
+    if (!channel) {
+      result.missing.push(channelId);
+      continue;
+    }
+
+    try {
+      await channel.delete('Minecraft monitor stopped');
+      result.deleted.push(channelId);
+    } catch (error) {
+      result.failed.push({
+        channelId,
+        reason: formatDiscordError(error)
+      });
+    }
   }
+
+  return result;
 }
 
 async function syncGuildMonitor(client, guildId) {
@@ -184,9 +194,21 @@ async function syncGuildMonitor(client, guildId) {
     ? buildRecordChannelName(playerRecord, monitorConfig.record_emoji)
     : null;
 
-  const ipChannelId = await ensureVoiceChannel(guild, monitorConfig.ip_channel_id, ipName);
-  const playersChannelId = await ensureVoiceChannel(guild, monitorConfig.players_channel_id, playersName);
-  const recordChannelId = await ensureVoiceChannel(guild, monitorConfig.record_channel_id, recordName);
+  let ipChannelId = monitorConfig.ip_channel_id || null;
+  let playersChannelId = monitorConfig.players_channel_id || null;
+  let recordChannelId = monitorConfig.record_channel_id || null;
+
+  try {
+    ipChannelId = await ensureVoiceChannel(guild, monitorConfig.ip_channel_id, ipName);
+  } catch {}
+
+  try {
+    playersChannelId = await ensureVoiceChannel(guild, monitorConfig.players_channel_id, playersName);
+  } catch {}
+
+  try {
+    recordChannelId = await ensureVoiceChannel(guild, monitorConfig.record_channel_id, recordName);
+  } catch {}
 
   const now = Date.now();
   await query(
