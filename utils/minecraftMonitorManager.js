@@ -76,6 +76,11 @@ function formatDiscordError(error) {
   return error.code ? `${error.code}: ${error.message}` : (error.message || String(error));
 }
 
+function formatDiscordError(error) {
+  if (!error) return 'unknown_error';
+  return error.code ? `${error.code}: ${error.message}` : (error.message || String(error));
+}
+
 async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
   if (!desiredName) {
     if (existingChannelId) {

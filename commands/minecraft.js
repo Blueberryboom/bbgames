@@ -183,7 +183,13 @@ async function handleMonitor(interaction) {
   );
 
   if (existingRows.length) {
-    await deleteMonitorChannels(guild, existingRows[0]);
+    const cleanupResult = await deleteMonitorChannels(guild, existingRows[0]);
+    if (cleanupResult.failed.length) {
+      console.warn(
+        `⚠️ Minecraft monitor cleanup had ${cleanupResult.failed.length} channel deletion failure(s) in guild ${guild.id}:`,
+        cleanupResult.failed
+      );
+    }
   }
 
   const now = Date.now();
