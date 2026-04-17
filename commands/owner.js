@@ -530,17 +530,16 @@ module.exports = {
 
           return i.reply({ embeds: [detail], components: [actionRow], ephemeral: true });
         }
-
+        
         if (i.customId.startsWith('owner_server_invite:')) {
-          const guildId = i.customId.split(':')[1];
-          await i.deferReply({ ephemeral: true });
-          const inviteUrl = await generateGuildInvite(interaction.client, guildId);
-          if (!inviteUrl) {
-            return i.editReply({ content: '❌ Cannot create invite for that server.' });
-          }
-          return i.editReply({ content: `🔗 ${inviteUrl}\n(Valid for 7 days)` });
+           const guildId = i.customId.split(':')[1];
+           const inviteUrl = await generateGuildInvite(interaction.client, guildId);
+           if (!inviteUrl) {
+              return i.reply({ content: '❌ Cannot create invite for that server.', ephemeral: true });
+           }
+           return i.reply({ content: `🔗 ${inviteUrl}\n(Valid for 7 days)`, ephemeral: true });
         }
-
+        
           const detailEmbed = EmbedBuilder.from(i.message.embeds[0] || new EmbedBuilder());
           const fields = [...(detailEmbed.data.fields || [])];
           const inviteFieldIndex = fields.findIndex(field => field.name === 'Quick Invite');
