@@ -160,7 +160,7 @@ module.exports = {
       }
 
       const typeRows = await query('SELECT staff_role_ids FROM ticket_types WHERE guild_id = ? AND id = ? LIMIT 1', [interaction.guildId, ticket.type_id]);
-      const staffRoleIds = typeRows[0] ? JSON.parse(typeRows[0].staff_role_ids || '[]') : [];
+      const staffRoleIds = parseRoleIds(typeRows[0]?.staff_role_ids);
       const isAssigned = ticket.claimed_by && interaction.user.id === ticket.claimed_by;
       const isStaff = await checkPerms(interaction) || isAssigned || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       if (!isStaff) {

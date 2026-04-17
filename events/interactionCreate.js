@@ -532,6 +532,10 @@ module.exports = async (interaction) => {
     }
 
   } catch (err) {
+    if (err?.code === 10062 || err?.code === 40060) {
+      return;
+    }
+
     if (isMissingPermissionsError(err)) {
       const missingPermissions = getMissingPermissions(interaction, DEFAULT_REQUIRED_PERMISSIONS);
       await replyMissingPermissions(
