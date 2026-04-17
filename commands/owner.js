@@ -533,10 +533,13 @@ module.exports = {
 
         if (i.customId.startsWith('owner_server_invite:')) {
           const guildId = i.customId.split(':')[1];
-          const invite = await generateGuildInvite(interaction.client, guildId);
-          if (!invite?.url) {
-            return i.reply({ content: '❌ Cannot create invite for that server.', ephemeral: true });
+          await i.deferReply({ ephemeral: true });
+          const inviteUrl = await generateGuildInvite(interaction.client, guildId);
+          if (!inviteUrl) {
+            return i.editReply({ content: '❌ Cannot create invite for that server.' });
           }
+          return i.editReply({ content: `🔗 ${inviteUrl}\n(Valid for 7 days)` });
+        }
 
           const detailEmbed = EmbedBuilder.from(i.message.embeds[0] || new EmbedBuilder());
           const fields = [...(detailEmbed.data.fields || [])];
