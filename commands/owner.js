@@ -533,11 +533,24 @@ module.exports = {
 
         if (i.customId.startsWith('owner_server_invite:')) {
           const guildId = i.customId.split(':')[1];
-          const inviteUrl = await generateGuildInvite(interaction.client, guildId);
-          if (!inviteUrl) {
+          const invite = await generateGuildInvite(interaction.client, guildId);
+          if (!invite?.url) {
             return i.reply({ content: '❌ Cannot create invite for that server.', ephemeral: true });
           }
-          return i.reply({ content: `🔗 ${inviteUrl}\n(Valid for 7 days)`, ephemeral: true });
+
+          const detailEmbed = EmbedBuilder.from(i.message.embeds[0] || new EmbedBuilder());
+          const fields = [...(detailEmbed.data.fields || [])];
+          const inviteFieldIndex = fields.findIndex(field => field.name === 'Quick Invite');
+          const inviteLine = `🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>\nUses: **1** (auto-invalid after first join)`;
+          if (inviteFieldIndex === -1) {
+            fields.push({ name: 'Quick Invite', value: inviteLine, inline: false });
+          } else {
+            fields[inviteFieldIndex] = { ...fields[inviteFieldIndex], value: inviteLine };
+          }
+          detailEmbed.setFields(fields);
+          detailEmbed.setFooter({ text: 'Invite is single-use and will stop working after one join.' });
+
+          return i.update({ embeds: [detailEmbed], components: i.message.components });
         }
 
         if (i.customId.startsWith('owner_server_leave:')) {
@@ -907,8 +920,17 @@ async function generateGuildInvite(client, guildId) {
         .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has('CreateInstantInvite'))
         .first();
       if (!channel) return null;
-      const invite = await channel.createInvite({ maxAge: sevenDaysSeconds }).catch(() => null);
-      return invite?.url || null;
+      const invite = await channel.createInvite({
+        maxAge: sevenDaysSeconds,
+        maxUses: 1,
+        unique: true,
+        reason: 'Owner panel temporary single-use invite'
+      }).catch(() => null);
+      if (!invite?.url) return null;
+      return {
+        url: invite.url,
+        expiresAt: Date.now() + (sevenDaysSeconds * 1000)
+      };
     }
 
     const results = await client.shard.broadcastEval(
@@ -922,8 +944,17 @@ async function generateGuildInvite(client, guildId) {
         if (!channel) return null;
 
         try {
-          const invite = await channel.createInvite({ maxAge: 7 * 24 * 60 * 60 });
-          return invite.url;
+          const invite = await channel.createInvite({
+            maxAge: 7 * 24 * 60 * 60,
+            maxUses: 1,
+            unique: true,
+            reason: 'Owner panel temporary single-use invite'
+          });
+          if (!invite?.url) return null;
+          return {
+            url: invite.url,
+            expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000)
+          };
         } catch {
           return null;
         }
@@ -931,7 +962,7 @@ async function generateGuildInvite(client, guildId) {
       { context: { guildId } }
     );
 
-    return results.find(Boolean) || null;
+    return results.find(result => result?.url) || null;
   } catch (error) {
     console.error(error);
     return null;

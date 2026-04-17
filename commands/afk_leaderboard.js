@@ -78,6 +78,13 @@ module.exports = {
       collector.on('collect', async i => {
         if (!i.customId.startsWith(customBase)) return;
 
+        if (i.user.id !== interaction.user.id) {
+          return i.reply({
+            content: '❌ This leaderboard session is only for the user who opened it.',
+            flags: MessageFlags.Ephemeral
+          });
+        }
+
         if (i.customId.endsWith(':left')) {
           page = (page - 1 + totalPages) % totalPages;
           return i.update({ embeds: [buildEmbed()], components: buildComponents() });
