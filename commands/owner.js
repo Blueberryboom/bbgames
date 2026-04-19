@@ -487,22 +487,28 @@ if (sub === "servers") {
     if (i.user.id !== BOT_OWNER_ID)
       return i.reply({ content: "Not for you.", ephemeral: true });
 
-    // ================= NAV =================
+    // ========= NAV =========
     if (i.customId === "next") {
-      await i.deferUpdate();
       const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
       page = (page + 1) % totalPages;
-      return i.editReply({ embeds: [buildEmbed()], components: buildComponents() });
+
+      return i.update({
+        embeds: [buildEmbed()],
+        components: buildComponents()
+      });
     }
 
     if (i.customId === "back") {
-      await i.deferUpdate();
       const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
       page = (page - 1 + totalPages) % totalPages;
-      return i.editReply({ embeds: [buildEmbed()], components: buildComponents() });
+
+      return i.update({
+        embeds: [buildEmbed()],
+        components: buildComponents()
+      });
     }
 
-    // ================= SELECT =================
+    // ========= SELECT =========
     if (i.customId === "select_server") {
       const guildId = i.values[0];
 
@@ -530,51 +536,48 @@ if (sub === "servers") {
       });
     }
 
-    // ================= INVITE =================
+    // ========= INVITE =========
     if (i.customId.startsWith('owner_server_invite:')) {
-      await i.deferReply({ ephemeral: true });
-
       const guildId = i.customId.split(':')[1];
+
       const invite = await generateGuildInvite(interaction.client, guildId);
 
       if (!invite) {
-        return i.editReply({ content: '❌ Cannot create invite.' });
+        return i.reply({ content: '❌ Cannot create invite.', ephemeral: true });
       }
 
-      return i.editReply({
-        content: `🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>`
+      return i.reply({
+        content: `🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>`,
+        ephemeral: true
       });
     }
 
-    // ================= LEAVE =================
+    // ========= LEAVE =========
     if (i.customId.startsWith('owner_server_leave:')) {
-      await i.deferUpdate();
-
       const guildId = i.customId.split(':')[1];
+
       const left = await leaveGuildById(interaction.client, guildId);
 
       if (!left) {
-        return i.followUp({ content: '❌ Could not leave.', ephemeral: true });
+        return i.reply({ content: '❌ Could not leave.', ephemeral: true });
       }
 
       guilds = guilds.filter(g => g.id !== guildId);
 
       if (!guilds.length) {
-        return i.editReply({ content: 'No servers remaining.', embeds: [], components: [] });
+        return i.update({ content: 'No servers remaining.', embeds: [], components: [] });
       }
 
       page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
 
-      return i.editReply({
+      return i.update({
         embeds: [buildEmbed()],
         components: buildComponents()
       });
     }
 
-    // ================= BLACKLIST =================
+    // ========= BLACKLIST =========
     if (i.customId.startsWith('owner_server_blacklist:')) {
-      await i.deferUpdate();
-
       const guildId = i.customId.split(':')[1];
 
       try {
@@ -584,7 +587,7 @@ if (sub === "servers") {
         );
       } catch (err) {
         console.error(err);
-        return i.followUp({ content: '❌ Failed to blacklist.', ephemeral: true });
+        return i.reply({ content: '❌ Failed to blacklist.', ephemeral: true });
       }
 
       await leaveGuildById(interaction.client, guildId);
@@ -592,12 +595,12 @@ if (sub === "servers") {
       guilds = guilds.filter(g => g.id !== guildId);
 
       if (!guilds.length) {
-        return i.editReply({ content: 'No servers remaining.', embeds: [], components: [] });
+        return i.update({ content: 'No servers remaining.', embeds: [], components: [] });
       }
 
       page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
 
-      return i.editReply({
+      return i.update({
         embeds: [buildEmbed()],
         components: buildComponents()
       });
