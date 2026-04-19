@@ -378,225 +378,235 @@ module.exports = {
     // ================= SERVERS ============================
     // ======================================================
 
-    if (sub === "servers") {
+if (sub === "servers") {
 
-      await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ ephemeral: true });
 
-      let guilds = [];
-      const redeemedRows = await pool.query(
-        `SELECT guild_id
-         FROM premium_guild_perks
-         WHERE active = 1`
+  let guilds = [];
+
+  const redeemedRows = await pool.query(
+    `SELECT guild_id FROM premium_guild_perks WHERE active = 1`
+  );
+  const redeemedSet = new Set(redeemedRows.map(r => r.guild_id));
+
+  try {
+    const results = await interaction.client.shard.broadcastEval(client => {
+      const normalGuilds = client.guilds.cache.map(g => ({
+        name: g.name,
+        id: g.id,
+        members: g.memberCount,
+        premium: false
+      }));
+
+      const premiumGuilds = client.premiumManager?.getPremiumGuildsSnapshot
+        ? client.premiumManager.getPremiumGuildsSnapshot()
+        : [];
+
+      return [...premiumGuilds, ...normalGuilds];
+    });
+
+    const seen = new Set();
+
+    guilds = results.flat()
+      .filter(g => {
+        if (seen.has(g.id)) return false;
+        seen.add(g.id);
+        return true;
+      })
+      .map(g => ({
+        ...g,
+        premium: Boolean(g.premium) || redeemedSet.has(g.id)
+      }))
+      .sort((a, b) => {
+        if (b.premium !== a.premium)
+          return Number(b.premium) - Number(a.premium);
+        return (b.members || 0) - (a.members || 0);
+      });
+
+  } catch (err) {
+    console.error(err);
+    return interaction.editReply("❌ Failed to fetch guilds.");
+  }
+
+  if (!guilds.length)
+    return interaction.editReply("No servers found.");
+
+  const perPage = 10;
+  let page = 0;
+
+  const buildEmbed = () => {
+    const slice = guilds.slice(page * perPage, (page + 1) * perPage);
+    const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
+
+    return new EmbedBuilder()
+      .setTitle(`🌍 Total Servers: ${guilds.length}`)
+      .setDescription(
+        slice.map(g =>
+          `**${g.premium ? '💎 ' : ''}${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
+        ).join("\n\n")
+      )
+      .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
+  };
+
+  const buildComponents = () => {
+    const slice = guilds.slice(page * perPage, (page + 1) * perPage);
+
+    return [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('select_server')
+          .setPlaceholder('Select server')
+          .addOptions(slice.map(g => ({
+            label: `${g.premium ? '💎 ' : ''}${g.name}`.slice(0, 100),
+            description: `Members: ${g.members}`,
+            value: g.id
+          })))
+      ),
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('back')
+          .setLabel('⬅')
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('next')
+          .setLabel('➡')
+          .setStyle(ButtonStyle.Secondary)
+      )
+    ];
+  };
+
+  const msg = await interaction.editReply({
+    embeds: [buildEmbed()],
+    components: buildComponents()
+  });
+
+  const collector = msg.createMessageComponentCollector({ time: 120000 });
+
+  collector.on('collect', async i => {
+
+    if (i.user.id !== BOT_OWNER_ID)
+      return i.reply({ content: "Not for you.", ephemeral: true });
+
+    // ================= NAV =================
+    if (i.customId === "next") {
+      await i.deferUpdate();
+      const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
+      page = (page + 1) % totalPages;
+      return i.editReply({ embeds: [buildEmbed()], components: buildComponents() });
+    }
+
+    if (i.customId === "back") {
+      await i.deferUpdate();
+      const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
+      page = (page - 1 + totalPages) % totalPages;
+      return i.editReply({ embeds: [buildEmbed()], components: buildComponents() });
+    }
+
+    // ================= SELECT =================
+    if (i.customId === "select_server") {
+      const guildId = i.values[0];
+
+      const detail = await buildServerDetail(interaction.client, guildId);
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`owner_server_leave:${guildId}`)
+          .setLabel('Leave')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`owner_server_blacklist:${guildId}`)
+          .setLabel('Blacklist')
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(`owner_server_invite:${guildId}`)
+          .setLabel('Generate Invite')
+          .setStyle(ButtonStyle.Primary)
       );
-      const redeemedSet = new Set(redeemedRows.map(row => row.guild_id));
 
-      try {
-        const results = await interaction.client.shard.broadcastEval(
-          client => {
-            const normalGuilds = client.guilds.cache.map(g => ({
-              name: g.name,
-              id: g.id,
-              members: g.memberCount,
-              premium: false
-            }));
+      return i.reply({
+        embeds: [detail],
+        components: [row],
+        ephemeral: true
+      });
+    }
 
-            const premiumGuilds = client.premiumManager?.getPremiumGuildsSnapshot
-              ? client.premiumManager.getPremiumGuildsSnapshot()
-              : [];
+    // ================= INVITE =================
+    if (i.customId.startsWith('owner_server_invite:')) {
+      await i.deferReply({ ephemeral: true });
 
-            return [...premiumGuilds, ...normalGuilds];
-          }
-        );
+      const guildId = i.customId.split(':')[1];
+      const invite = await generateGuildInvite(interaction.client, guildId);
 
-        const seen = new Set();
-        guilds = results
-          .flat()
-          .filter(g => {
-            if (seen.has(g.id)) return false;
-            seen.add(g.id);
-            return true;
-          })
-          .map(g => ({
-            ...g,
-            premium: Boolean(g.premium) || redeemedSet.has(g.id)
-          }))
-          .sort((a, b) => {
-            if (Boolean(b.premium) !== Boolean(a.premium)) {
-              return Number(Boolean(b.premium)) - Number(Boolean(a.premium));
-            }
-            return (b.members || 0) - (a.members || 0);
-          });
-
-      } catch (err) {
-        console.error(err);
-        return interaction.editReply("❌ Failed to fetch guilds.");
+      if (!invite) {
+        return i.editReply({ content: '❌ Cannot create invite.' });
       }
 
-      if (!guilds.length)
-        return interaction.editReply("Bot is not in any servers.");
+      return i.editReply({
+        content: `🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>`
+      });
+    }
 
-      const perPage = 10;
-      let page = 0;
+    // ================= LEAVE =================
+    if (i.customId.startsWith('owner_server_leave:')) {
+      await i.deferUpdate();
 
-      const buildEmbed = () => {
-        const slice = guilds.slice(page * perPage, (page + 1) * perPage);
-        const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
+      const guildId = i.customId.split(':')[1];
+      const left = await leaveGuildById(interaction.client, guildId);
 
-        return new EmbedBuilder()
-          .setTitle(`🌍 Total Servers: ${guilds.length}`)
-          .setDescription(
-            slice.map(g =>
-              `**${g.premium ? '💎 ' : ''}${g.name}**\nMembers: ${g.members} | ID: \`${g.id}\``
-            ).join("\n\n")
-          )
-          .setFooter({ text: `Page ${page + 1} / ${totalPages}` });
-      };
+      if (!left) {
+        return i.followUp({ content: '❌ Could not leave.', ephemeral: true });
+      }
 
-      const buildComponents = () => {
+      guilds = guilds.filter(g => g.id !== guildId);
 
-        const slice = guilds.slice(page * perPage, (page + 1) * perPage);
+      if (!guilds.length) {
+        return i.editReply({ content: 'No servers remaining.', embeds: [], components: [] });
+      }
 
-        const select = new StringSelectMenuBuilder()
-          .setCustomId('select_server')
-          .setPlaceholder('Select server for details')
-          .addOptions(
-            slice.map(g => ({
-              label: `${g.premium ? '💎 ' : ''}${g.name}`.substring(0, 100),
-              description: `${g.premium ? 'Premium • ' : ''}Members: ${g.members}`,
-              value: g.id
-            }))
-          );
+      page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
 
-        const navRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('back')
-            .setLabel('⬅')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(guilds.length <= perPage),
-          new ButtonBuilder()
-            .setCustomId('next')
-            .setLabel('➡')
-            .setStyle(ButtonStyle.Secondary)
-            .setDisabled(guilds.length <= perPage)
-        );
-
-        return [
-          new ActionRowBuilder().addComponents(select),
-          navRow
-        ];
-      };
-
-      const msg = await interaction.editReply({
+      return i.editReply({
         embeds: [buildEmbed()],
         components: buildComponents()
       });
-
-      const collector = msg.createMessageComponentCollector({ time: 120000 });
-
-      collector.on('collect', async i => {
-
-        if (i.user.id !== BOT_OWNER_ID)
-          return i.reply({ content: "Not for you.", ephemeral: true });
-
-        if (i.customId === "next") {
-          const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
-          page = (page + 1) % totalPages;
-          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
-        }
-
-        if (i.customId === "back") {
-          const totalPages = Math.max(1, Math.ceil(guilds.length / perPage));
-          page = (page - 1 + totalPages) % totalPages;
-          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
-        }
-
-        if (i.customId === "select_server") {
-          const guildId = i.values[0];
-          const detail = await buildServerDetail(interaction.client, guildId);
-          const actionRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-              .setCustomId(`owner_server_leave:${guildId}`)
-              .setLabel('Leave')
-              .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-              .setCustomId(`owner_server_blacklist:${guildId}`)
-              .setLabel('Blacklist')
-              .setStyle(ButtonStyle.Danger),
-            new ButtonBuilder()
-              .setCustomId(`owner_server_invite:${guildId}`)
-              .setLabel('Generate Invite')
-              .setStyle(ButtonStyle.Primary)
-          );
-
-          return i.reply({ embeds: [detail], components: [actionRow], ephemeral: true });
-        }
-        
-        if (i.customId.startsWith('owner_server_invite:')) {
-           const guildId = i.customId.split(':')[1];
-           const inviteUrl = await generateGuildInvite(interaction.client, guildId);
-           if (!inviteUrl) {
-              return i.reply({ content: '❌ Cannot create invite for that server.', ephemeral: true });
-           }
-           return i.reply({ content: `🔗 ${inviteUrl}\n(Valid for 7 days)`, ephemeral: true });
-        }
-        
-          const detailEmbed = EmbedBuilder.from(i.message.embeds[0] || new EmbedBuilder());
-          const fields = [...(detailEmbed.data.fields || [])];
-          const inviteFieldIndex = fields.findIndex(field => field.name === 'Quick Invite');
-          const inviteLine = `🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>\nUses: **1** (auto-invalid after first join)`;
-          if (inviteFieldIndex === -1) {
-            fields.push({ name: 'Quick Invite', value: inviteLine, inline: false });
-          } else {
-            fields[inviteFieldIndex] = { ...fields[inviteFieldIndex], value: inviteLine };
-          }
-          detailEmbed.setFields(fields);
-          detailEmbed.setFooter({ text: 'Invite is single-use and will stop working after one join.' });
-
-          return i.update({ embeds: [detailEmbed], components: i.message.components });
-        }
-
-        if (i.customId.startsWith('owner_server_leave:')) {
-          const guildId = i.customId.split(':')[1];
-          const left = await leaveGuildById(interaction.client, guildId);
-          if (!left) {
-            return i.reply({ content: '❌ Could not leave that server.', ephemeral: true });
-          }
-
-          guilds = guilds.filter(g => g.id !== guildId);
-          if (!guilds.length) {
-            return i.update({ content: 'No servers remaining.', embeds: [], components: [] });
-          }
-
-          page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
-          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
-        }
-
-        if (i.customId.startsWith('owner_server_blacklist:')) {
-          const guildId = i.customId.split(':')[1];
-          try {
-            await pool.query(
-              `REPLACE INTO blacklist (guild_id, added_at)
-               VALUES (?, ?)`,
-              [guildId, Date.now()]
-            );
-          } catch (err) {
-            console.error(err);
-            return i.reply({ content: '❌ Failed to blacklist server.', ephemeral: true });
-          }
-
-          await leaveGuildById(interaction.client, guildId);
-          guilds = guilds.filter(g => g.id !== guildId);
-          if (!guilds.length) {
-            return i.update({ content: 'No servers remaining.', embeds: [], components: [] });
-          }
-
-          page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
-          return i.update({ embeds: [buildEmbed()], components: buildComponents() });
-        }
-      });
-
-      return;
     }
+
+    // ================= BLACKLIST =================
+    if (i.customId.startsWith('owner_server_blacklist:')) {
+      await i.deferUpdate();
+
+      const guildId = i.customId.split(':')[1];
+
+      try {
+        await pool.query(
+          `REPLACE INTO blacklist (guild_id, added_at) VALUES (?, ?)`,
+          [guildId, Date.now()]
+        );
+      } catch (err) {
+        console.error(err);
+        return i.followUp({ content: '❌ Failed to blacklist.', ephemeral: true });
+      }
+
+      await leaveGuildById(interaction.client, guildId);
+
+      guilds = guilds.filter(g => g.id !== guildId);
+
+      if (!guilds.length) {
+        return i.editReply({ content: 'No servers remaining.', embeds: [], components: [] });
+      }
+
+      page = Math.min(page, Math.ceil(guilds.length / perPage) - 1);
+
+      return i.editReply({
+        embeds: [buildEmbed()],
+        components: buildComponents()
+      });
+    }
+
+  });
+
+  return;
+}
 
     // ======================================================
     // ================= BLACKLIST VIEW =====================
