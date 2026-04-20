@@ -484,7 +484,7 @@ module.exports = {
         });
       }
 
-      const types = await query('SELECT id, name, description FROM ticket_types WHERE guild_id = ? ORDER BY name ASC', [interaction.guildId]);
+      const types = await query('SELECT id, name, description, emoji FROM ticket_types WHERE guild_id = ? ORDER BY name ASC', [interaction.guildId]);
       if (!types.length) {
         return interaction.reply({
           content: '❌ No ticket types exist yet. Create one with `/tickets create_type` first.',
@@ -507,7 +507,8 @@ module.exports = {
           types.map(type => ({
             label: type.name.slice(0, 100),
             description: type.description ? type.description.slice(0, 60) : undefined,
-            value: `type_${type.id}`
+            value: `type_${type.id}`,
+            emoji: type.emoji || undefined
           }))
         );
 

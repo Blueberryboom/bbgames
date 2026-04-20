@@ -36,6 +36,8 @@ const {
 const { canManageSuggestions, getSuggestionSettings, statusLabel } = require('../utils/suggestionSystem');
 const suggestCommand = require('../commands/suggest');
 const { BUMP_REPORT_CHANNEL_ID } = require('../commands/bump');
+const { BOT_OWNER_ID } = require('../utils/constants');
+const { generateGuildInvite, leaveGuildById } = require('../commands/owner');
 
 const ticketCreateLocks = new Map();
 
@@ -422,6 +424,67 @@ module.exports = async (interaction) => {
       return;
     }
 
+    if (interaction.customId === 'bump_premium_info') {
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setStyle(ButtonStyle.Link)
+          .setLabel('Get Premium for your server')
+          .setURL('https://buymeacoffee.com/blueberryboom')
+      );
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xF39C12)
+            .setTitle('🔥 Premium Server')
+            .setDescription('This server has **BBGames Premium, and gets priority bumping, plus a host of other features!')
+        ],
+        components: [row],
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (interaction.customId === 'bump_verified_info') {
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0x57F287)
+            .setTitle('<a:verified:1495875341636604046> Server Verified')
+            .setDescription('This server has been **verified by the BBGames team** to follow our high standards and offers a **safe, friendly environment** to everyone! All verified servers get priority bumping to a maximum of 75 servers at a time, not just 50!')
+        ],
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (interaction.customId.startsWith('owner_server_')) {
+      if (interaction.user.id !== BOT_OWNER_ID) {
+        return interaction.reply({ content: '❌ Only the bot owner can use this.', flags: MessageFlags.Ephemeral });
+      }
+      const [action, guildId] = interaction.customId.replace('owner_server_', '').split(':');
+      if (!guildId) {
+        return interaction.reply({ content: '❌ Invalid server action.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (action === 'invite') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const invite = await generateGuildInvite(interaction.client, guildId);
+        if (!invite) return interaction.editReply('❌ Cannot create invite.');
+        return interaction.editReply(`🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>`);
+      }
+
+      if (action === 'leave') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        const left = await leaveGuildById(interaction.client, guildId);
+        return interaction.editReply(left ? '✅ Left server.' : '❌ Could not leave.');
+      }
+
+      if (action === 'blacklist') {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await query(`REPLACE INTO blacklist (guild_id, added_at) VALUES (?, ?)`, [guildId, Date.now()]);
+        await leaveGuildById(interaction.client, guildId);
+        return interaction.editReply('✅ Blacklisted + left server.');
+      }
+    }
+
     if (interaction.customId.startsWith('bump_report_action:')) {
       const [, action, sourceGuildId] = interaction.customId.split(':');
       if (!await isBotOwnerInteraction(interaction)) {
@@ -452,6 +515,25 @@ module.exports = async (interaction) => {
       if (action === 'ignore') {
         return interaction.update({ content: `✅ Ignored report for guild ${sourceGuildId}.`, components: [] });
       }
+    }
+
+    if (interaction.customId.startsWith('bump_verify_action:')) {
+      const [, action, guildId] = interaction.customId.split(':');
+      if (!await isBotOwnerInteraction(interaction)) {
+        return interaction.reply({ content: '❌ Only the bot owner can process verification actions.', flags: MessageFlags.Ephemeral });
+      }
+
+      if (action === 'approve') {
+        await query(
+          `INSERT INTO bumping_usage (guild_id, verified_at, updated_at)
+           VALUES (?, ?, ?)
+           ON DUPLICATE KEY UPDATE verified_at = VALUES(verified_at), updated_at = VALUES(updated_at)`,
+          [guildId, Date.now(), Date.now()]
+        );
+        return interaction.update({ content: `✅ Approved bump verification for guild ${guildId}.`, components: [] });
+      }
+
+      return interaction.update({ content: `ℹ️ Rejected bump verification for guild ${guildId}.`, components: [] });
     }
 
     const parts = interaction.customId.split('_');

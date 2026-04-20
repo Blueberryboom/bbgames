@@ -942,6 +942,9 @@ ${messageText}`);
   }
 };
 
+module.exports.generateGuildInvite = generateGuildInvite;
+module.exports.leaveGuildById = leaveGuildById;
+
 async function generateGuildInvite(client, guildId) {
   const sevenDaysSeconds = 7 * 24 * 60 * 60;
   try {

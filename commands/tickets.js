@@ -42,6 +42,12 @@ module.exports = {
             .setRequired(false)
             .setMaxLength(60)
         )
+        .addStringOption(opt =>
+          opt.setName('panel_dropdown_emoji')
+            .setDescription('Optional emoji shown in the ticket panel dropdown')
+            .setRequired(false)
+            .setMaxLength(64)
+        )
         .addRoleOption(opt => opt.setName('allowed_role_1').setDescription('Role allowed to open this type').setRequired(false))
         .addRoleOption(opt => opt.setName('allowed_role_2').setDescription('Role allowed to open this type').setRequired(false))
         .addRoleOption(opt => opt.setName('allowed_role_3').setDescription('Role allowed to open this type').setRequired(false))
@@ -132,6 +138,7 @@ module.exports = {
       const name = interaction.options.getString('name', true).trim();
       const prefix = interaction.options.getString('prefix', true).trim();
       const shortDescription = interaction.options.getString('panel_dropdown_desc')?.trim() || null;
+      const dropdownEmoji = interaction.options.getString('panel_dropdown_emoji')?.trim() || null;
 
       if (!/^[a-zA-Z0-9-]{1,8}$/.test(prefix)) {
         return interaction.reply({
@@ -224,12 +231,13 @@ module.exports = {
 
       await query(
         `INSERT INTO ticket_types
-         (guild_id, name, description, prefix, allowed_role_ids, staff_role_ids, welcome_message, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+         (guild_id, name, description, emoji, prefix, allowed_role_ids, staff_role_ids, welcome_message, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           interaction.guildId,
           name,
           shortDescription,
+          dropdownEmoji,
           prefix.toUpperCase(),
           JSON.stringify(allowedRoleIds),
           JSON.stringify(staffRoleIds),
