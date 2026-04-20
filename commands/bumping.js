@@ -5,7 +5,9 @@ const {
   ModalBuilder,
   ActionRowBuilder,
   TextInputBuilder,
-  TextInputStyle
+  TextInputStyle,
+  ButtonBuilder,
+  ButtonStyle
 } = require('discord.js');
 const { query } = require('../database');
 const checkPerms = require('../utils/checkEventPerms');
@@ -31,7 +33,18 @@ module.exports = {
         .addChannelOption(o => o.setName('channel').setDescription('Bumping destination channel').addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement).setRequired(true))
     )
     .addSubcommand(sub => sub.setName('advertisement').setDescription('Configure server advertisement text'))
-    .addSubcommand(sub => sub.setName('disable').setDescription('Disable bumping and remove related data')),
+    .addSubcommand(sub => sub.setName('disable').setDescription('Disable bumping and remove related data'))
+    .addSubcommand(sub =>
+      sub
+        .setName('verification')
+        .setDescription('Request BBGames bumping verification for your server')
+        .addStringOption(opt =>
+          opt.setName('reason')
+            .setDescription('Why should this server be verified?')
+            .setRequired(true)
+            .setMaxLength(700)
+        )
+    ),
 
   async execute(interaction) {
     const sub = interaction.options.getSubcommand();
@@ -80,6 +93,87 @@ module.exports = {
       await query('DELETE FROM bumping_restrictions WHERE guild_id = ?', [interaction.guildId]);
       return interaction.reply({
         content: `✅ Bumping module disabled and usage data removed. Re-enabling has a 1 day cooldown and will be available <t:${Math.floor((now + REENABLE_COOLDOWN_MS) / 1000)}:R>.`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    if (sub === 'verification') {
+      const usageRows = await query(
+        'SELECT bump_count, verified_at, last_verification_request_at FROM bumping_usage WHERE guild_id = ? LIMIT 1',
+        [interaction.guildId]
+      );
+      const usage = usageRows[0] || {};
+      const bumpCount = Number(usage.bump_count || 0);
+      const verifiedAt = Number(usage.verified_at || 0);
+      const lastRequestAt = Number(usage.last_verification_request_at || 0);
+      const cooldownMs = 60 * 24 * 60 * 60 * 1000;
+
+      if (verifiedAt > 0) {
+        return interaction.reply({
+          content: `✅ This server is already verified (since <t:${Math.floor(verifiedAt / 1000)}:F>).`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      if (bumpCount < 50) {
+        return interaction.reply({
+          content: `❌ Verification requires at least **50** bumps. This server currently has **${bumpCount}**.`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      if ((interaction.guild?.memberCount || 0) < 100) {
+        return interaction.reply({
+          content: '❌ Verification requires at least **100** server members.',
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const requestAvailableAt = lastRequestAt + cooldownMs;
+      if (lastRequestAt > 0 && requestAvailableAt > Date.now()) {
+        return interaction.reply({
+          content: `❌ You can send another verification request <t:${Math.floor(requestAvailableAt / 1000)}:R> (at <t:${Math.floor(requestAvailableAt / 1000)}:F>).`,
+          flags: MessageFlags.Ephemeral
+        });
+      }
+
+      const reason = interaction.options.getString('reason', true).trim();
+      const now = Date.now();
+      await query(
+        `INSERT INTO bumping_usage (guild_id, last_verification_request_at, updated_at)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE last_verification_request_at = VALUES(last_verification_request_at), updated_at = VALUES(updated_at)`,
+        [interaction.guildId, now, now]
+      );
+
+      const reportChannelId = process.env.BUMP_REPORT_CHANNEL_ID || '1493358474174664885';
+      const reportChannel = await interaction.client.channels.fetch(reportChannelId).catch(() => null);
+      if (reportChannel?.isTextBased()) {
+        await reportChannel.send({
+          content: '📨 New bumping verification request',
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder().setCustomId(`bump_verify_action:approve:${interaction.guildId}`).setLabel('Approve Verification').setStyle(ButtonStyle.Success),
+              new ButtonBuilder().setCustomId(`bump_verify_action:reject:${interaction.guildId}`).setLabel('Reject').setStyle(ButtonStyle.Danger)
+            )
+          ],
+          embeds: [{
+            color: 0x2ECC71,
+            title: 'Verification Request',
+            description: reason.slice(0, 1900),
+            fields: [
+              { name: 'Server', value: `${interaction.guild?.name || 'Unknown'} (${interaction.guildId})` },
+              { name: 'Members', value: `${interaction.guild?.memberCount || 0}`, inline: true },
+              { name: 'Bumps', value: `${bumpCount}`, inline: true },
+              { name: 'Requested by', value: `${interaction.user.tag} (${interaction.user.id})` }
+            ],
+            timestamp: new Date().toISOString()
+          }]
+        }).catch(() => null);
+      }
+
+      return interaction.reply({
+        content: '✅ Verification request sent to the BBGames team.',
         flags: MessageFlags.Ephemeral
       });
     }

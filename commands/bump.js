@@ -10,9 +10,10 @@ function sanitizeAdvertisement(adText) {
 const { query } = require('../database');
 const { guildHasPremiumPerks } = require('../utils/premiumPerks');
 
-const USER_BUMP_COOLDOWN_MS = 6 * 60 * 60 * 1000;
-const STANDARD_RECEIVE_COOLDOWN_MS = 4 * 60 * 60 * 1000;
-const PREMIUM_RECEIVE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+const STANDARD_USER_BUMP_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const PREMIUM_USER_BUMP_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+const STANDARD_RECEIVE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const PREMIUM_RECEIVE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 // Set this to the channel ID where bump reports should be sent.
 const BUMP_REPORT_CHANNEL_ID = '1493358474174664885';
@@ -57,20 +58,28 @@ module.exports = {
 
     const configRows = await query('SELECT * FROM bumping_configs WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const config = configRows[0];
-    if (!isPremium) {
-      if (!config?.channel_id || !config?.advertisement || !Number(config?.enabled || 0)) {
-        return interaction.reply({ content: '❌ Configure `/bumping channel` and `/bumping advertisement` first.', flags: MessageFlags.Ephemeral });
-      }
+    if (!config?.channel_id || !config?.advertisement || !Number(config?.enabled || 0)) {
+      return interaction.reply({ content: '❌ Configure `/bumping channel` and `/bumping advertisement` first.', flags: MessageFlags.Ephemeral });
+    }
+
+    const configuredChannel = await guild.channels.fetch(config.channel_id).catch(() => null);
+    if (!configuredChannel?.isTextBased()) {
+      return interaction.reply({
+        content: '❌ Your configured bumping channel no longer exists. Please set it again with `/bumping channel`.',
+        flags: MessageFlags.Ephemeral
+      });
     }
 
     const usageRows = await query('SELECT last_bump_at, joined_count, bump_count FROM bumping_usage WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const isVerified = Number(usageRows[0]?.verified_at || 0) > 0;
     const last = Number(usageRows[0]?.last_bump_at || 0);
-    const remaining = (last + USER_BUMP_COOLDOWN_MS) - Date.now();
+    const userCooldownMs = isPremium ? PREMIUM_USER_BUMP_COOLDOWN_MS : STANDARD_USER_BUMP_COOLDOWN_MS;
+    const remaining = (last + userCooldownMs) - Date.now();
     if (remaining > 0) {
       return interaction.reply({ content: `⏳ You can bump again <t:${Math.floor((Date.now() + remaining) / 1000)}:R>.`, flags: MessageFlags.Ephemeral });
     }
 
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferReply();
 
     const sourceChannel = config?.channel_id ? await guild.channels.fetch(config.channel_id).catch(() => null) : null;
     const inviteChannel = sourceChannel?.isTextBased() ? sourceChannel : guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has(['CreateInstantInvite', 'SendMessages']));
@@ -93,9 +102,11 @@ module.exports = {
       [interaction.guildId]
     );
 
-    const randomTargets = shuffle(eligibleRows).slice(0, 50);
+    const maxTargets = isVerified ? 75 : 50;
+    const randomTargets = shuffle(eligibleRows).slice(0, maxTargets);
 
     const nextBumpNumber = Number(usageRows[0]?.bump_count || 0) + 1;
+    const joinedCount = Number(usageRows[0]?.joined_count || 0);
     let posted = 0;
     for (const target of randomTargets) {
       const cooldownRows = await query('SELECT last_received_at FROM bumping_channel_usage WHERE guild_id = ? LIMIT 1', [target.guild_id]);
@@ -125,14 +136,16 @@ module.exports = {
 
       const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
-        new ButtonBuilder().setCustomId(`bump_report:${guild.id}:${sent.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId(`bump_report:${guild.id}:${sent.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger),
+        ...(isVerified ? [new ButtonBuilder().setCustomId('bump_verified_info').setLabel('Verified').setEmoji('<:checkmark:1495875811792781332>').setStyle(ButtonStyle.Success)] : []),
+        ...(isPremium ? [new ButtonBuilder().setCustomId('bump_premium_info').setLabel('Premium Server').setEmoji('🔥').setStyle(ButtonStyle.Success)] : [])
       );
       await sent.edit({
         embeds: [
           new EmbedBuilder()
-            .setColor(0x5865F2)
-            .setTitle(`AD from ${guild.name}`)
-            .setDescription(`This is the **#${nextBumpNumber}** AD sent by this server.`)
+            .setColor(isPremium ? 0xF39C12 : 0x5865F2)
+            .setTitle(`<a:partyblob:1495854250297790725> AD from ${guild.name}`)
+            .setDescription(`This is the **#${nextBumpNumber}** AD sent by this server, and **${joinedCount}** people have joined through this AD.`)
         ],
         components: [actionRow]
       }).catch(() => null);
@@ -156,11 +169,10 @@ module.exports = {
       [interaction.guildId, Date.now(), 1, Date.now()]
     );
 
-    const joinedCount = Number(usageRows[0]?.joined_count || 0);
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
       .setTitle('🔥 Server Bumped')
-      .setDescription(`Thanks for bumping your server with BBGames! Your server AD has been sent to **${posted}** servers, and **${joinedCount}** have joined so far using the bot's invite link.`);
+      .setDescription(`The AD has been sent to **${posted}** other servers, and **${joinedCount}** people have joined through bumping so far.\nYou can bump again <t:${Math.floor((Date.now() + userCooldownMs) / 1000)}:R>!`);
 
     return interaction.editReply({ embeds: [embed] });
   }

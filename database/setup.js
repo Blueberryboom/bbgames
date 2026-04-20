@@ -154,17 +154,27 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
-    await pool.query(`
-      INSERT INTO member_event_messages (guild_id, event_type, channel_id, message_template, button_label, button_url, enabled, updated_by, updated_at)
-      SELECT guild_id, 'welcome', channel_id, '👋 Welcome [$usermention] to [$guildname]!', button_label, button_url, 1, updated_by, updated_at
-      FROM welcome_settings
-      ON DUPLICATE KEY UPDATE
-        channel_id = VALUES(channel_id),
-        button_label = VALUES(button_label),
-        button_url = VALUES(button_url),
-        updated_by = VALUES(updated_by),
-        updated_at = VALUES(updated_at)
+    const welcomeTableRows = await pool.query(`
+      SELECT 1 AS exists_flag
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+        AND table_name = 'welcome_settings'
+      LIMIT 1
     `);
+
+    if (welcomeTableRows.length) {
+      await pool.query(`
+        INSERT INTO member_event_messages (guild_id, event_type, channel_id, message_template, button_label, button_url, enabled, updated_by, updated_at)
+        SELECT guild_id, 'welcome', channel_id, '👋 Welcome [$usermention] to [$guildname]!', button_label, button_url, 1, updated_by, updated_at
+        FROM welcome_settings
+        ON DUPLICATE KEY UPDATE
+          channel_id = VALUES(channel_id),
+          button_label = VALUES(button_label),
+          button_url = VALUES(button_url),
+          updated_by = VALUES(updated_by),
+          updated_at = VALUES(updated_at)
+      `);
+    }
 
     // ─── STICKY MESSAGES ───────────────────
     await pool.query(`
@@ -280,6 +290,16 @@ module.exports = async () => {
     await pool.query(`
       ALTER TABLE bumping_usage
       ADD COLUMN IF NOT EXISTS bump_count BIGINT NOT NULL DEFAULT 0
+    `);
+
+    await pool.query(`
+      ALTER TABLE bumping_usage
+      ADD COLUMN IF NOT EXISTS verified_at BIGINT NULL
+    `);
+
+    await pool.query(`
+      ALTER TABLE bumping_usage
+      ADD COLUMN IF NOT EXISTS last_verification_request_at BIGINT NULL
     `);
 
     await pool.query(`
@@ -436,6 +456,11 @@ module.exports = async () => {
     await pool.query(`
       ALTER TABLE ticket_types
       ADD COLUMN IF NOT EXISTS prefix VARCHAR(8) NOT NULL DEFAULT 'TICKET'
+    `);
+
+    await pool.query(`
+      ALTER TABLE ticket_types
+      ADD COLUMN IF NOT EXISTS emoji VARCHAR(64) NULL
     `);
 
     await pool.query(`
