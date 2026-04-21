@@ -1028,18 +1028,31 @@ ${messageText}`);
 
 async function sendOwnerServerAnnouncement(client, guildId, targetInput, messageText) {
   const target = String(targetInput || '').trim().toLowerCase();
-  const [countingRows, levelingRows, welcomeRows, logsRows, bumpRows] = await Promise.all([
-    pool.query('SELECT channel_id FROM counting WHERE guild_id = ? LIMIT 1', [guildId]),
-    pool.query('SELECT levelup_channel_id FROM leveling_settings WHERE guild_id = ? LIMIT 1', [guildId]),
-    pool.query('SELECT channel_id FROM welcome_settings WHERE guild_id = ? LIMIT 1', [guildId]),
-    pool.query('SELECT channel_id FROM guild_logs_settings WHERE guild_id = ? LIMIT 1', [guildId]),
-    pool.query('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [guildId])
+  const safeQuery = async (sql, params = []) => {
+    try {
+      return await pool.query(sql, params);
+    } catch (err) {
+      console.error('❌ owner announcement query failed:', err?.code || err);
+      return [];
+    }
+  };
+  const [countingRows, levelingRows, welcomeRows, legacyWelcomeRows, logsRows, bumpRows] = await Promise.all([
+    safeQuery('SELECT channel_id FROM counting WHERE guild_id = ? LIMIT 1', [guildId]),
+    safeQuery('SELECT levelup_channel_id FROM leveling_settings WHERE guild_id = ? LIMIT 1', [guildId]),
+    safeQuery(`SELECT channel_id
+               FROM member_event_messages
+               WHERE guild_id = ? AND event_type = ? AND enabled = 1
+               ORDER BY updated_at DESC
+               LIMIT 1`, [guildId, 'welcome']),
+    safeQuery('SELECT channel_id FROM welcome_settings WHERE guild_id = ? LIMIT 1', [guildId]),
+    safeQuery('SELECT channel_id FROM guild_logs_settings WHERE guild_id = ? LIMIT 1', [guildId]),
+    safeQuery('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [guildId])
   ]);
 
   const mapping = {
     counting: countingRows[0]?.channel_id,
     leveling: levelingRows[0]?.levelup_channel_id,
-    welcome: welcomeRows[0]?.channel_id,
+    welcome: welcomeRows[0]?.channel_id || legacyWelcomeRows[0]?.channel_id,
     log: logsRows[0]?.channel_id,
     logs: logsRows[0]?.channel_id,
     bumping: bumpRows[0]?.channel_id

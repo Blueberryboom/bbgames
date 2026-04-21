@@ -273,7 +273,7 @@ client.on('guildCreate', async guild => {
       query('SELECT COUNT(*) AS total FROM youtube_subscriptions'),
       query('SELECT COUNT(*) AS total FROM suggestion_settings WHERE channel_id IS NOT NULL'),
       query('SELECT COUNT(*) AS total FROM ticket_settings WHERE category_id IS NOT NULL'),
-      query('SELECT COUNT(*) AS total FROM starboard_configs WHERE enabled = 1')
+      query('SELECT COUNT(*) AS total FROM starboard_configs')
     ]);
 
     const popularFeatures = [
