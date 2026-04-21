@@ -296,7 +296,7 @@ client.on('guildCreate', async guild => {
 It is insanely customizable and isn't just for games, somehow it became a utility bot too!
 This project began as a private custom bot for Blueberryboom's discord server, so if you could donate to support the bot's development and hosting that would help a ton! Use /donate to checkout the amazing perks that you could get :)`)
       .addFields(
-        { name: 'Top 10 most popular features', value: popularFeatures.map(([name, total], idx) => `**${idx + 1}.** ${name} — ${total} servers`).join('\n') || 'No usage data yet.' },
+        { name: 'Top 10 most popular features', value: popularFeatures.map(([name, total], idx) => `**${idx + 1}.** ${name} - ${total} servers`).join('\n') || 'No usage data yet.' },
         { name: 'Useful commands', value: '`/help`, `/donate`, `/log channel`, `/count channel`, `/leveling`, `/bumping channel`, `/ticket`, `/suggestions`' }
       );
 
