@@ -301,6 +301,10 @@ module.exports = async () => {
       ALTER TABLE bumping_usage
       ADD COLUMN IF NOT EXISTS last_verification_request_at BIGINT NULL
     `);
+    await pool.query(`
+      ALTER TABLE bumping_usage
+      ADD COLUMN IF NOT EXISTS last_tracked_invite_uses BIGINT NOT NULL DEFAULT 0
+    `);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS bumping_channel_usage (
@@ -317,6 +321,28 @@ module.exports = async () => {
         reason TEXT NULL,
         updated_by VARCHAR(32) NULL,
         updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS bumping_sent_messages (
+        message_id VARCHAR(32) PRIMARY KEY,
+        target_guild_id VARCHAR(32) NOT NULL,
+        source_guild_id VARCHAR(32) NOT NULL,
+        sent_at BIGINT NOT NULL,
+        INDEX idx_bump_sent_target (target_guild_id),
+        INDEX idx_bump_sent_sent_at (sent_at)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS autoroles (
+        guild_id VARCHAR(32) NOT NULL,
+        role_id VARCHAR(32) NOT NULL,
+        created_by VARCHAR(32) NULL,
+        created_at BIGINT NOT NULL,
+        PRIMARY KEY (guild_id, role_id),
+        INDEX idx_autoroles_guild (guild_id)
       ) ENGINE=InnoDB;
     `);
 

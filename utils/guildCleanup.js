@@ -61,6 +61,8 @@ async function clearGuildData(guildId) {
   await query('DELETE FROM bumping_usage WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM bumping_channel_usage WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM bumping_restrictions WHERE guild_id = ?', [guildId]);
+  await query('DELETE FROM bumping_sent_messages WHERE target_guild_id = ? OR source_guild_id = ?', [guildId, guildId]);
+  await query('DELETE FROM autoroles WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_deletion_queue WHERE guild_id = ?', [guildId]);
   await query('DELETE FROM guild_data_deletion_approvals WHERE guild_id = ?', [guildId]);
 }

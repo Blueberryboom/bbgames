@@ -98,6 +98,40 @@ async function initPremiumRuntime(premiumClient, token) {
 
   premiumClient.on('guildMemberAdd', async member => {
     try {
+      const autoroleRows = await query('SELECT role_id FROM autoroles WHERE guild_id = ? ORDER BY created_at ASC', [member.guild.id]);
+      if (autoroleRows.length) {
+        const me = member.guild.members.me || await member.guild.members.fetchMe().catch(() => null);
+        const myHighest = me?.roles?.highest?.position || 0;
+        for (const row of autoroleRows) {
+          const role = member.guild.roles.cache.get(row.role_id) || await member.guild.roles.fetch(row.role_id).catch(() => null);
+          if (!role) continue;
+          if (role.permissions.has('Administrator')) continue;
+          if (role.position >= myHighest) continue;
+          await member.roles.add(role, 'BBGames autorole').catch(() => null);
+        }
+      }
+
+      const bumpRows = await query('SELECT invite_code FROM bumping_configs WHERE guild_id = ? AND invite_code IS NOT NULL LIMIT 1', [member.guild.id]);
+      const bumpConfig = bumpRows[0];
+      if (bumpConfig?.invite_code) {
+        const invite = await member.client.fetchInvite(bumpConfig.invite_code).catch(() => null);
+        if (invite?.code) {
+          const usageRows = await query('SELECT joined_count, last_tracked_invite_uses FROM bumping_usage WHERE guild_id = ? LIMIT 1', [member.guild.id]);
+          const tracked = Number(usageRows[0]?.last_tracked_invite_uses || 0);
+          const currentUses = Number(invite.uses || 0);
+          const increment = Math.max(0, currentUses - tracked);
+          await query(
+            `INSERT INTO bumping_usage (guild_id, joined_count, last_tracked_invite_uses, updated_at)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               joined_count = joined_count + VALUES(joined_count),
+               last_tracked_invite_uses = GREATEST(last_tracked_invite_uses, VALUES(last_tracked_invite_uses)),
+               updated_at = VALUES(updated_at)`,
+            [member.guild.id, increment, currentUses, Date.now()]
+          );
+        }
+      }
+
       const rows = await query(
         `SELECT channel_id, message_template, button_label, button_url
          FROM member_event_messages

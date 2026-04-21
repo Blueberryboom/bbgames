@@ -263,13 +263,41 @@ client.on('guildCreate', async guild => {
       });
     }
 
+    const popularityRows = await Promise.all([
+      query('SELECT COUNT(*) AS total FROM counting WHERE channel_id IS NOT NULL'),
+      query('SELECT COUNT(*) AS total FROM leveling_settings WHERE enabled = 1'),
+      query('SELECT COUNT(*) AS total FROM member_event_messages WHERE event_type = ? AND enabled = 1', ['welcome']),
+      query('SELECT COUNT(*) AS total FROM member_event_messages WHERE event_type = ? AND enabled = 1', ['boost']),
+      query('SELECT COUNT(*) AS total FROM bumping_configs WHERE enabled = 1 AND channel_id IS NOT NULL AND advertisement IS NOT NULL'),
+      query('SELECT COUNT(*) AS total FROM guild_logs_settings WHERE enabled = 1'),
+      query('SELECT COUNT(*) AS total FROM youtube_subscriptions'),
+      query('SELECT COUNT(*) AS total FROM suggestion_settings WHERE channel_id IS NOT NULL'),
+      query('SELECT COUNT(*) AS total FROM ticket_settings WHERE category_id IS NOT NULL'),
+      query('SELECT COUNT(*) AS total FROM starboard_configs WHERE enabled = 1')
+    ]);
+
+    const popularFeatures = [
+      ['Counting', Number(popularityRows[0][0]?.total || 0)],
+      ['Leveling', Number(popularityRows[1][0]?.total || 0)],
+      ['Welcome messages', Number(popularityRows[2][0]?.total || 0)],
+      ['Boost messages', Number(popularityRows[3][0]?.total || 0)],
+      ['Bumping', Number(popularityRows[4][0]?.total || 0)],
+      ['Logs', Number(popularityRows[5][0]?.total || 0)],
+      ['YouTube alerts', Number(popularityRows[6][0]?.total || 0)],
+      ['Suggestions', Number(popularityRows[7][0]?.total || 0)],
+      ['Tickets', Number(popularityRows[8][0]?.total || 0)],
+      ['Starboard', Number(popularityRows[9][0]?.total || 0)]
+    ].sort((a, b) => b[1] - a[1]).slice(0, 10);
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle('Thanks for adding BBGames!')
-      .setDescription('We really appreciate you adding the bot to your server! If you have any feeback or want to report a bug, use **/support**!')
+      .setTitle('<a:partyblob:1495854250297790725> Thanks for adding BBGames to your server!')
+      .setDescription(`BBGames is a powerful bot build to replace multiple discord bots with just a single one!
+It is insanely customizable and isn't just for games, somehow it became a utility bot too!
+This project began as a private custom bot for Blueberryboom's discord server, so if you could donate to support the bot's development and hosting that would help a ton! Use /donate to checkout the amazing perks that you could get :)`)
       .addFields(
-        { name: 'Main commands', value: '`/count channel` to start counting\n`/giveaway create` to run giveaways\n`/youtube add` for upload alerts\n`/log channel` to logs changes to bot settings and stuff ' },
-        { name: 'Useful Commands', value: '`/help`, `/about`, `/status`, `/minecraft`, `/donate`' }
+        { name: 'Top 10 most popular features', value: popularFeatures.map(([name, total], idx) => `**${idx + 1}.** ${name} — ${total} servers`).join('\n') || 'No usage data yet.' },
+        { name: 'Useful commands', value: '`/help`, `/donate`, `/log channel`, `/count channel`, `/leveling`, `/bumping channel`, `/ticket`, `/suggestions`' }
       );
 
     await targetUser.send({ embeds: [embed] }).catch(() => {});
@@ -292,6 +320,40 @@ client.on('guildDelete', async guild => {
 
 client.on('guildMemberAdd', async member => {
   try {
+    const autoroleRows = await query('SELECT role_id FROM autoroles WHERE guild_id = ? ORDER BY created_at ASC', [member.guild.id]);
+    if (autoroleRows.length) {
+      const me = member.guild.members.me || await member.guild.members.fetchMe().catch(() => null);
+      const myHighest = me?.roles?.highest?.position || 0;
+      for (const row of autoroleRows) {
+        const role = member.guild.roles.cache.get(row.role_id) || await member.guild.roles.fetch(row.role_id).catch(() => null);
+        if (!role) continue;
+        if (role.permissions.has('Administrator')) continue;
+        if (role.position >= myHighest) continue;
+        await member.roles.add(role, 'BBGames autorole').catch(() => null);
+      }
+    }
+
+    const bumpRows = await query('SELECT guild_id, invite_code FROM bumping_configs WHERE guild_id = ? AND invite_code IS NOT NULL LIMIT 1', [member.guild.id]);
+    const bumpConfig = bumpRows[0];
+    if (bumpConfig?.invite_code) {
+      const invite = await member.client.fetchInvite(bumpConfig.invite_code).catch(() => null);
+      if (invite?.code) {
+        const usageRows = await query('SELECT joined_count, last_tracked_invite_uses FROM bumping_usage WHERE guild_id = ? LIMIT 1', [member.guild.id]);
+        const tracked = Number(usageRows[0]?.last_tracked_invite_uses || 0);
+        const currentUses = Number(invite.uses || 0);
+        const increment = Math.max(0, currentUses - tracked);
+        await query(
+          `INSERT INTO bumping_usage (guild_id, joined_count, last_tracked_invite_uses, updated_at)
+           VALUES (?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             joined_count = joined_count + VALUES(joined_count),
+             last_tracked_invite_uses = GREATEST(last_tracked_invite_uses, VALUES(last_tracked_invite_uses)),
+             updated_at = VALUES(updated_at)`,
+          [member.guild.id, increment, currentUses, Date.now()]
+        );
+      }
+    }
+
     const rows = await query(
       `SELECT channel_id, message_template, button_label, button_url
        FROM member_event_messages
@@ -436,6 +498,30 @@ client.on('messageReactionRemove', async (reaction, user) => {
 client.on('messageDelete', async message => {
   try {
     if (!message?.guildId || !message?.id) return;
+    const sentRows = await query(
+      'SELECT target_guild_id, sent_at FROM bumping_sent_messages WHERE message_id = ? LIMIT 1',
+      [message.id]
+    );
+    const sentMessage = sentRows[0];
+    if (sentMessage) {
+      const sentAt = Number(sentMessage.sent_at || 0);
+      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+      if (Date.now() - sentAt <= thirtyDaysMs) {
+        const timeoutUntil = Date.now() + (2 * 24 * 60 * 60 * 1000);
+        await query(
+          `REPLACE INTO bumping_restrictions (guild_id, timeout_until, reason, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, ?)`,
+          [message.guildId, timeoutUntil, 'Deleted bumping bot message in last 30 days', 'system', Date.now()]
+        );
+        const cfgRows = await query('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [message.guildId]);
+        const notifyChannel = cfgRows[0]?.channel_id ? await message.guild.channels.fetch(cfgRows[0].channel_id).catch(() => null) : null;
+        if (notifyChannel?.isTextBased()) {
+          await notifyChannel.send('<:warning:1496193692099285255> Do not delete bumping channel messages! This server has been blacklisted from bumping for 2 days.').catch(() => null);
+        }
+      }
+      await query('DELETE FROM bumping_sent_messages WHERE message_id = ?', [message.id]);
+    }
+
     await cleanupStarboardSourceMessage(message.guildId, message.id);
   } catch (err) {
     console.error('❌ messageDelete cleanup error:', err);

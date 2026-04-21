@@ -67,7 +67,7 @@ module.exports = {
       const channel = interaction.options.getChannel('channel', true);
       const everyonePerms = channel.permissionsFor(interaction.guild.roles.everyone);
       if (!everyonePerms?.has('ViewChannel')) {
-        return interaction.reply({ content: '❌ @everyone must be able to view the bumping channel.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> The bumping channel must be visible to everyone in the server!', flags: MessageFlags.Ephemeral });
       }
 
       await query(
