@@ -11,6 +11,7 @@ const HELP_FEATURES = {
   achievements: { label: 'Achievements', summary: 'Track and view user achievement progress.', commands: [['/achievements', 'View achievement progress and rewards.']] },
   afk: { label: 'AFK', summary: 'Set and manage your AFK status.', commands: [['/afk', 'Set or clear your AFK status.'], ['/afk_leaderboard', 'Show top AFK users.']] },
   automsg: { label: 'Auto Message', summary: 'Schedule automatic recurring messages.', commands: [['/automsg', 'Configure recurring auto messages.']] },
+  autorole: { label: 'Autorole', summary: 'Automatically give roles to new members.', commands: [['/autorole create', 'Add an autorole.'], ['/autorole list', 'List configured autoroles.'], ['/autorole delete', 'Delete an autorole.']] },
   autoresponder: { label: 'Auto Responder', summary: 'Create trigger-based automatic replies.', commands: [['/auto_responder create', 'Create an auto responder.'], ['/auto_responder list', 'List responders.'], ['/auto_responder edit', 'Edit responder output.'], ['/auto_responder disable', 'Disable a responder temporarily.'], ['/auto_responder delete', 'Delete a responder.']] },
   birthdays: { label: 'Birthdays', summary: 'Configure birthday tracking and announcements.', commands: [['/birthday', 'Manage birthday settings.']] },
   boosting: { label: 'Boost Messages', summary: 'Configure boost thank-you and leave messages.', commands: [['/boostmsg', 'Configure boost messages.'], ['/leave', 'Configure leave messages.'], ['/welcome', 'Configure welcome messages.']] },

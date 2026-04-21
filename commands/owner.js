@@ -5,7 +5,11 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
-  StringSelectMenuBuilder
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  MessageFlags
 } = require('discord.js');
 
 const pool = require('../database');
@@ -470,7 +474,15 @@ if (sub === "servers") {
         new ButtonBuilder()
           .setCustomId('next')
           .setLabel('➡')
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId('owner_servers_search')
+          .setLabel('Search')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('owner_servers_filter_members')
+          .setLabel('Filter Members')
+          .setStyle(ButtonStyle.Primary)
       )
     ];
   };
@@ -508,6 +520,48 @@ if (sub === "servers") {
       });
     }
 
+    if (i.customId === 'owner_servers_search') {
+      const modal = new ModalBuilder().setCustomId(`owner_servers_search_modal:${interaction.id}`).setTitle('Search Server');
+      modal.addComponents(new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId('query').setLabel('Server ID or name').setStyle(TextInputStyle.Short).setRequired(true)
+      ));
+      await i.showModal(modal);
+      const submitted = await i.awaitModalSubmit({
+        time: 120000,
+        filter: m => m.customId === `owner_servers_search_modal:${interaction.id}` && m.user.id === i.user.id
+      }).catch(() => null);
+      if (!submitted) return;
+      const term = submitted.fields.getTextInputValue('query').trim().toLowerCase();
+      const idx = guilds.findIndex(g => g.id === term || g.name.toLowerCase().includes(term));
+      if (idx === -1) return submitted.reply({ content: '❌ No matching server found.', flags: MessageFlags.Ephemeral });
+      page = Math.floor(idx / perPage);
+      await interaction.editReply({ embeds: [buildEmbed()], components: buildComponents() });
+      return submitted.reply({ content: `✅ Found server: **${guilds[idx].name}** (\`${guilds[idx].id}\`).`, flags: MessageFlags.Ephemeral });
+    }
+
+    if (i.customId === 'owner_servers_filter_members') {
+      const modal = new ModalBuilder().setCustomId(`owner_servers_filter_modal:${interaction.id}`).setTitle('Filter by members');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('min').setLabel('Minimum members').setStyle(TextInputStyle.Short).setRequired(true)),
+        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('max').setLabel('Maximum members').setStyle(TextInputStyle.Short).setRequired(true))
+      );
+      await i.showModal(modal);
+      const submitted = await i.awaitModalSubmit({
+        time: 120000,
+        filter: m => m.customId === `owner_servers_filter_modal:${interaction.id}` && m.user.id === i.user.id
+      }).catch(() => null);
+      if (!submitted) return;
+      const min = Number(submitted.fields.getTextInputValue('min'));
+      const max = Number(submitted.fields.getTextInputValue('max'));
+      if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+        return submitted.reply({ content: '❌ Invalid member range.', flags: MessageFlags.Ephemeral });
+      }
+      guilds = guilds.filter(g => Number(g.members || 0) >= min && Number(g.members || 0) <= max);
+      page = 0;
+      await interaction.editReply(guilds.length ? { embeds: [buildEmbed()], components: buildComponents() } : { content: 'No servers in that range.', embeds: [], components: [] });
+      return submitted.reply({ content: `✅ Filter applied (${guilds.length} result(s)).`, flags: MessageFlags.Ephemeral });
+    }
+
     // ========= SELECT ========= (FAST)
     if (i.customId === "select_server") {
       const guildId = i.values[0];
@@ -526,7 +580,11 @@ if (sub === "servers") {
         new ButtonBuilder()
           .setCustomId(`owner_server_invite:${guildId}`)
           .setLabel('Generate Invite')
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId(`owner_server_send_announcement:${guildId}`)
+          .setLabel('Send Announcement')
+          .setStyle(ButtonStyle.Success)
       );
 
       return i.reply({
@@ -621,6 +679,30 @@ if (sub === "servers") {
       }
 
       return i.editReply({ content: '✅ Blacklisted + left server.' });
+    }
+
+
+    if (i.customId.startsWith('owner_server_send_announcement:')) {
+      const guildId = i.customId.split(':')[1];
+      const modal = new ModalBuilder().setCustomId(`owner_server_announce_modal:${guildId}`).setTitle('Send Announcement');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('target').setLabel('Target: log/counting/leveling/welcome/bumping/channel_id').setStyle(TextInputStyle.Short).setRequired(true)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('message').setLabel('Message').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800)
+        )
+      );
+      await i.showModal(modal);
+      const submitted = await i.awaitModalSubmit({
+        time: 180000,
+        filter: m => m.customId === `owner_server_announce_modal:${guildId}` && m.user.id === i.user.id
+      }).catch(() => null);
+      if (!submitted) return;
+      const target = submitted.fields.getTextInputValue('target').trim();
+      const messageText = submitted.fields.getTextInputValue('message').trim();
+      const ok = await sendOwnerServerAnnouncement(interaction.client, guildId, target, messageText);
+      return submitted.reply({ content: ok ? '✅ Announcement sent.' : '❌ Could not find target channel or send message.', flags: MessageFlags.Ephemeral });
     }
 
   });
@@ -941,6 +1023,57 @@ ${messageText}`);
     }
   }
 };
+
+
+
+async function sendOwnerServerAnnouncement(client, guildId, targetInput, messageText) {
+  const target = String(targetInput || '').trim().toLowerCase();
+  const [countingRows, levelingRows, welcomeRows, logsRows, bumpRows] = await Promise.all([
+    pool.query('SELECT channel_id FROM counting WHERE guild_id = ? LIMIT 1', [guildId]),
+    pool.query('SELECT levelup_channel_id FROM leveling_settings WHERE guild_id = ? LIMIT 1', [guildId]),
+    pool.query('SELECT channel_id FROM welcome_settings WHERE guild_id = ? LIMIT 1', [guildId]),
+    pool.query('SELECT channel_id FROM guild_logs_settings WHERE guild_id = ? LIMIT 1', [guildId]),
+    pool.query('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [guildId])
+  ]);
+
+  const mapping = {
+    counting: countingRows[0]?.channel_id,
+    leveling: levelingRows[0]?.levelup_channel_id,
+    welcome: welcomeRows[0]?.channel_id,
+    log: logsRows[0]?.channel_id,
+    logs: logsRows[0]?.channel_id,
+    bumping: bumpRows[0]?.channel_id
+  };
+
+  const channelId = mapping[target] || target.replace(/[^0-9]/g, '');
+  if (!channelId) return false;
+
+  try {
+    if (!client.shard) {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return false;
+      const channel = await guild.channels.fetch(channelId).catch(() => null);
+      if (!channel?.isTextBased()) return false;
+      await channel.send(messageText);
+      return true;
+    }
+
+    const results = await client.shard.broadcastEval(
+      async (botClient, context) => {
+        const guild = botClient.guilds.cache.get(context.guildId);
+        if (!guild) return false;
+        const channel = await guild.channels.fetch(context.channelId).catch(() => null);
+        if (!channel?.isTextBased()) return false;
+        await channel.send(context.messageText).catch(() => null);
+        return true;
+      },
+      { context: { guildId, channelId, messageText } }
+    );
+    return results.some(Boolean);
+  } catch {
+    return false;
+  }
+}
 
 module.exports.generateGuildInvite = generateGuildInvite;
 module.exports.leaveGuildById = leaveGuildById;

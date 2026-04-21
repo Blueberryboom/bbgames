@@ -524,12 +524,23 @@ module.exports = async (interaction) => {
       }
 
       if (action === 'approve') {
+        const now = Date.now();
         await query(
           `INSERT INTO bumping_usage (guild_id, verified_at, updated_at)
            VALUES (?, ?, ?)
            ON DUPLICATE KEY UPDATE verified_at = VALUES(verified_at), updated_at = VALUES(updated_at)`,
-          [guildId, Date.now(), Date.now()]
+          [guildId, now, now]
         );
+
+        const configRows = await query('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [guildId]);
+        const channelId = configRows[0]?.channel_id;
+        if (channelId) {
+          const guild = interaction.client.guilds.cache.get(guildId) || await interaction.client.guilds.fetch(guildId).catch(() => null);
+          const channel = guild ? await guild.channels.fetch(channelId).catch(() => null) : null;
+          if (channel?.isTextBased()) {
+            await channel.send('<a:verified:1495875341636604046> This server has been verified! Enjoy your priority bumping <3').catch(() => null);
+          }
+        }
         return interaction.update({ content: `✅ Approved bump verification for guild ${guildId}.`, components: [] });
       }
 

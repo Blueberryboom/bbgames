@@ -15,7 +15,6 @@ const PREMIUM_USER_BUMP_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const STANDARD_RECEIVE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const PREMIUM_RECEIVE_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
-// Set this to the channel ID where bump reports should be sent.
 const BUMP_REPORT_CHANNEL_ID = '1493358474174664885';
 
 function shuffle(array) {
@@ -70,7 +69,15 @@ module.exports = {
       });
     }
 
-    const usageRows = await query('SELECT last_bump_at, joined_count, bump_count FROM bumping_usage WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
+    const everyonePerms = configuredChannel.permissionsFor(interaction.guild.roles.everyone);
+    if (!everyonePerms?.has('ViewChannel')) {
+      return interaction.reply({
+        content: '<:warning:1496193692099285255> The bumping channel must be visible to everyone in the server!',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const usageRows = await query('SELECT last_bump_at, joined_count, bump_count, verified_at FROM bumping_usage WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const isVerified = Number(usageRows[0]?.verified_at || 0) > 0;
     const last = Number(usageRows[0]?.last_bump_at || 0);
     const userCooldownMs = isPremium ? PREMIUM_USER_BUMP_COOLDOWN_MS : STANDARD_USER_BUMP_COOLDOWN_MS;
@@ -108,6 +115,8 @@ module.exports = {
     const nextBumpNumber = Number(usageRows[0]?.bump_count || 0) + 1;
     const joinedCount = Number(usageRows[0]?.joined_count || 0);
     let posted = 0;
+    const sentMessages = [];
+
     for (const target of randomTargets) {
       const cooldownRows = await query('SELECT last_received_at FROM bumping_channel_usage WHERE guild_id = ? LIMIT 1', [target.guild_id]);
       const lastReceived = Number(cooldownRows[0]?.last_received_at || 0);
@@ -134,21 +143,7 @@ module.exports = {
       }).catch(() => null);
       if (!sent) continue;
 
-      const actionRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
-        new ButtonBuilder().setCustomId(`bump_report:${guild.id}:${sent.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger),
-        ...(isVerified ? [new ButtonBuilder().setCustomId('bump_verified_info').setLabel('Verified').setEmoji('<:checkmark:1495875811792781332>').setStyle(ButtonStyle.Success)] : []),
-        ...(isPremium ? [new ButtonBuilder().setCustomId('bump_premium_info').setLabel('Premium Server').setEmoji('🔥').setStyle(ButtonStyle.Success)] : [])
-      );
-      await sent.edit({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(isPremium ? 0xF39C12 : 0x5865F2)
-            .setTitle(`<a:partyblob:1495854250297790725> AD from ${guild.name}`)
-            .setDescription(`This is the **#${nextBumpNumber}** AD sent by this server, and **${joinedCount}** people have joined through this AD.`)
-        ],
-        components: [actionRow]
-      }).catch(() => null);
+      sentMessages.push({ message: sent, targetGuildId: target.guild_id });
 
       posted += 1;
       await query(
@@ -157,6 +152,32 @@ module.exports = {
          ON DUPLICATE KEY UPDATE last_received_at = VALUES(last_received_at), updated_at = VALUES(updated_at)`,
         [target.guild_id, Date.now(), Date.now()]
       );
+
+      await query(
+        `INSERT INTO bumping_sent_messages (message_id, target_guild_id, source_guild_id, sent_at)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE sent_at = VALUES(sent_at)`,
+        [sent.id, target.guild_id, interaction.guildId, Date.now()]
+      );
+    }
+
+    for (const sentEntry of sentMessages) {
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
+        new ButtonBuilder().setCustomId(`bump_report:${guild.id}:${sentEntry.message.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger),
+        ...(isVerified ? [new ButtonBuilder().setCustomId('bump_verified_info').setLabel('Verified').setEmoji('<:checkmark:1495875811792781332>').setStyle(ButtonStyle.Success)] : []),
+        ...(isPremium ? [new ButtonBuilder().setCustomId('bump_premium_info').setLabel('Premium Server').setEmoji('🔥').setStyle(ButtonStyle.Success)] : [])
+      );
+
+      await sentEntry.message.edit({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(isPremium ? 0xF39C12 : 0x5865F2)
+            .setTitle(`<a:partyblob:1495854250297790725> AD from ${guild.name}`)
+            .setDescription(`This is the **#${nextBumpNumber}** AD sent by this server to **${posted}** servers, and **${joinedCount}** people have joined through this AD.`)
+        ],
+        components: [actionRow]
+      }).catch(() => null);
     }
 
     await query(
