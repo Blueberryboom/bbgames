@@ -336,8 +336,10 @@ client.on('guildMemberAdd', async member => {
     const bumpRows = await query('SELECT guild_id, invite_code FROM bumping_configs WHERE guild_id = ? AND invite_code IS NOT NULL LIMIT 1', [member.guild.id]);
     const bumpConfig = bumpRows[0];
     if (bumpConfig?.invite_code) {
-      const invite = await member.client.fetchInvite(bumpConfig.invite_code).catch(() => null);
-      if (invite?.code) {
+      const invite = await member.guild.invites.fetch(bumpConfig.invite_code).catch(async () => {
+        return member.client.fetchInvite(bumpConfig.invite_code).catch(() => null);
+      });
+      if (invite?.code && typeof invite.uses === 'number') {
         const usageRows = await query('SELECT joined_count, last_tracked_invite_uses FROM bumping_usage WHERE guild_id = ? LIMIT 1', [member.guild.id]);
         const tracked = Number(usageRows[0]?.last_tracked_invite_uses || 0);
         const currentUses = Number(invite.uses || 0);

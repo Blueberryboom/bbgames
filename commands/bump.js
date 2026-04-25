@@ -86,16 +86,16 @@ module.exports = {
       return interaction.reply({ content: `⏳ You can bump again <t:${Math.floor((Date.now() + remaining) / 1000)}:R>.`, flags: MessageFlags.Ephemeral });
     }
 
-    await interaction.deferReply();
-
     const sourceChannel = config?.channel_id ? await guild.channels.fetch(config.channel_id).catch(() => null) : null;
     const inviteChannel = sourceChannel?.isTextBased() ? sourceChannel : guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has(['CreateInstantInvite', 'SendMessages']));
     if (!inviteChannel) {
-      return interaction.editReply('❌ Could not find a channel to create/reuse invite link.');
+      return interaction.reply({ content: '❌ Could not find a channel to create/reuse invite link.', flags: MessageFlags.Ephemeral });
     }
 
     const invite = await ensureInvite(inviteChannel, config?.invite_code || null);
-    if (!invite?.code) return interaction.editReply('❌ Failed to create/reuse invite link for bumping.');
+    if (!invite?.code) {
+      return interaction.reply({ content: '❌ Failed to create/reuse invite link for bumping.', flags: MessageFlags.Ephemeral });
+    }
 
     await query('UPDATE bumping_configs SET invite_code = ?, updated_at = ? WHERE guild_id = ?', [invite.code, Date.now(), interaction.guildId]);
 
@@ -108,6 +108,15 @@ module.exports = {
          AND bc.advertisement IS NOT NULL`,
       [interaction.guildId]
     );
+
+    if (!eligibleRows.length) {
+      return interaction.reply({
+        content: '<:warning:1496193692099285255> No server are available to send the AD to!',
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    await interaction.deferReply();
 
     const maxTargets = isVerified ? 75 : 50;
     const randomTargets = shuffle(eligibleRows).slice(0, maxTargets);
