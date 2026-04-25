@@ -436,7 +436,7 @@ module.exports = async (interaction) => {
           new EmbedBuilder()
             .setColor(0xF39C12)
             .setTitle('🔥 Premium Server')
-            .setDescription('This server has **BBGames Premium, and gets priority bumping, plus a host of other features!')
+            .setDescription('This server has **BBGames Premium**, and gets priority bumping, plus a host of other features!')
         ],
         components: [row],
         flags: MessageFlags.Ephemeral
