@@ -20,19 +20,19 @@ module.exports = {
     stopYouTubeNotifier(client);
 
     runCheck(client).catch(err => {
-      console.error('❌ Initial YouTube notifier check failed:', err);
+      console.error('<:warning:1496193692099285255> Initial YouTube notifier check failed:', err);
     });
 
     const interval = setInterval(() => {
       runCheck(client).catch(err => {
-        console.error('❌ YouTube notifier check failed:', err);
+        console.error('<:warning:1496193692099285255> YouTube notifier check failed:', err);
       });
     }, CHECK_INTERVAL_MS);
 
     notifierIntervals.set(client, interval);
     client.once('shardDisconnect', () => stopYouTubeNotifier(client));
     client.once('invalidated', () => stopYouTubeNotifier(client));
-    console.log(`✅ YouTube notifier initialized for ${client.user?.tag || 'client'}.`);
+    console.log(`<:checkmark:1495875811792781332> YouTube notifier initialized for ${client.user?.tag || 'client'}.`);
   },
   stopYouTubeNotifier
 };
@@ -121,7 +121,7 @@ async function runCheck(client) {
         );
 
       } catch (err) {
-        console.error(`❌ YouTube notifier failed for ${sub.youtube_channel_id} in guild ${sub.guild_id}:`, err.message || err);
+        console.error(`<:warning:1496193692099285255> YouTube notifier failed for ${sub.youtube_channel_id} in guild ${sub.guild_id}:`, err.message || err);
       }
     }
   } finally {

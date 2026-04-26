@@ -1,53 +1,113 @@
 const { ChannelType } = require('discord.js');
-const https = require('https');
+const net = require('net');
+const dns = require('dns').promises;
 const { query } = require('../database');
 
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 let monitorInterval = null;
 const runningSweepClients = new WeakSet();
 
-async function fetchMinecraftServerStats(serverIp) {
-  const payload = await fetchJson(`https://api.mcsrvstat.us/3/${encodeURIComponent(serverIp)}`);
-  const online = Boolean(payload.online);
-  const currentPlayers = Number(payload.players?.online || 0);
-  const maxPlayers = Number(payload.players?.max || 0);
-
-  return {
-    online,
-    currentPlayers,
-    maxPlayers
-  };
+function encodeVarInt(value) {
+  const out = [];
+  let val = value >>> 0;
+  do {
+    let temp = val & 0x7F;
+    val >>>= 7;
+    if (val !== 0) temp |= 0x80;
+    out.push(temp);
+  } while (val !== 0);
+  return Buffer.from(out);
 }
 
-function fetchJson(url) {
-  if (typeof fetch === 'function') {
-    return fetch(url).then(async response => {
-      if (!response.ok) {
-        throw new Error(`minecraft_api_http_${response.status}`);
-      }
-      return response.json();
-    });
+function buildPacket(id, data = Buffer.alloc(0)) {
+  const body = Buffer.concat([encodeVarInt(id), data]);
+  return Buffer.concat([encodeVarInt(body.length), body]);
+}
+
+async function resolveServerAddress(input) {
+  const trimmed = String(input || '').trim();
+  const [hostRaw, portRaw] = trimmed.split(':');
+  let host = hostRaw;
+  let port = Number(portRaw || 25565);
+
+  const srvRecords = await dns.resolveSrv(`_minecraft._tcp.${host}`).catch(() => []);
+  if (srvRecords.length && !portRaw) {
+    host = srvRecords[0].name;
+    port = Number(srvRecords[0].port || 25565);
   }
 
+  return { host, port, resolvedHostForHandshake: hostRaw, displayIp: trimmed };
+}
+
+async function fetchMinecraftServerStats(serverIp) {
+  const target = await resolveServerAddress(serverIp);
+
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': 'BBGamesBot/1.0' } }, res => {
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', chunk => { body += chunk; });
-      res.on('end', () => {
-        if (res.statusCode < 200 || res.statusCode >= 300) {
-          reject(new Error(`minecraft_api_http_${res.statusCode}`));
-          return;
-        }
-        try {
-          resolve(JSON.parse(body));
-        } catch {
-          reject(new Error('minecraft_api_invalid_json'));
-        }
-      });
+    const socket = net.createConnection({ host: target.host, port: target.port });
+    const timeout = setTimeout(() => {
+      socket.destroy();
+      reject(new Error('minecraft_ping_timeout'));
+    }, 5000);
+
+    const chunks = [];
+
+    socket.once('error', err => {
+      clearTimeout(timeout);
+      reject(err);
     });
-    req.on('error', reject);
-    req.end();
+
+    socket.once('connect', () => {
+      const hostBuf = Buffer.from(target.resolvedHostForHandshake, 'utf8');
+      const handshakeData = Buffer.concat([
+        encodeVarInt(760),
+        encodeVarInt(hostBuf.length),
+        hostBuf,
+        Buffer.from([target.port >> 8, target.port & 0xFF]),
+        encodeVarInt(1)
+      ]);
+
+      socket.write(buildPacket(0x00, handshakeData));
+      socket.write(buildPacket(0x00));
+    });
+
+    socket.on('data', data => {
+      chunks.push(data);
+      const full = Buffer.concat(chunks);
+      try {
+        let offset = 0;
+        const readVarInt = () => {
+          let num = 0; let shift = 0; let byte;
+          do {
+            if (offset >= full.length) throw new Error('incomplete');
+            byte = full[offset++];
+            num |= (byte & 0x7F) << shift;
+            shift += 7;
+          } while (byte & 0x80);
+          return num;
+        };
+
+        readVarInt();
+        const packetId = readVarInt();
+        if (packetId !== 0x00) throw new Error('unexpected_packet');
+        const jsonLength = readVarInt();
+        if (offset + jsonLength > full.length) throw new Error('incomplete');
+
+        const payload = JSON.parse(full.subarray(offset, offset + jsonLength).toString('utf8'));
+        clearTimeout(timeout);
+        socket.destroy();
+        resolve({
+          online: true,
+          currentPlayers: Number(payload.players?.online || 0),
+          maxPlayers: Number(payload.players?.max || 0)
+        });
+      } catch (error) {
+        if (error.message !== 'incomplete') {
+          clearTimeout(timeout);
+          socket.destroy();
+          reject(error);
+        }
+      }
+    });
   });
 }
 
@@ -76,10 +136,6 @@ function formatDiscordError(error) {
   return error.code ? `${error.code}: ${error.message}` : (error.message || String(error));
 }
 
-function formatDiscordError(error) {
-  if (!error) return 'unknown_error';
-  return error.code ? `${error.code}: ${error.message}` : (error.message || String(error));
-}
 
 async function ensureVoiceChannel(guild, existingChannelId, desiredName) {
   if (!desiredName) {
@@ -260,7 +316,7 @@ async function runSweep(client) {
       try {
         await syncGuildMonitor(client, monitor.guild_id);
       } catch (error) {
-        console.error(`❌ Minecraft monitor sync failed for guild ${monitor.guild_id}:`, error.message || error);
+        console.error(`<:warning:1496193692099285255> Minecraft monitor sync failed for guild ${monitor.guild_id}:`, error.message || error);
       }
     }
   } finally {
@@ -279,12 +335,12 @@ function initMinecraftMonitorManager(client) {
   stopMinecraftMonitorManager();
 
   runSweep(client).catch(err => {
-    console.error('❌ Initial Minecraft monitor sweep failed:', err.message || err);
+    console.error('<:warning:1496193692099285255> Initial Minecraft monitor sweep failed:', err.message || err);
   });
 
   monitorInterval = setInterval(() => {
     runSweep(client).catch(err => {
-      console.error('❌ Minecraft monitor sweep failed:', err.message || err);
+      console.error('<:warning:1496193692099285255> Minecraft monitor sweep failed:', err.message || err);
     });
   }, CHECK_INTERVAL_MS);
 

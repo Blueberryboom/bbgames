@@ -77,7 +77,7 @@ async function runAutomationAction(client, automation, ticket) {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`ticket_close_request_yes:${ticket.id}`)
-        .setLabel('✅ Yes, close this ticket')
+        .setLabel('<:checkmark:1495875811792781332> Yes, close this ticket')
         .setStyle(ButtonStyle.Danger)
     );
 
@@ -229,13 +229,13 @@ function initTicketAutomationManager(client) {
 
   processTimer = setInterval(() => {
     processTicketAutomationsSafely(client).catch(error => {
-      console.error('❌ Ticket automation processor error:', error);
+      console.error('<:warning:1496193692099285255> Ticket automation processor error:', error);
     });
   }, PROCESS_INTERVAL_MS);
   processTimer.unref?.();
 
   processTicketAutomationsSafely(client).catch(error => {
-    console.error('❌ Ticket automation startup run failed:', error);
+    console.error('<:warning:1496193692099285255> Ticket automation startup run failed:', error);
   });
 }
 

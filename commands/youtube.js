@@ -64,7 +64,7 @@ module.exports = {
   async execute(interaction) {
     if (!await canManageYouTube(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -79,7 +79,7 @@ module.exports = {
 
         if (!targetChannel || targetChannel.guildId !== interaction.guildId) {
           return interaction.reply({
-            content: '❌ Please pick a valid channel from this server.',
+            content: '<:warning:1496193692099285255> Please pick a valid channel from this server.',
             flags: MessageFlags.Ephemeral
           });
         }
@@ -92,7 +92,7 @@ module.exports = {
         const maxSubscriptions = await getSubscriptionLimit(interaction.client, interaction.guildId);
         if (existingRows.length >= maxSubscriptions) {
           return interaction.reply({
-            content: `❌ You can only configure up to ${maxSubscriptions} YouTube channels per server.`,
+            content: `<:warning:1496193692099285255> You can only configure up to ${maxSubscriptions} YouTube channels per server.`,
             flags: MessageFlags.Ephemeral
           });
         }
@@ -100,7 +100,7 @@ module.exports = {
         const resolved = await resolveYouTubeChannelId(channelInput);
         if (!resolved) {
           return interaction.reply({
-            content: '❌ Could not find that YouTube channel. Try @handle, channel ID (UC...), username, or URL.',
+            content: '<:warning:1496193692099285255> Could not find that YouTube channel. Try @handle, channel ID (UC...), username, or URL.',
             flags: MessageFlags.Ephemeral
           });
         }
@@ -108,7 +108,7 @@ module.exports = {
         const alreadyConfigured = existingRows.some(row => row.youtube_channel_id === resolved.channelId);
         if (alreadyConfigured) {
           return interaction.reply({
-            content: '❌ That YouTube channel is already configured in this server.',
+            content: '<:warning:1496193692099285255> That YouTube channel is already configured in this server.',
             flags: MessageFlags.Ephemeral
           });
         }
@@ -150,7 +150,7 @@ module.exports = {
           flags: MessageFlags.Ephemeral
         });
       } catch {
-        return interaction.reply({ content: '❌ Could not prepare this YouTube setup.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Could not prepare this YouTube setup.', flags: MessageFlags.Ephemeral });
       }
     }
 
@@ -160,7 +160,7 @@ module.exports = {
 
       if (!resolved) {
         return interaction.reply({
-          content: '❌ Could not find that YouTube channel. Try @handle, channel ID (UC...), username, or URL.',
+          content: '<:warning:1496193692099285255> Could not find that YouTube channel. Try @handle, channel ID (UC...), username, or URL.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -172,7 +172,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: `✅ Removed YouTube subscription for **${resolved.display}** (\`${resolved.channelId}\`).`,
+        content: `<:checkmark:1495875811792781332> Removed YouTube subscription for **${resolved.display}** (\`${resolved.channelId}\`).`,
         flags: MessageFlags.Ephemeral
       });
     }

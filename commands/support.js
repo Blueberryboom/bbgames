@@ -28,7 +28,7 @@ module.exports = {
   async execute(interaction) {
     if (!interaction.guildId) {
       return interaction.reply({
-        content: '❌ Please use this command from a server.',
+        content: '<:warning:1496193692099285255> Please use this command from a server.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -38,7 +38,7 @@ module.exports = {
 
     if (!message.length) {
       return interaction.reply({
-        content: '❌ Message cannot be empty.',
+        content: '<:warning:1496193692099285255> Message cannot be empty.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -61,7 +61,7 @@ module.exports = {
     } catch (err) {
       console.error(err);
       return interaction.reply({
-        content: '❌ Database error while checking cooldown.',
+        content: '<:warning:1496193692099285255> Database error while checking cooldown.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -90,7 +90,7 @@ module.exports = {
     } catch (err) {
       console.error(err);
       return interaction.reply({
-        content: '❌ Database error while saving your request.',
+        content: '<:warning:1496193692099285255> Database error while saving your request.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -121,7 +121,7 @@ module.exports = {
     }
 
     return interaction.reply({
-      content: '✅ Your support request has been sent. You can submit again in 7 days.',
+      content: '<:checkmark:1495875811792781332> Your support request has been sent. You can submit again in 7 days.',
       flags: MessageFlags.Ephemeral
     });
   }

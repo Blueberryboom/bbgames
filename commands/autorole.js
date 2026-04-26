@@ -24,7 +24,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or configured bot manager role.',
+        content: '<:warning:1496193692099285255> You need administrator or configured bot manager role.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -37,7 +37,7 @@ module.exports = {
         return interaction.reply({ content: 'ℹ️ No autoroles configured for this server.', flags: MessageFlags.Ephemeral });
       }
       return interaction.reply({
-        content: `✅ Configured autoroles (${rows.length}):\n${rows.map(r => `• <@&${r.role_id}> (\`${r.role_id}\`)`).join('\n')}`,
+        content: `<:checkmark:1495875811792781332> Configured autoroles (${rows.length}):\n${rows.map(r => `• <@&${r.role_id}> (\`${r.role_id}\`)`).join('\n')}`,
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
@@ -48,7 +48,7 @@ module.exports = {
     if (sub === 'create') {
       if (role.permissions.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({
-          content: '❌ Autorole cannot be a role with Administrator permissions.',
+          content: '<:warning:1496193692099285255> Autorole cannot be a role with Administrator permissions.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -57,7 +57,7 @@ module.exports = {
       const rows = await query('SELECT role_id FROM autoroles WHERE guild_id = ?', [interaction.guildId]);
       if (rows.length >= maxRoles) {
         return interaction.reply({
-          content: `❌ You can only configure up to ${maxRoles} autoroles on this server.`,
+          content: `<:warning:1496193692099285255> You can only configure up to ${maxRoles} autoroles on this server.`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -68,10 +68,10 @@ module.exports = {
         [interaction.guildId, role.id, interaction.user.id, Date.now()]
       );
 
-      return interaction.reply({ content: `✅ Added ${role} as an autorole for new members.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Added ${role} as an autorole for new members.`, flags: MessageFlags.Ephemeral });
     }
 
     await query('DELETE FROM autoroles WHERE guild_id = ? AND role_id = ?', [interaction.guildId, role.id]);
-    return interaction.reply({ content: `✅ Removed ${role} from autoroles.`, flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: `<:checkmark:1495875811792781332> Removed ${role} from autoroles.`, flags: MessageFlags.Ephemeral });
   }
 };

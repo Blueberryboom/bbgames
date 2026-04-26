@@ -50,7 +50,7 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (!await checkPerms(interaction)) {
-      return interaction.reply({ content: '❌ You need administrator or configured bot manager role.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> You need administrator or configured bot manager role.', flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'channel') {
@@ -59,7 +59,7 @@ module.exports = {
       const reenableAt = disabledAt + REENABLE_COOLDOWN_MS;
       if (disabledAt && reenableAt > Date.now()) {
         return interaction.reply({
-          content: `❌ Bumping was recently disabled. You can enable it again <t:${Math.floor(reenableAt / 1000)}:R> (at <t:${Math.floor(reenableAt / 1000)}:F>).`,
+          content: `<:warning:1496193692099285255> Bumping was recently disabled. You can enable it again <t:${Math.floor(reenableAt / 1000)}:R> (at <t:${Math.floor(reenableAt / 1000)}:F>).`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -77,7 +77,7 @@ module.exports = {
         [interaction.guildId, channel.id, interaction.user.id, Date.now()]
       );
 
-      return interaction.reply({ content: `✅ Bumping channel set to ${channel}. Next: run \/bumping advertisement to configure your ad.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Bumping channel set to ${channel}. Next: run \/bumping advertisement to configure your ad.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'disable') {
@@ -92,7 +92,7 @@ module.exports = {
       await query('DELETE FROM bumping_channel_usage WHERE guild_id = ?', [interaction.guildId]);
       await query('DELETE FROM bumping_restrictions WHERE guild_id = ?', [interaction.guildId]);
       return interaction.reply({
-        content: `✅ Bumping module disabled and usage data removed. Re-enabling has a 1 day cooldown and will be available <t:${Math.floor((now + REENABLE_COOLDOWN_MS) / 1000)}:R>.`,
+        content: `<:checkmark:1495875811792781332> Bumping module disabled and usage data removed. Re-enabling has a 1 day cooldown and will be available <t:${Math.floor((now + REENABLE_COOLDOWN_MS) / 1000)}:R>.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -110,21 +110,21 @@ module.exports = {
 
       if (verifiedAt > 0) {
         return interaction.reply({
-          content: `✅ This server is already verified (since <t:${Math.floor(verifiedAt / 1000)}:F>).`,
+          content: `<:checkmark:1495875811792781332> This server is already verified (since <t:${Math.floor(verifiedAt / 1000)}:F>).`,
           flags: MessageFlags.Ephemeral
         });
       }
 
       if (bumpCount < 50) {
         return interaction.reply({
-          content: `❌ Verification requires at least **50** bumps. This server currently has **${bumpCount}**.`,
+          content: `<:warning:1496193692099285255> Verification requires at least **50** bumps. This server currently has **${bumpCount}**.`,
           flags: MessageFlags.Ephemeral
         });
       }
 
       if ((interaction.guild?.memberCount || 0) < 100) {
         return interaction.reply({
-          content: '❌ Verification requires at least **100** server members.',
+          content: '<:warning:1496193692099285255> Verification requires at least **100** server members.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -132,7 +132,7 @@ module.exports = {
       const requestAvailableAt = lastRequestAt + cooldownMs;
       if (lastRequestAt > 0 && requestAvailableAt > Date.now()) {
         return interaction.reply({
-          content: `❌ You can send another verification request <t:${Math.floor(requestAvailableAt / 1000)}:R> (at <t:${Math.floor(requestAvailableAt / 1000)}:F>).`,
+          content: `<:warning:1496193692099285255> You can send another verification request <t:${Math.floor(requestAvailableAt / 1000)}:R> (at <t:${Math.floor(requestAvailableAt / 1000)}:F>).`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -173,7 +173,7 @@ module.exports = {
       }
 
       return interaction.reply({
-        content: '✅ Verification request sent to the BBGames team.',
+        content: '<:checkmark:1495875811792781332> Verification request sent to the BBGames team.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -183,7 +183,7 @@ module.exports = {
     const reenableAt = disabledAt + REENABLE_COOLDOWN_MS;
     if (disabledAt && reenableAt > Date.now()) {
       return interaction.reply({
-        content: `❌ Bumping was recently disabled. You can enable it again <t:${Math.floor(reenableAt / 1000)}:R> (at <t:${Math.floor(reenableAt / 1000)}:F>).`,
+        content: `<:warning:1496193692099285255> Bumping was recently disabled. You can enable it again <t:${Math.floor(reenableAt / 1000)}:R> (at <t:${Math.floor(reenableAt / 1000)}:F>).`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -203,10 +203,10 @@ module.exports = {
 
     const ad = submit.fields.getTextInputValue('ad').trim();
     if (ad.split('\n').length > 10) {
-      return submit.reply({ content: '❌ Advertisement cannot exceed 10 lines.', flags: MessageFlags.Ephemeral });
+      return submit.reply({ content: '<:warning:1496193692099285255> Advertisement cannot exceed 10 lines.', flags: MessageFlags.Ephemeral });
     }
     if (hasBlockedText(ad)) {
-      return submit.reply({ content: '❌ Advertisement contains blocked content (links, mentions, or offensive text).', flags: MessageFlags.Ephemeral });
+      return submit.reply({ content: '<:warning:1496193692099285255> Advertisement contains blocked content (links, mentions, or offensive text).', flags: MessageFlags.Ephemeral });
     }
 
     await query(
@@ -216,6 +216,6 @@ module.exports = {
       [interaction.guildId, ad, interaction.user.id, Date.now()]
     );
 
-    return submit.reply({ content: '✅ Advertisement saved. Now use /bump to distribute your server ad.', flags: MessageFlags.Ephemeral });
+    return submit.reply({ content: '<:checkmark:1495875811792781332> Advertisement saved. Now use /bump to distribute your server ad.', flags: MessageFlags.Ephemeral });
   }
 };

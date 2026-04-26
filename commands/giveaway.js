@@ -40,7 +40,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction, { scope: 'giveaway' })) {
       return interaction.reply({
-        content: '❌ You need administrator, the bot manager role, or the giveaway admin role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator, the bot manager role, or the giveaway admin role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -66,7 +66,7 @@ module.exports = {
       const uniqueBonusRoles = [...new Map(bonusRoles.map(role => [role.id, role])).values()];
 
       if (winners < 1 || winners > 20) {
-        return interaction.reply({ content: '❌ Winners must be between 1 and 20.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Winners must be between 1 and 20.', flags: MessageFlags.Ephemeral });
       }
 
       let durationMs;
@@ -74,7 +74,7 @@ module.exports = {
         durationMs = parseDuration(durationInput);
       } catch {
         return interaction.reply({
-          content: '❌ Invalid duration. Example formats: `30m`, `2h`, `1d 2h 30m`.',
+          content: '<:warning:1496193692099285255> Invalid duration. Example formats: `30m`, `2h`, `1d 2h 30m`.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -127,7 +127,7 @@ module.exports = {
         title
       });
 
-      return interaction.reply({ content: '✅ Giveaway created successfully!', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:checkmark:1495875811792781332> Giveaway created successfully!', flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'list') {
@@ -151,17 +151,17 @@ module.exports = {
 
     if (sub === 'end') {
       await giveawayManager.endGiveaway(interaction.client, id);
-      return interaction.reply({ content: '✅ Giveaway ended.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:checkmark:1495875811792781332> Giveaway ended.', flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'delete') {
       await giveawayManager.deleteGiveaway(interaction.client, id);
-      return interaction.reply({ content: '✅ Giveaway deleted.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:checkmark:1495875811792781332> Giveaway deleted.', flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'reroll') {
       await giveawayManager.rerollGiveaway(interaction.client, id);
-      return interaction.reply({ content: '✅ Giveaway rerolled.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:checkmark:1495875811792781332> Giveaway rerolled.', flags: MessageFlags.Ephemeral });
     }
   }
 };

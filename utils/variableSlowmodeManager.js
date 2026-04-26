@@ -64,7 +64,7 @@ async function runAdjustment(client) {
       if (err?.code === 50013 || err?.code === 50001) {
         continue;
       }
-      console.error(`❌ Variable slowmode adjustment failed for channel ${state.channelId}:`, err);
+      console.error(`<:warning:1496193692099285255> Variable slowmode adjustment failed for channel ${state.channelId}:`, err);
     }
   }
 }
@@ -94,7 +94,7 @@ async function initializeVariableSlowmodeManager(client) {
 
   adjustTimer = setInterval(() => {
     runAdjustment(client).catch(err => {
-      console.error('❌ Variable slowmode scheduler error:', err);
+      console.error('<:warning:1496193692099285255> Variable slowmode scheduler error:', err);
     });
   }, CHECK_INTERVAL_MS);
 

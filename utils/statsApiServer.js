@@ -40,7 +40,7 @@ function startStatsApiServer(client) {
         updatedAt: Date.now()
       });
     } catch (error) {
-      console.error('❌ Stats API error:', error);
+      console.error('<:warning:1496193692099285255> Stats API error:', error);
       return sendJson(res, 500, { ok: false, error: 'Failed to fetch stats' });
     }
   });

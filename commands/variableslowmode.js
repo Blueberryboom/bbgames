@@ -65,7 +65,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -79,14 +79,14 @@ module.exports = {
 
       if (maxSlowmode < 2 || maxSlowmode > 30) {
         return interaction.reply({
-          content: '❌ Maximum slowmode must be between 2 and 30 seconds.',
+          content: '<:warning:1496193692099285255> Maximum slowmode must be between 2 and 30 seconds.',
           flags: MessageFlags.Ephemeral
         });
       }
 
       if (minSlowmode > maxSlowmode) {
         return interaction.reply({
-          content: '❌ Minimum slowmode cannot be greater than maximum slowmode.',
+          content: '<:warning:1496193692099285255> Minimum slowmode cannot be greater than maximum slowmode.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -102,7 +102,7 @@ module.exports = {
       const hasExistingForChannel = rows.some(row => row.channel_id === channel.id);
       if (!hasExistingForChannel && rows.length >= limit) {
         return interaction.reply({
-          content: `❌ This server can only have ${limit} variable slowmode channel(s).`,
+          content: `<:warning:1496193692099285255> This server can only have ${limit} variable slowmode channel(s).`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -112,7 +112,7 @@ module.exports = {
       } catch (err) {
         if (err?.code === 50013 || err?.code === 50001) {
           return interaction.reply({
-            content: '❌ I cannot edit that channel slowmode. Please give me Manage Channels permission and ensure my role is high enough.',
+            content: '<:warning:1496193692099285255> I cannot edit that channel slowmode. Please give me Manage Channels permission and ensure my role is high enough.',
             flags: MessageFlags.Ephemeral
           });
         }
@@ -140,7 +140,7 @@ module.exports = {
       });
 
       return interaction.reply({
-        content: `✅ Variable slowmode enabled for ${channel} (min: **${minSlowmode}s**, max: **${maxSlowmode}s**). Existing config for this channel was overwritten if it already existed.`,
+        content: `<:checkmark:1495875811792781332> Variable slowmode enabled for ${channel} (min: **${minSlowmode}s**, max: **${maxSlowmode}s**). Existing config for this channel was overwritten if it already existed.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -164,7 +164,7 @@ module.exports = {
       }
 
       return interaction.reply({
-        content: `✅ Variable slowmode disabled in ${channel}.`,
+        content: `<:checkmark:1495875811792781332> Variable slowmode disabled in ${channel}.`,
         flags: MessageFlags.Ephemeral
       });
     }

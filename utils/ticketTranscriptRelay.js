@@ -6,15 +6,6 @@ function getTranscriptThreadIdFromTopic(topic) {
   return match ? match[1] : null;
 }
 
-function formatTranscriptTime(timestamp) {
-  return new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'UTC'
-  }).format(new Date(timestamp));
-}
-
 async function relayTicketMessageToTranscript(message) {
   if (!message?.guildId || !message.channel?.isTextBased()) return;
   if (message.author?.bot) return;
@@ -59,7 +50,7 @@ async function relayTicketMessageToTranscript(message) {
   const content = message.content?.trim();
   const attachmentUrls = [...message.attachments.values()].map(file => file.url).join(' ');
   const cleanedMessage = [content, attachmentUrls].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim() || '[no text]';
-  const line = `${formatTranscriptTime(message.createdTimestamp)} | ${message.author.username} : ${cleanedMessage}`.slice(0, 1900);
+  const line = `<t:${Math.floor(message.createdTimestamp / 1000)}:F> | **${message.author.username}** : ${cleanedMessage}`.slice(0, 1900);
   await transcriptThread.send({ content: line }).catch(() => null);
 }
 
