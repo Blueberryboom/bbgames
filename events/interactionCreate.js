@@ -783,11 +783,13 @@ async function handleTicketPanelSelect(interaction) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`ticket_open_confirm:${type.id}`)
-      .setLabel('<:checkmark:1495875811792781332> Yes')
+      .setLabel('Yes')
+      .setEmoji({ id: '1495875811792781332', name: 'checkmark' })
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`ticket_open_cancel:${type.id}`)
-      .setLabel('<:warning:1496193692099285255> No')
+      .setLabel('No')
+      .setEmoji({ id: '1496193692099285255', name: 'warning' })
       .setStyle(ButtonStyle.Secondary)
   );
 

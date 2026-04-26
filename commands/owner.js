@@ -689,10 +689,11 @@ if (sub === "servers") {
         filter: m => m.customId === `owner_server_announce_modal:${guildId}` && m.user.id === i.user.id
       }).catch(() => null);
       if (!submitted) return;
+      await submitted.deferReply({ flags: MessageFlags.Ephemeral });
       const target = submitted.fields.getTextInputValue('target').trim();
       const messageText = submitted.fields.getTextInputValue('message').trim();
       const ok = await sendOwnerServerAnnouncement(interaction.client, guildId, target, messageText);
-      return submitted.reply({ content: ok ? '<:checkmark:1495875811792781332> Announcement sent.' : '<:warning:1496193692099285255> Could not find target channel or send message.', flags: MessageFlags.Ephemeral });
+      return submitted.editReply({ content: ok ? '<:checkmark:1495875811792781332> Announcement sent.' : '<:warning:1496193692099285255> Could not find target channel or send message.' });
     }
 
   });

@@ -174,7 +174,7 @@ module.exports = {
       const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
         new ButtonBuilder().setCustomId(`bump_report:${guild.id}:${sentEntry.message.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger),
-        ...(isVerified ? [new ButtonBuilder().setCustomId('bump_verified_info').setLabel('Verified').setEmoji('<:checkmark:1495875811792781332>').setStyle(ButtonStyle.Success)] : []),
+        ...(isVerified ? [new ButtonBuilder().setCustomId('bump_verified_info').setLabel('Verified').setEmoji({ id: '1495875811792781332', name: 'checkmark' }).setStyle(ButtonStyle.Success)] : []),
         ...(isPremium ? [new ButtonBuilder().setCustomId('bump_premium_info').setLabel('Premium Server').setEmoji('🔥').setStyle(ButtonStyle.Success)] : [])
       );
 

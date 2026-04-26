@@ -170,7 +170,8 @@ module.exports = {
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`ticket_close_request_yes:${ticket.id}`)
-          .setLabel('<:checkmark:1495875811792781332> Yes, close this ticket')
+          .setLabel('Yes, close this ticket')
+          .setEmoji({ id: '1495875811792781332', name: 'checkmark' })
           .setStyle(ButtonStyle.Danger)
       );
 

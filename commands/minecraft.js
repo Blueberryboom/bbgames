@@ -224,6 +224,7 @@ async function handleMonitor(interaction) {
 
 
 async function handleMonitorEmojis(interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const ipEmoji = interaction.options.getString('ip_emoji')?.trim() || null;
   const playersEmoji = interaction.options.getString('active_players_emoji')?.trim() || null;
   const recordEmoji = interaction.options.getString('record_emoji')?.trim() || null;
@@ -237,9 +238,8 @@ async function handleMonitorEmojis(interaction) {
   );
 
   if (!rows.length) {
-    return interaction.reply({
-      content: '<:warning:1496193692099285255> Set up monitoring first with `/minecraft monitor`.',
-      flags: MessageFlags.Ephemeral
+    return interaction.editReply({
+      content: '<:warning:1496193692099285255> Set up monitoring first with `/minecraft monitor`.'
     });
   }
 
@@ -255,9 +255,8 @@ async function handleMonitorEmojis(interaction) {
 
   await syncGuildMonitor(interaction.client, interaction.guildId);
 
-  return interaction.reply({
-    content: '<:checkmark:1495875811792781332> Updated Minecraft monitor channel emoji prefixes and forced an immediate monitor refresh.',
-    flags: MessageFlags.Ephemeral
+  return interaction.editReply({
+    content: '<:checkmark:1495875811792781332> Updated Minecraft monitor channel emoji prefixes and forced an immediate monitor refresh.'
   });
 }
 

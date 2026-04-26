@@ -177,7 +177,7 @@ module.exports = {
         `<:checkmark:1495875811792781332> Premium instance started as **${created.botTag}** in **${created.guildCount}** server(s).${statusText} This will auto-restore after restart.`
       );
     } catch (error) {
-      console.error('<:warning:1496193692099285255> premium start failed:', error);
+      console.error('❌ premium start failed:', error);
       return interaction.editReply(`<:warning:1496193692099285255> Failed to start premium instance: ${error.message}`);
     }
   }
