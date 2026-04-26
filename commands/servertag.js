@@ -27,7 +27,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -43,7 +43,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: '✅ Server-tag rewards disabled.',
+        content: '<:checkmark:1495875811792781332> Server-tag rewards disabled.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -63,7 +63,7 @@ module.exports = {
     await syncGuildServerTagRewards(interaction.guild).catch(() => null);
 
     return interaction.reply({
-      content: `✅ Server-tag rewards enabled. Role ${role} will sync every 5 minutes.`,
+      content: `<:checkmark:1495875811792781332> Server-tag rewards enabled. Role ${role} will sync every 5 minutes.`,
       flags: MessageFlags.Ephemeral
     });
   }

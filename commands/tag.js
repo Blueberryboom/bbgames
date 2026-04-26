@@ -114,7 +114,7 @@ module.exports = {
     if (sub === 'create') {
       if (!await checkPerms(interaction)) {
         return interaction.reply({
-          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -127,7 +127,7 @@ module.exports = {
 
       if (!/^[a-z0-9-]{2,40}$/.test(rawName)) {
         return interaction.reply({
-          content: '❌ Tag names must be 2-40 characters and use only lowercase letters, numbers, and dashes.',
+          content: '<:warning:1496193692099285255> Tag names must be 2-40 characters and use only lowercase letters, numbers, and dashes.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -152,7 +152,7 @@ module.exports = {
       const totalTags = Number(countRows[0]?.total || 0);
       if (!exists && totalTags >= limit) {
         return interaction.reply({
-          content: `❌ Tag limit reached for this server (${limit}).`,
+          content: `<:warning:1496193692099285255> Tag limit reached for this server (${limit}).`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -166,7 +166,7 @@ module.exports = {
 
         if (!roleIds.length) {
           return interaction.reply({
-            content: '❌ When `usable_by` is `Specific roles`, provide role IDs in `allowed_roles`.',
+            content: '<:warning:1496193692099285255> When `usable_by` is `Specific roles`, provide role IDs in `allowed_roles`.',
             flags: MessageFlags.Ephemeral
           });
         }
@@ -174,7 +174,7 @@ module.exports = {
         for (const roleId of roleIds) {
           if (!interaction.guild.roles.cache.has(roleId)) {
             return interaction.reply({
-              content: `❌ Invalid role ID: \`${roleId}\``,
+              content: `<:warning:1496193692099285255> Invalid role ID: \`${roleId}\``,
               flags: MessageFlags.Ephemeral
             });
           }
@@ -211,7 +211,7 @@ module.exports = {
       }
 
       return interaction.reply({
-        content: `✅ Saved tag \`${rawName}\` (${expire ? 'expires after 30s' : 'no expiry'}, usable by: ${usableBy}).`,
+        content: `<:checkmark:1495875811792781332> Saved tag \`${rawName}\` (${expire ? 'expires after 30s' : 'no expiry'}, usable by: ${usableBy}).`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -219,7 +219,7 @@ module.exports = {
     if (sub === 'delete') {
       if (!await checkPerms(interaction)) {
         return interaction.reply({
-          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -227,7 +227,7 @@ module.exports = {
       const rawName = interaction.options.getString('name', true).trim().toLowerCase();
       if (!/^[a-z0-9-]{2,40}$/.test(rawName)) {
         return interaction.reply({
-          content: '❌ Tag names must be 2-40 characters and use only lowercase letters, numbers, and dashes.',
+          content: '<:warning:1496193692099285255> Tag names must be 2-40 characters and use only lowercase letters, numbers, and dashes.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -246,13 +246,13 @@ module.exports = {
 
       if (!result.affectedRows) {
         return interaction.reply({
-          content: '❌ That tag does not exist.',
+          content: '<:warning:1496193692099285255> That tag does not exist.',
           flags: MessageFlags.Ephemeral
         });
       }
 
       return interaction.reply({
-        content: `✅ Deleted tag \`${rawName}\`.`,
+        content: `<:checkmark:1495875811792781332> Deleted tag \`${rawName}\`.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -307,7 +307,7 @@ module.exports = {
 
     if (!rows.length) {
       return interaction.reply({
-        content: '❌ That tag does not exist.',
+        content: '<:warning:1496193692099285255> That tag does not exist.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -315,7 +315,7 @@ module.exports = {
     const tag = rows[0];
     if (!await canUseTag(interaction, tag)) {
       return interaction.reply({
-        content: '❌ You do not have permission to use this tag.',
+        content: '<:warning:1496193692099285255> You do not have permission to use this tag.',
         flags: MessageFlags.Ephemeral
       });
     }

@@ -18,7 +18,7 @@ module.exports = {
     try {
       if (!interaction.inGuild()) {
         return interaction.reply({
-          content: '❌ This command can only be used inside a server.',
+          content: '<:warning:1496193692099285255> This command can only be used inside a server.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -80,7 +80,7 @@ module.exports = {
 
         if (i.user.id !== interaction.user.id) {
           return i.reply({
-            content: '❌ This leaderboard session is only for the user who opened it.',
+            content: '<:warning:1496193692099285255> This leaderboard session is only for the user who opened it.',
             flags: MessageFlags.Ephemeral
           });
         }
@@ -113,12 +113,12 @@ module.exports = {
       console.error('❌ /afk_leaderboard failed:', error);
       if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({
-          content: '❌ Failed to load AFK leaderboard.',
+          content: '<:warning:1496193692099285255> Failed to load AFK leaderboard.',
           flags: MessageFlags.Ephemeral
         });
       }
       return interaction.followUp({
-        content: '❌ Failed to load AFK leaderboard.',
+        content: '<:warning:1496193692099285255> Failed to load AFK leaderboard.',
         flags: MessageFlags.Ephemeral
       }).catch(() => null);
     }

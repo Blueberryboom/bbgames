@@ -59,13 +59,13 @@ module.exports = {
       console.error('❌ Birthday command error:', error);
       if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({
-          content: '❌ Birthday action failed. Please try again.',
+          content: '<:warning:1496193692099285255> Birthday action failed. Please try again.',
           flags: MessageFlags.Ephemeral
         });
       }
 
       return interaction.followUp({
-        content: '❌ Birthday action failed. Please try again.',
+        content: '<:warning:1496193692099285255> Birthday action failed. Please try again.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -75,7 +75,7 @@ module.exports = {
 async function handleConfig(interaction) {
   if (!await checkPerms(interaction)) {
     return interaction.reply({
-      content: '❌ You need administrator, manager role, or owner access for this command.',
+      content: '<:warning:1496193692099285255> You need administrator, manager role, or owner access for this command.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -107,7 +107,7 @@ async function handleConfig(interaction) {
     : 'Everyone';
 
   return interaction.reply({
-    content: `✅ Birthday module configured in <#${channel.id}>. Allowed roles for registration: ${allowedRolesText}.`,
+    content: `<:checkmark:1495875811792781332> Birthday module configured in <#${channel.id}>. Allowed roles for registration: ${allowedRolesText}.`,
     flags: MessageFlags.Ephemeral
   });
 }
@@ -115,7 +115,7 @@ async function handleConfig(interaction) {
 async function handleDisable(interaction) {
   if (!await checkPerms(interaction)) {
     return interaction.reply({
-      content: '❌ You need administrator, manager role, or owner access for this command.',
+      content: '<:warning:1496193692099285255> You need administrator, manager role, or owner access for this command.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -123,7 +123,7 @@ async function handleDisable(interaction) {
   await query('DELETE FROM birthday_settings WHERE guild_id = ?', [interaction.guildId]);
 
   return interaction.reply({
-    content: '✅ Birthday module disabled for this server.',
+    content: '<:checkmark:1495875811792781332> Birthday module disabled for this server.',
     flags: MessageFlags.Ephemeral
   });
 }
@@ -134,7 +134,7 @@ async function handleRegister(interaction) {
 
   if (!parsed) {
     return interaction.reply({
-      content: '❌ Invalid date format. Use DD/MM (example: 05/11).',
+      content: '<:warning:1496193692099285255> Invalid date format. Use DD/MM (example: 05/11).',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -149,7 +149,7 @@ async function handleRegister(interaction) {
 
   if (!configRows.length || !configRows[0].enabled) {
     return interaction.reply({
-      content: '❌ Birthday module is not enabled in this server. Ask an admin to run `/birthday config` first.',
+      content: '<:warning:1496193692099285255> Birthday module is not enabled in this server. Ask an admin to run `/birthday config` first.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -167,7 +167,7 @@ async function handleRegister(interaction) {
 
   if (!isAdmin && !isOwner && !hasAllowedRole) {
     return interaction.reply({
-      content: '❌ You do not have access to register birthdays in this server.',
+      content: '<:warning:1496193692099285255> You do not have access to register birthdays in this server.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -185,7 +185,7 @@ async function handleRegister(interaction) {
     if (Date.now() < nextAllowedAt) {
       const discordTimestamp = `<t:${Math.floor(nextAllowedAt / 1000)}:R>`;
       return interaction.reply({
-        content: `❌ You can only change your birthday every ${REGISTER_COOLDOWN_MONTHS} months. You can update it again ${discordTimestamp}.`,
+        content: `<:warning:1496193692099285255> You can only change your birthday every ${REGISTER_COOLDOWN_MONTHS} months. You can update it again ${discordTimestamp}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -206,7 +206,7 @@ async function handleRegister(interaction) {
   );
 
   return interaction.reply({
-    content: `✅ Birthday saved as **${String(parsed.day).padStart(2, '0')}/${String(parsed.month).padStart(2, '0')}**.`,
+    content: `<:checkmark:1495875811792781332> Birthday saved as **${String(parsed.day).padStart(2, '0')}/${String(parsed.month).padStart(2, '0')}**.`,
     flags: MessageFlags.Ephemeral
   });
 }

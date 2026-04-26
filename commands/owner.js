@@ -32,18 +32,8 @@ module.exports = {
     )
 
     .addSubcommand(s =>
-      s.setName('announce')
-       .setDescription('Send announcement to all counting channels')
-       .addStringOption(o =>
-         o.setName('message')
-          .setDescription('Message')
-          .setRequired(true)
-       )
-       .addBooleanOption(o =>
-         o.setName('force')
-          .setDescription('Send even when system announcements are disabled')
-          .setRequired(false)
-       )
+      s.setName('send_changelog')
+       .setDescription('Send a changelog to all follower servers')
     )
 
 
@@ -144,10 +134,10 @@ module.exports = {
   async execute(interaction) {
 
     if (interaction.guild)
-      return interaction.reply({ content: "❌ DM only.", ephemeral: true });
+      return interaction.reply({ content: "<:warning:1496193692099285255> DM only.", ephemeral: true });
 
     if (interaction.user.id !== BOT_OWNER_ID)
-      return interaction.reply({ content: "❌ Not allowed.", ephemeral: true });
+      return interaction.reply({ content: "<:warning:1496193692099285255> Not allowed.", ephemeral: true });
 
     const sub = interaction.options.getSubcommand();
 
@@ -157,7 +147,7 @@ module.exports = {
 
       if (action !== 'list' && (!userId || !/^\d{17,20}$/.test(userId))) {
         return interaction.reply({
-          content: '❌ Please provide a valid Discord user ID for add/remove.',
+          content: '<:warning:1496193692099285255> Please provide a valid Discord user ID for add/remove.',
           ephemeral: true
         });
       }
@@ -170,7 +160,7 @@ module.exports = {
         );
 
         return interaction.reply({
-          content: `✅ Added \`${userId}\` to premium allowlist.`,
+          content: `<:checkmark:1495875811792781332> Added \`${userId}\` to premium allowlist.`,
           ephemeral: true
         });
       }
@@ -183,7 +173,7 @@ module.exports = {
         );
 
         return interaction.reply({
-          content: `✅ Removed \`${userId}\` from premium allowlist.`,
+          content: `<:checkmark:1495875811792781332> Removed \`${userId}\` from premium allowlist.`,
           ephemeral: true
         });
       }
@@ -231,14 +221,14 @@ module.exports = {
 
       if ((action === 'create' || action === 'delete') && (!codeInput || codeInput.length < 4 || codeInput.length > 64)) {
         return interaction.reply({
-          content: '❌ Please provide a valid code between 4 and 64 characters.',
+          content: '<:warning:1496193692099285255> Please provide a valid code between 4 and 64 characters.',
           ephemeral: true
         });
       }
 
       if (action === 'create') {
         if (!length) {
-          return interaction.reply({ content: '❌ Please provide a license length.', ephemeral: true });
+          return interaction.reply({ content: '<:warning:1496193692099285255> Please provide a license length.', ephemeral: true });
         }
 
         const existing = await pool.query(
@@ -250,7 +240,7 @@ module.exports = {
         );
 
         if (existing.length && Number(existing[0].deleted_at) === 0) {
-          return interaction.reply({ content: '❌ That premium code already exists.', ephemeral: true });
+          return interaction.reply({ content: '<:warning:1496193692099285255> That premium code already exists.', ephemeral: true });
         }
 
         if (existing.length) {
@@ -277,7 +267,7 @@ module.exports = {
         }
 
         return interaction.reply({
-          content: `✅ Premium code \`${codeInput}\` created with duration \`${length}\`.`,
+          content: `<:checkmark:1495875811792781332> Premium code \`${codeInput}\` created with duration \`${length}\`.`,
           ephemeral: true
         });
       }
@@ -293,7 +283,7 @@ module.exports = {
 
         if (!codeRows.length) {
           return interaction.reply({
-            content: '❌ That premium code does not exist.',
+            content: '<:warning:1496193692099285255> That premium code does not exist.',
             ephemeral: true
           });
         }
@@ -321,7 +311,7 @@ module.exports = {
         );
 
         return interaction.reply({
-          content: `✅ Premium code \`${codeInput}\` deleted.`,
+          content: `<:checkmark:1495875811792781332> Premium code \`${codeInput}\` deleted.`,
           ephemeral: true
         });
       }
@@ -361,7 +351,7 @@ module.exports = {
       const guildId = interaction.options.getString('guild', true).trim();
       if (!/^\d{17,20}$/.test(guildId)) {
         return interaction.reply({
-          content: '❌ Please provide a valid Discord server ID.',
+          content: '<:warning:1496193692099285255> Please provide a valid Discord server ID.',
           ephemeral: true
         });
       }
@@ -373,7 +363,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: `✅ Approved data deletion for server \`${guildId}\`. An administrator there can now run \`/config delete_data\`.`,
+        content: `<:checkmark:1495875811792781332> Approved data deletion for server \`${guildId}\`. An administrator there can now run \`/config delete_data\`.`,
         ephemeral: true
       });
     }
@@ -429,7 +419,7 @@ if (sub === "servers") {
 
   } catch (err) {
     console.error(err);
-    return interaction.editReply("❌ Failed to fetch guilds.");
+    return interaction.editReply("<:warning:1496193692099285255> Failed to fetch guilds.");
   }
 
   if (!guilds.length)
@@ -533,10 +523,10 @@ if (sub === "servers") {
       if (!submitted) return;
       const term = submitted.fields.getTextInputValue('query').trim().toLowerCase();
       const idx = guilds.findIndex(g => g.id === term || g.name.toLowerCase().includes(term));
-      if (idx === -1) return submitted.reply({ content: '❌ No matching server found.', flags: MessageFlags.Ephemeral });
+      if (idx === -1) return submitted.reply({ content: '<:warning:1496193692099285255> No matching server found.', flags: MessageFlags.Ephemeral });
       page = Math.floor(idx / perPage);
       await interaction.editReply({ embeds: [buildEmbed()], components: buildComponents() });
-      return submitted.reply({ content: `✅ Found server: **${guilds[idx].name}** (\`${guilds[idx].id}\`).`, flags: MessageFlags.Ephemeral });
+      return submitted.reply({ content: `<:checkmark:1495875811792781332> Found server: **${guilds[idx].name}** (\`${guilds[idx].id}\`).`, flags: MessageFlags.Ephemeral });
     }
 
     if (i.customId === 'owner_servers_filter_members') {
@@ -554,12 +544,12 @@ if (sub === "servers") {
       const min = Number(submitted.fields.getTextInputValue('min'));
       const max = Number(submitted.fields.getTextInputValue('max'));
       if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
-        return submitted.reply({ content: '❌ Invalid member range.', flags: MessageFlags.Ephemeral });
+        return submitted.reply({ content: '<:warning:1496193692099285255> Invalid member range.', flags: MessageFlags.Ephemeral });
       }
       guilds = guilds.filter(g => Number(g.members || 0) >= min && Number(g.members || 0) <= max);
       page = 0;
       await interaction.editReply(guilds.length ? { embeds: [buildEmbed()], components: buildComponents() } : { content: 'No servers in that range.', embeds: [], components: [] });
-      return submitted.reply({ content: `✅ Filter applied (${guilds.length} result(s)).`, flags: MessageFlags.Ephemeral });
+      return submitted.reply({ content: `<:checkmark:1495875811792781332> Filter applied (${guilds.length} result(s)).`, flags: MessageFlags.Ephemeral });
     }
 
     // ========= SELECT ========= (FAST)
@@ -605,7 +595,7 @@ if (sub === "servers") {
         const invite = await generateGuildInvite(interaction.client, guildId);
 
         if (!invite) {
-          return i.editReply({ content: '❌ Cannot create invite.' });
+          return i.editReply({ content: '<:warning:1496193692099285255> Cannot create invite.' });
         }
 
         return i.editReply({
@@ -614,7 +604,7 @@ if (sub === "servers") {
 
       } catch (err) {
         console.error(err);
-        return i.editReply({ content: '❌ Error generating invite.' });
+        return i.editReply({ content: '<:warning:1496193692099285255> Error generating invite.' });
       }
     }
 
@@ -628,7 +618,7 @@ if (sub === "servers") {
       const left = await leaveGuildById(interaction.client, guildId);
 
       if (!left) {
-        return i.editReply({ content: '❌ Could not leave.' });
+        return i.editReply({ content: '<:warning:1496193692099285255> Could not leave.' });
       }
 
       guilds = guilds.filter(g => g.id !== guildId);
@@ -644,7 +634,7 @@ if (sub === "servers") {
         });
       }
 
-      return i.editReply({ content: '✅ Left server.' });
+      return i.editReply({ content: '<:checkmark:1495875811792781332> Left server.' });
     }
 
     // ========= BLACKLIST ========= (SLOW → deferReply)
@@ -661,7 +651,7 @@ if (sub === "servers") {
         );
       } catch (err) {
         console.error(err);
-        return i.editReply({ content: '❌ Failed to blacklist.' });
+        return i.editReply({ content: '<:warning:1496193692099285255> Failed to blacklist.' });
       }
 
       await leaveGuildById(interaction.client, guildId);
@@ -678,7 +668,7 @@ if (sub === "servers") {
         });
       }
 
-      return i.editReply({ content: '✅ Blacklisted + left server.' });
+      return i.editReply({ content: '<:checkmark:1495875811792781332> Blacklisted + left server.' });
     }
 
 
@@ -699,10 +689,11 @@ if (sub === "servers") {
         filter: m => m.customId === `owner_server_announce_modal:${guildId}` && m.user.id === i.user.id
       }).catch(() => null);
       if (!submitted) return;
+      await submitted.deferReply({ flags: MessageFlags.Ephemeral });
       const target = submitted.fields.getTextInputValue('target').trim();
       const messageText = submitted.fields.getTextInputValue('message').trim();
       const ok = await sendOwnerServerAnnouncement(interaction.client, guildId, target, messageText);
-      return submitted.reply({ content: ok ? '✅ Announcement sent.' : '❌ Could not find target channel or send message.', flags: MessageFlags.Ephemeral });
+      return submitted.editReply({ content: ok ? '<:checkmark:1495875811792781332> Announcement sent.' : '<:warning:1496193692099285255> Could not find target channel or send message.' });
     }
 
   });
@@ -724,11 +715,11 @@ if (sub === "servers") {
         rows = await pool.query("SELECT guild_id, added_at FROM blacklist");
       } catch (err) {
         console.error(err);
-        return interaction.editReply("❌ Database error.");
+        return interaction.editReply("<:warning:1496193692099285255> Database error.");
       }
 
       if (!rows.length)
-        return interaction.editReply("✅ No blacklisted servers.");
+        return interaction.editReply("<:checkmark:1495875811792781332> No blacklisted servers.");
 
       const perPage = 10;
       const totalPages = Math.ceil(rows.length / perPage);
@@ -803,13 +794,13 @@ if (sub === "servers") {
             await pool.query("DELETE FROM blacklist WHERE guild_id = ?", [guildId]);
           } catch (err) {
             console.error(err);
-            return i.reply({ content: "❌ Failed to unblacklist.", ephemeral: true });
+            return i.reply({ content: "<:warning:1496193692099285255> Failed to unblacklist.", ephemeral: true });
           }
 
           rows = rows.filter(r => r.guild_id !== guildId);
 
           if (!rows.length)
-            return i.update({ content: "✅ Blacklist empty.", embeds: [], components: [] });
+            return i.update({ content: "<:checkmark:1495875811792781332> Blacklist empty.", embeds: [], components: [] });
 
           return i.update({ embeds: [buildEmbed()], components: buildComponents() });
         }
@@ -822,99 +813,28 @@ if (sub === "servers") {
     // ================= ANNOUNCE ===========================
     // ======================================================
 
-    if (sub === "announce") {
-
-      const messageText = interaction.options.getString("message");
-      const force = interaction.options.getBoolean("force") ?? false;
-
-      await interaction.deferReply({ ephemeral: true });
-
-      let rows;
-
-      try {
-        rows = await pool.query(
-          `SELECT guild_id, channel_id
-           FROM counting
-           WHERE channel_id IS NOT NULL
-             AND (? = 1 OR announcements_enabled = 1)`,
-          [force ? 1 : 0]
-        );
-      } catch (err) {
-        console.error(err);
-        return interaction.editReply("❌ Database error.");
-      }
-
-      let totalSent = 0;
-
-      try {
-        if (interaction.client.shard) {
-          const results = await interaction.client.shard.broadcastEval(
-            async (client, { rows, messageText }) => {
-
-              let sent = 0;
-
-              for (const row of rows) {
-                const guild = client.guilds.cache.get(row.guild_id);
-                if (!guild) continue;
-
-                const channel = guild.channels.cache.get(row.channel_id);
-                if (!channel || !channel.isTextBased()) continue;
-
-                try {
-                  await channel.send(`📢 **Announcement:**
-${messageText}`);
-                  sent++;
-                } catch {}
-              }
-
-              return sent;
-            },
-            { context: { rows, messageText } }
-          );
-
-          totalSent += results.reduce((a, b) => a + b, 0);
-
-          const premiumResults = await interaction.client.shard.broadcastEval(
-            (client, { rows, messageText }) =>
-              client.premiumManager?.sendAnnouncementToCountingChannels
-                ? client.premiumManager.sendAnnouncementToCountingChannels(rows, messageText)
-                : 0,
-            { context: { rows, messageText } }
-          );
-
-          totalSent += premiumResults.reduce((a, b) => a + b, 0);
-        } else {
-          for (const row of rows) {
-            const guild = interaction.client.guilds.cache.get(row.guild_id);
-            if (!guild) continue;
-
-            const channel = guild.channels.cache.get(row.channel_id);
-            if (!channel || !channel.isTextBased()) continue;
-
-            try {
-              await channel.send(`📢 **Announcement:**
-${messageText}`);
-              totalSent++;
-            } catch {}
-          }
-
-          if (interaction.client.premiumManager?.sendAnnouncementToCountingChannels) {
-            totalSent += await interaction.client.premiumManager.sendAnnouncementToCountingChannels(rows, messageText);
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        return interaction.editReply("❌ Shard error.");
-      }
-
-      return interaction.editReply(`✅ Sent to ${totalSent} counting channels${force ? " (forced)." : "."}`);
+    if (sub === "send_changelog") {
+      const modal = new ModalBuilder().setCustomId(`owner_send_changelog_modal:${interaction.id}`).setTitle('Send Changelog');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('title').setLabel('Title').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder().setCustomId('message').setLabel('Changelog body').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(3500)
+        )
+      );
+      await interaction.showModal(modal);
+      const submitted = await interaction.awaitModalSubmit({
+        time: 180000,
+        filter: m => m.customId === `owner_send_changelog_modal:${interaction.id}` && m.user.id === interaction.user.id
+      }).catch(() => null);
+      if (!submitted) return;
+      await submitted.deferReply({ flags: MessageFlags.Ephemeral });
+      const title = submitted.fields.getTextInputValue('title').trim();
+      const body = submitted.fields.getTextInputValue('message').trim();
+      const sent = await sendGlobalChangelog(interaction.client, title, body);
+      return submitted.editReply(`<:checkmark:1495875811792781332> Changelog delivered to ${sent} server(s).`);
     }
-
-
-
-    // ======================================================
-    // ================= SUPPORT REPLY ======================
-    // ======================================================
 
     if (sub === "support_reply") {
 
@@ -938,24 +858,24 @@ ${messageText}`);
         request = rows[0] || null;
       } catch (err) {
         console.error(err);
-        return interaction.editReply("❌ Database error.");
+        return interaction.editReply("<:warning:1496193692099285255> Database error.");
       }
 
       if (!request)
-        return interaction.editReply("❌ No support request found for that user ID.");
+        return interaction.editReply("<:warning:1496193692099285255> No support request found for that user ID.");
 
       let user;
 
       try {
         user = await interaction.client.users.fetch(userId);
       } catch {
-        return interaction.editReply("❌ Could not fetch that user.");
+        return interaction.editReply("<:warning:1496193692099285255> Could not fetch that user.");
       }
 
       try {
         await user.send(`📬 **Support Response**\n${replyText}`);
       } catch {
-        return interaction.editReply("❌ Could not DM that user (their DMs may be closed).");
+        return interaction.editReply("<:warning:1496193692099285255> Could not DM that user (their DMs may be closed).");
       }
 
       try {
@@ -969,7 +889,7 @@ ${messageText}`);
         console.error(err);
       }
 
-      return interaction.editReply(`✅ Sent support reply to ${user.tag} (\`${user.id}\`).`);
+      return interaction.editReply(`<:checkmark:1495875811792781332> Sent support reply to ${user.tag} (\`${user.id}\`).`);
     }
 
     // ======================================================
@@ -991,7 +911,7 @@ ${messageText}`);
           );
         } catch (err) {
           console.error(err);
-          return interaction.editReply("❌ DB error.");
+          return interaction.editReply("<:warning:1496193692099285255> DB error.");
         }
       }
 
@@ -1017,9 +937,9 @@ ${messageText}`);
       }
 
       if (!left && action === "leave")
-        return interaction.editReply("❌ Guild not found.");
+        return interaction.editReply("<:warning:1496193692099285255> Guild not found.");
 
-      return interaction.editReply("✅ Action complete.");
+      return interaction.editReply("<:checkmark:1495875811792781332> Action complete.");
     }
   }
 };
@@ -1055,7 +975,8 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
     welcome: welcomeRows[0]?.channel_id || legacyWelcomeRows[0]?.channel_id,
     log: logsRows[0]?.channel_id,
     logs: logsRows[0]?.channel_id,
-    bumping: bumpRows[0]?.channel_id
+    bumping: bumpRows[0]?.channel_id,
+    changelog: (await safeQuery('SELECT channel_id FROM changelog_followers WHERE guild_id = ? LIMIT 1', [guildId]))[0]?.channel_id
   };
 
   const channelId = mapping[target] || target.replace(/[^0-9]/g, '');
@@ -1067,7 +988,9 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
       if (!guild) return false;
       const channel = await guild.channels.fetch(channelId).catch(() => null);
       if (!channel?.isTextBased()) return false;
-      await channel.send(messageText);
+      const me = guild.members.me || await guild.members.fetchMe().catch(() => null);
+      if (!channel.permissionsFor(me)?.has(['ViewChannel','SendMessages'])) return false;
+      await channel.send({ content: messageText, allowedMentions: { parse: ['roles'] } });
       return true;
     }
 
@@ -1077,7 +1000,9 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
         if (!guild) return false;
         const channel = await guild.channels.fetch(context.channelId).catch(() => null);
         if (!channel?.isTextBased()) return false;
-        await channel.send(context.messageText).catch(() => null);
+        const me = guild.members.me || await guild.members.fetchMe().catch(() => null);
+        if (!channel.permissionsFor(me)?.has(['ViewChannel','SendMessages'])) return false;
+        await channel.send({ content: context.messageText, allowedMentions: { parse: ['roles'] } }).catch(() => null);
         return true;
       },
       { context: { guildId, channelId, messageText } }
@@ -1257,4 +1182,16 @@ async function buildServerDetail(client, guildId) {
       { name: 'Quick Invite', value: 'Click **Generate Invite** to create a 7-day invite link.', inline: false }
     )
     .setFooter({ text: 'Use the buttons below for actions.' });
+}
+
+async function sendGlobalChangelog(client, title, message) {
+  const rows = await pool.query('SELECT guild_id, channel_id, ping_role_id FROM changelog_followers');
+  let sent = 0;
+  for (const row of rows) {
+    try {
+      const ok = await sendOwnerServerAnnouncement(client, row.guild_id, row.channel_id, `${row.ping_role_id ? `<@&${row.ping_role_id}>\n` : ''}**${title}**\n${message}`);
+      if (ok) sent += 1;
+    } catch {}
+  }
+  return sent;
 }

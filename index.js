@@ -26,6 +26,7 @@ const { startStatsApiServer } = require('./utils/statsApiServer');
 const { initSuggestionManager } = require('./utils/suggestionManager');
 const { initTicketAutomationManager, trackTicketMessageActivity } = require('./utils/ticketAutomationManager');
 const { initMinecraftMonitorManager } = require('./utils/minecraftMonitorManager');
+const { initAutoReviveManager, trackChannelActivity: trackAutoReviveChannelActivity } = require('./utils/autoReviveManager');
 const { handleAutoResponderMessage, invalidateGuild: invalidateGuildAutoResponderCache } = require('./utils/autoResponderManager');
 
 const token = process.env.TOKEN;
@@ -111,6 +112,9 @@ client.once('clientReady', async () => {
 
     // Minecraft monitor scheduler.
     initMinecraftMonitorManager(client);
+
+    // Auto revive scheduler.
+    initAutoReviveManager(client);
 
   } catch (err) {
     console.error('❌ Error during ready setup:', err);
@@ -211,6 +215,7 @@ client.on('messageCreate', async message => {
     trackVariableSlowmodeMessage(message);
     await queueOneWordStoryMessage(message);
     await handleAutoResponderMessage(message);
+    await trackAutoReviveChannelActivity(message);
   } catch (err) {
     console.error('❌ Message handler error:', err);
   }
@@ -541,7 +546,7 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
-        content: '❌ Something went wrong.',
+        content: '<:warning:1496193692099285255> Something went wrong.',
         flags: MessageFlags.Ephemeral
       }).catch(() => {});
     }

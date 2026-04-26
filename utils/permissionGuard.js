@@ -68,7 +68,7 @@ function toPermissionNames(permissions) {
 
 async function replyMissingPermissions(interaction, missingPermissions) {
   const names = toPermissionNames(missingPermissions);
-  const message = `❌ I don't have the required permissions for this action: ${names.join(', ')}.`;
+  const message = `<:warning:1496193692099285255> I don't have the required permissions for this action: ${names.join(', ')}.`;
 
   if (!interaction.replied && !interaction.deferred) {
     await interaction.reply({ content: message, flags: MessageFlags.Ephemeral }).catch(() => {});

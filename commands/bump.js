@@ -50,7 +50,7 @@ module.exports = {
     const timeoutUntil = Number(restrictionRows[0]?.timeout_until || 0);
     if (timeoutUntil > Date.now()) {
       return interaction.reply({
-        content: `❌ This server is temporarily blocked from bumping until <t:${Math.floor(timeoutUntil / 1000)}:F>.`,
+        content: `<:warning:1496193692099285255> This server is temporarily blocked from bumping until <t:${Math.floor(timeoutUntil / 1000)}:F>.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -58,13 +58,13 @@ module.exports = {
     const configRows = await query('SELECT * FROM bumping_configs WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
     const config = configRows[0];
     if (!config?.channel_id || !config?.advertisement || !Number(config?.enabled || 0)) {
-      return interaction.reply({ content: '❌ Configure `/bumping channel` and `/bumping advertisement` first.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Configure `/bumping channel` and `/bumping advertisement` first.', flags: MessageFlags.Ephemeral });
     }
 
     const configuredChannel = await guild.channels.fetch(config.channel_id).catch(() => null);
     if (!configuredChannel?.isTextBased()) {
       return interaction.reply({
-        content: '❌ Your configured bumping channel no longer exists. Please set it again with `/bumping channel`.',
+        content: '<:warning:1496193692099285255> Your configured bumping channel no longer exists. Please set it again with `/bumping channel`.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -89,12 +89,12 @@ module.exports = {
     const sourceChannel = config?.channel_id ? await guild.channels.fetch(config.channel_id).catch(() => null) : null;
     const inviteChannel = sourceChannel?.isTextBased() ? sourceChannel : guild.systemChannel || guild.channels.cache.find(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has(['CreateInstantInvite', 'SendMessages']));
     if (!inviteChannel) {
-      return interaction.reply({ content: '❌ Could not find a channel to create/reuse invite link.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Could not find a channel to create/reuse invite link.', flags: MessageFlags.Ephemeral });
     }
 
     const invite = await ensureInvite(inviteChannel, config?.invite_code || null);
     if (!invite?.code) {
-      return interaction.reply({ content: '❌ Failed to create/reuse invite link for bumping.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Failed to create/reuse invite link for bumping.', flags: MessageFlags.Ephemeral });
     }
 
     await query('UPDATE bumping_configs SET invite_code = ?, updated_at = ? WHERE guild_id = ?', [invite.code, Date.now(), interaction.guildId]);
@@ -174,7 +174,7 @@ module.exports = {
       const actionRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setLabel('Join server').setStyle(ButtonStyle.Link).setURL(`https://discord.gg/${invite.code}`),
         new ButtonBuilder().setCustomId(`bump_report:${guild.id}:${sentEntry.message.id}`).setLabel('Report Server').setStyle(ButtonStyle.Danger),
-        ...(isVerified ? [new ButtonBuilder().setCustomId('bump_verified_info').setLabel('Verified').setEmoji('<:checkmark:1495875811792781332>').setStyle(ButtonStyle.Success)] : []),
+        ...(isVerified ? [new ButtonBuilder().setCustomId('bump_verified_info').setLabel('Verified').setEmoji({ id: '1495875811792781332', name: 'checkmark' }).setStyle(ButtonStyle.Success)] : []),
         ...(isPremium ? [new ButtonBuilder().setCustomId('bump_premium_info').setLabel('Premium Server').setEmoji('🔥').setStyle(ButtonStyle.Success)] : [])
       );
 
@@ -187,6 +187,10 @@ module.exports = {
         ],
         components: [actionRow]
       }).catch(() => null);
+    }
+
+    if (!posted) {
+      return interaction.editReply({ content: '<:warning:1496193692099285255> No available servers could receive your bump right now. Try again later.' });
     }
 
     await query(

@@ -994,6 +994,33 @@ module.exports = async () => {
       ) ENGINE=InnoDB;
     `);
 
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS changelog_followers (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        channel_id VARCHAR(32) NOT NULL,
+        ping_role_id VARCHAR(32) NULL,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_changelog_channel (channel_id)
+      ) ENGINE=InnoDB;
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS auto_revive_configs (
+        guild_id VARCHAR(32) PRIMARY KEY,
+        channel_id VARCHAR(32) NOT NULL,
+        ping_role_id VARCHAR(32) NOT NULL,
+        inactivity_ms BIGINT NOT NULL,
+        message_template VARCHAR(100) NOT NULL,
+        last_activity_at BIGINT NOT NULL,
+        last_sent_at BIGINT NULL,
+        updated_by VARCHAR(32) NULL,
+        updated_at BIGINT NOT NULL DEFAULT (UNIX_TIMESTAMP() * 1000),
+        INDEX idx_auto_revive_channel (channel_id),
+        INDEX idx_auto_revive_last_activity (last_activity_at)
+      ) ENGINE=InnoDB;
+    `);
     // ─── BLACKLIST ─────────────────────────
     await pool.query(`
       CREATE TABLE IF NOT EXISTS blacklist (

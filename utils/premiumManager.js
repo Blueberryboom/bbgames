@@ -166,7 +166,7 @@ async function initPremiumRuntime(premiumClient, token) {
 
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: '❌ Something went wrong.',
+          content: '<:warning:1496193692099285255> Something went wrong.',
           flags: MessageFlags.Ephemeral
         }).catch(() => {});
       }

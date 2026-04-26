@@ -100,7 +100,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -113,7 +113,7 @@ module.exports = {
       const cooldownRaw = interaction.options.getString('cooldown', true);
       const cooldownMs = parseDuration(cooldownRaw);
       if (cooldownMs == null || cooldownMs < 2 * 60 * 1000) {
-        return interaction.reply({ content: '❌ Cooldown must be a valid duration and greater than 2 minutes.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Cooldown must be a valid duration and greater than 2 minutes.', flags: MessageFlags.Ephemeral });
       }
 
       const allowedRoleIds = [];
@@ -137,7 +137,7 @@ module.exports = {
         [interaction.guildId, channel.id, createThread, JSON.stringify(allowedRoleIds), cooldownMs, interaction.user.id, Date.now()]
       );
 
-      return interaction.reply({ content: `✅ Suggestions configured for ${channel}.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Suggestions configured for ${channel}.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'disable') {
@@ -148,49 +148,49 @@ module.exports = {
         await query('DELETE FROM suggestion_blacklist WHERE guild_id = ?', [interaction.guildId]);
         await query('DELETE FROM suggestion_user_activity WHERE guild_id = ?', [interaction.guildId]);
         await query('DELETE FROM suggestions WHERE guild_id = ?', [interaction.guildId]);
-        return interaction.reply({ content: '✅ Suggestions feature disabled and all suggestion data deleted.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:checkmark:1495875811792781332> Suggestions feature disabled and all suggestion data deleted.', flags: MessageFlags.Ephemeral });
       }
 
       const durationMs = parseDuration(time);
       if (durationMs == null || durationMs < 2 * 60 * 1000) {
-        return interaction.reply({ content: '❌ Time must be a valid duration and greater than 2 minutes.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Time must be a valid duration and greater than 2 minutes.', flags: MessageFlags.Ephemeral });
       }
 
       const exists = await query('SELECT guild_id FROM suggestion_settings WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
       if (!exists.length) {
-        return interaction.reply({ content: '❌ Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
       }
 
       const disabledUntil = Date.now() + durationMs;
       await query('UPDATE suggestion_settings SET disabled_until = ?, updated_by = ?, updated_at = ? WHERE guild_id = ?', [disabledUntil, interaction.user.id, Date.now(), interaction.guildId]);
-      return interaction.reply({ content: `✅ Suggestions temporarily disabled until <t:${Math.floor(disabledUntil / 1000)}:F>.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Suggestions temporarily disabled until <t:${Math.floor(disabledUntil / 1000)}:F>.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'blacklist_user') {
       const user = interaction.options.getUser('user', true);
       await query('REPLACE INTO suggestion_blacklist (guild_id, user_id, created_by, created_at) VALUES (?, ?, ?, ?)', [interaction.guildId, user.id, interaction.user.id, Date.now()]);
-      return interaction.reply({ content: `✅ ${user} is now blacklisted from suggestions.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> ${user} is now blacklisted from suggestions.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
     }
 
     if (sub === 'unblacklist_user') {
       const user = interaction.options.getUser('user', true);
       await query('DELETE FROM suggestion_blacklist WHERE guild_id = ? AND user_id = ?', [interaction.guildId, user.id]);
-      return interaction.reply({ content: `✅ ${user} was removed from the suggestions blacklist.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> ${user} was removed from the suggestions blacklist.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
     }
 
     if (sub === 'create_category') {
       const name = interaction.options.getString('name', true).trim();
       await query('INSERT INTO suggestion_categories (guild_id, name, created_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)', [interaction.guildId, name, Date.now()]);
-      return interaction.reply({ content: `✅ Created suggestion category **${name}**.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Created suggestion category **${name}**.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'delete_category') {
       const name = interaction.options.getString('name', true).trim();
       const result = await query('DELETE FROM suggestion_categories WHERE guild_id = ? AND name = ?', [interaction.guildId, name]);
       if (!result.affectedRows) {
-        return interaction.reply({ content: '❌ Category not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Category not found.', flags: MessageFlags.Ephemeral });
       }
-      return interaction.reply({ content: `✅ Deleted suggestion category **${name}**.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Deleted suggestion category **${name}**.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'panel') {
@@ -222,21 +222,21 @@ module.exports = {
       await channel.send({ embeds: [panelEmbed], components: [row] });
       await query('UPDATE suggestion_settings SET panel_channel_id = ? WHERE guild_id = ?', [channel.id, interaction.guildId]);
 
-      return interaction.reply({ content: `✅ Suggestions panel sent in ${channel}.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Suggestions panel sent in ${channel}.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'ping_role') {
       const exists = await query('SELECT guild_id FROM suggestion_settings WHERE guild_id = ? LIMIT 1', [interaction.guildId]);
       if (!exists.length) {
-        return interaction.reply({ content: '❌ Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
       }
 
       const role = interaction.options.getRole('role');
       await query('UPDATE suggestion_settings SET ping_role_id = ?, updated_by = ?, updated_at = ? WHERE guild_id = ?', [role?.id || null, interaction.user.id, Date.now(), interaction.guildId]);
       if (!role) {
-        return interaction.reply({ content: '✅ Cleared suggestions ping role.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:checkmark:1495875811792781332> Cleared suggestions ping role.', flags: MessageFlags.Ephemeral });
       }
-      return interaction.reply({ content: `✅ Suggestions will now ping ${role} on new suggestions.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [], roles: [role.id] } });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> Suggestions will now ping ${role} on new suggestions.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [], roles: [role.id] } });
     }
   }
 };

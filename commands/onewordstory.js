@@ -76,7 +76,7 @@ module.exports = {
     if (sub === 'channel') {
       if (!await checkPerms(interaction)) {
         return interaction.reply({
-          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -97,7 +97,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: `✅ One word story channel set to ${channel}.`,
+        content: `<:checkmark:1495875811792781332> One word story channel set to ${channel}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -105,7 +105,7 @@ module.exports = {
     if (sub === 'disable') {
       if (!await checkPerms(interaction)) {
         return interaction.reply({
-          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -118,7 +118,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: '✅ One word story has been disabled and cleaned up.',
+        content: '<:checkmark:1495875811792781332> One word story has been disabled and cleaned up.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -126,7 +126,7 @@ module.exports = {
     if (sub === 'restart') {
       if (!await checkPerms(interaction)) {
         return interaction.reply({
-          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -134,7 +134,7 @@ module.exports = {
       await resetStory(interaction.guildId);
 
       return interaction.reply({
-        content: '✅ One word story progress cleared and restarted.',
+        content: '<:checkmark:1495875811792781332> One word story progress cleared and restarted.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -143,7 +143,7 @@ module.exports = {
     if (sub === 'delay') {
       if (!await checkPerms(interaction)) {
         return interaction.reply({
-          content: '❌ You need administrator or the configured bot manager role to use this command.',
+          content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -161,7 +161,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: `✅ One-word-story processing delay set to **${seconds}** second(s).`,
+        content: `<:checkmark:1495875811792781332> One-word-story processing delay set to **${seconds}** second(s).`,
         flags: MessageFlags.Ephemeral
       });
     }

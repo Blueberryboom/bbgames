@@ -95,7 +95,7 @@ module.exports = async (interaction) => {
 
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: `❌ ${err.message || 'Command failed.'}`,
+          content: `<:warning:1496193692099285255> ${err.message || 'Command failed.'}`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -121,7 +121,7 @@ module.exports = async (interaction) => {
       });
     }
 
-    return interaction.reply({ content: '❌ Unknown config menu.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> Unknown config menu.', flags: MessageFlags.Ephemeral });
   }
 
   if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_panel_select') {
@@ -133,7 +133,7 @@ module.exports = async (interaction) => {
   try {
     if (interaction.customId === 'suggestions_open_modal') {
       const settings = await getSuggestionSettings(interaction.guildId);
-      if (!settings) return interaction.reply({ content: '❌ Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
+      if (!settings) return interaction.reply({ content: '<:warning:1496193692099285255> Suggestions are not configured yet.', flags: MessageFlags.Ephemeral });
       const modal = new ModalBuilder().setCustomId('suggestions_open_modal_submit').setTitle('Create Suggestion');
       modal.addComponents(
         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('title').setLabel('Title').setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(120)),
@@ -150,10 +150,10 @@ module.exports = async (interaction) => {
     }
 
     if (interaction.customId === 'suggestion_accept' || interaction.customId === 'suggestion_deny' || interaction.customId === 'suggestion_considering' || interaction.customId === 'suggestion_remove_stale') {
-      if (!await canManageSuggestions(interaction)) return interaction.reply({ content: '❌ Only admins, bot managers, or the configured staff role can manage suggestions.', flags: MessageFlags.Ephemeral });
+      if (!await canManageSuggestions(interaction)) return interaction.reply({ content: '<:warning:1496193692099285255> Only admins, bot managers, or the configured staff role can manage suggestions.', flags: MessageFlags.Ephemeral });
       const rows = await query('SELECT * FROM suggestions WHERE guild_id = ? AND message_id = ? LIMIT 1', [interaction.guildId, interaction.message.id]);
       const suggestion = rows[0];
-      if (!suggestion) return interaction.reply({ content: '❌ Suggestion data not found.', flags: MessageFlags.Ephemeral });
+      if (!suggestion) return interaction.reply({ content: '<:warning:1496193692099285255> Suggestion data not found.', flags: MessageFlags.Ephemeral });
       if (interaction.customId === 'suggestion_remove_stale') {
         const embed = EmbedBuilder.from(interaction.message.embeds[0] || new EmbedBuilder());
         const baseColor = suggestion.status === 'accepted' ? 0x57F287 : suggestion.status === 'denied' ? 0xED4245 : 0xFEE75C;
@@ -194,21 +194,21 @@ module.exports = async (interaction) => {
 
       if (!pendingConfig) {
         return interaction.reply({
-          content: '❌ This setup preview expired. Please run `/youtube add` again.',
+          content: '<:warning:1496193692099285255> This setup preview expired. Please run `/youtube add` again.',
           flags: MessageFlags.Ephemeral
         });
       }
 
       if (pendingConfig.userId !== interaction.user.id || pendingConfig.guildId !== interaction.guildId) {
         return interaction.reply({
-          content: '❌ This setup preview belongs to a different user or server.',
+          content: '<:warning:1496193692099285255> This setup preview belongs to a different user or server.',
           flags: MessageFlags.Ephemeral
         });
       }
 
       const channel = await interaction.guild.channels.fetch(pendingConfig.targetChannelId).catch(() => null);
       if (!channel) {
-        return interaction.reply({ content: '❌ The selected channel no longer exists.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> The selected channel no longer exists.', flags: MessageFlags.Ephemeral });
       }
 
       if (action === 'test') {
@@ -224,7 +224,7 @@ module.exports = async (interaction) => {
           allowedMentions: pendingConfig.pingRoleId ? { parse: [], roles: [pendingConfig.pingRoleId] } : { parse: [] }
         });
 
-        return interaction.reply({ content: '✅ Test message sent.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:checkmark:1495875811792781332> Test message sent.', flags: MessageFlags.Ephemeral });
       }
 
       const existingRows = await query(
@@ -236,14 +236,14 @@ module.exports = async (interaction) => {
 
       if (existingRows.length >= maxSubscriptions) {
         return interaction.reply({
-          content: `❌ This server already has ${maxSubscriptions} YouTube channels configured.`,
+          content: `<:warning:1496193692099285255> This server already has ${maxSubscriptions} YouTube channels configured.`,
           flags: MessageFlags.Ephemeral
         });
       }
 
       const duplicate = existingRows.some(row => row.youtube_channel_id === pendingConfig.youtubeChannelId);
       if (duplicate) {
-        return interaction.reply({ content: '❌ This YouTube channel is already configured.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This YouTube channel is already configured.', flags: MessageFlags.Ephemeral });
       }
 
       await query(
@@ -262,7 +262,7 @@ module.exports = async (interaction) => {
       youtubeSetupState.consume(token);
 
       return interaction.reply({
-        content: `✅ Created notification for **${pendingConfig.youtubeDisplay}** in <#${pendingConfig.targetChannelId}>.`,
+        content: `<:checkmark:1495875811792781332> Created notification for **${pendingConfig.youtubeDisplay}** in <#${pendingConfig.targetChannelId}>.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -274,14 +274,14 @@ module.exports = async (interaction) => {
 
       if (!game) {
         return interaction.reply({
-          content: '❌ This RPS challenge expired. Start a new one with `/rps`.',
+          content: '<:warning:1496193692099285255> This RPS challenge expired. Start a new one with `/rps`.',
           flags: MessageFlags.Ephemeral
         });
       }
 
       if (interaction.guildId !== game.guildId || interaction.user.id !== game.opponentId) {
         return interaction.reply({
-          content: '❌ Only the challenged user can respond to this game.',
+          content: '<:warning:1496193692099285255> Only the challenged user can respond to this game.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -383,7 +383,7 @@ module.exports = async (interaction) => {
       if (!submit) return;
 
       const reason = submit.fields.getTextInputValue('reason').trim();
-      await submit.reply({ content: '✅ Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral }).catch(() => null);
+      await submit.reply({ content: '<:checkmark:1495875811792781332> Thanks, this server was reported to the bot team.', flags: MessageFlags.Ephemeral }).catch(() => null);
 
       const sourceGuild = await interaction.client.guilds.fetch(sourceGuildId).catch(() => null);
       const actionRow = new ActionRowBuilder().addComponents(
@@ -457,38 +457,38 @@ module.exports = async (interaction) => {
 
     if (interaction.customId.startsWith('owner_server_')) {
       if (interaction.user.id !== BOT_OWNER_ID) {
-        return interaction.reply({ content: '❌ Only the bot owner can use this.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only the bot owner can use this.', flags: MessageFlags.Ephemeral });
       }
       const [action, guildId] = interaction.customId.replace('owner_server_', '').split(':');
       if (!guildId) {
-        return interaction.reply({ content: '❌ Invalid server action.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Invalid server action.', flags: MessageFlags.Ephemeral });
       }
 
       if (action === 'invite') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const invite = await generateGuildInvite(interaction.client, guildId);
-        if (!invite) return interaction.editReply('❌ Cannot create invite.');
+        if (!invite) return interaction.editReply('<:warning:1496193692099285255> Cannot create invite.');
         return interaction.editReply(`🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>`);
       }
 
       if (action === 'leave') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const left = await leaveGuildById(interaction.client, guildId);
-        return interaction.editReply(left ? '✅ Left server.' : '❌ Could not leave.');
+        return interaction.editReply(left ? '<:checkmark:1495875811792781332> Left server.' : '<:warning:1496193692099285255> Could not leave.');
       }
 
       if (action === 'blacklist') {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         await query(`REPLACE INTO blacklist (guild_id, added_at) VALUES (?, ?)`, [guildId, Date.now()]);
         await leaveGuildById(interaction.client, guildId);
-        return interaction.editReply('✅ Blacklisted + left server.');
+        return interaction.editReply('<:checkmark:1495875811792781332> Blacklisted + left server.');
       }
     }
 
     if (interaction.customId.startsWith('bump_report_action:')) {
       const [, action, sourceGuildId] = interaction.customId.split(':');
       if (!await isBotOwnerInteraction(interaction)) {
-        return interaction.reply({ content: '❌ Only the bot owner can use these report actions.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only the bot owner can use these report actions.', flags: MessageFlags.Ephemeral });
       }
 
       if (action === 'blacklist') {
@@ -499,7 +499,7 @@ module.exports = async (interaction) => {
         );
         await query('DELETE FROM bumping_configs WHERE guild_id = ?', [sourceGuildId]);
         await query('DELETE FROM bumping_restrictions WHERE guild_id = ?', [sourceGuildId]);
-        return interaction.update({ content: `✅ Blacklisted guild ${sourceGuildId} from the bot.`, components: [] });
+        return interaction.update({ content: `<:checkmark:1495875811792781332> Blacklisted guild ${sourceGuildId} from the bot.`, components: [] });
       }
 
       if (action === 'timeout') {
@@ -509,18 +509,18 @@ module.exports = async (interaction) => {
            VALUES (?, ?, ?, ?, ?)`,
           [sourceGuildId, timeoutUntil, 'Bump report action', interaction.user.id, Date.now()]
         );
-        return interaction.update({ content: `✅ Applied 30-day bump timeout to guild ${sourceGuildId} (until <t:${Math.floor(timeoutUntil / 1000)}:F>).`, components: [] });
+        return interaction.update({ content: `<:checkmark:1495875811792781332> Applied 30-day bump timeout to guild ${sourceGuildId} (until <t:${Math.floor(timeoutUntil / 1000)}:F>).`, components: [] });
       }
 
       if (action === 'ignore') {
-        return interaction.update({ content: `✅ Ignored report for guild ${sourceGuildId}.`, components: [] });
+        return interaction.update({ content: `<:checkmark:1495875811792781332> Ignored report for guild ${sourceGuildId}.`, components: [] });
       }
     }
 
     if (interaction.customId.startsWith('bump_verify_action:')) {
       const [, action, guildId] = interaction.customId.split(':');
       if (!await isBotOwnerInteraction(interaction)) {
-        return interaction.reply({ content: '❌ Only the bot owner can process verification actions.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only the bot owner can process verification actions.', flags: MessageFlags.Ephemeral });
       }
 
       if (action === 'approve') {
@@ -541,7 +541,7 @@ module.exports = async (interaction) => {
             await channel.send('<a:verified:1495875341636604046> This server has been verified! Enjoy your priority bumping <3').catch(() => null);
           }
         }
-        return interaction.update({ content: `✅ Approved bump verification for guild ${guildId}.`, components: [] });
+        return interaction.update({ content: `<:checkmark:1495875811792781332> Approved bump verification for guild ${guildId}.`, components: [] });
       }
 
       return interaction.update({ content: `ℹ️ Rejected bump verification for guild ${guildId}.`, components: [] });
@@ -575,14 +575,14 @@ module.exports = async (interaction) => {
     }
 
     if (giveaway.ended) {
-      return replyToButton(interaction, '❌ This giveaway has already ended.');
+      return replyToButton(interaction, '<:warning:1496193692099285255> This giveaway has already ended.');
     }
 
     if (action === 'join') {
       if (giveaway.required_role) {
         const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         if (!member || !member.roles.cache.has(giveaway.required_role)) {
-          return replyToButton(interaction, `❌ You need <@&${giveaway.required_role}> to enter this giveaway.`);
+          return replyToButton(interaction, `<:warning:1496193692099285255> You need <@&${giveaway.required_role}> to enter this giveaway.`);
         }
       }
 
@@ -601,7 +601,7 @@ module.exports = async (interaction) => {
           [giveawayId, interaction.user.id]
         );
 
-        feedback = '✅ You have left the giveaway and all of your entries were removed.';
+        feedback = '<:checkmark:1495875811792781332> You have left the giveaway and all of your entries were removed.';
       } else {
         const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
         const entryCount = getEntryCount(member, giveaway.extra_entries);
@@ -613,8 +613,8 @@ module.exports = async (interaction) => {
         );
 
         feedback = entryCount > 1
-          ? `✅ You have joined the giveaway with **${entryCount} entries**!`
-          : '✅ You have joined the giveaway!';
+          ? `<:checkmark:1495875811792781332> You have joined the giveaway with **${entryCount} entries**!`
+          : '<:checkmark:1495875811792781332> You have joined the giveaway!';
       }
 
       await refreshParticipantButton(interaction, giveawayId);
@@ -642,7 +642,7 @@ module.exports = async (interaction) => {
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
-        content: '❌ Something went wrong.',
+        content: '<:warning:1496193692099285255> Something went wrong.',
         flags: MessageFlags.Ephemeral
       }).catch(() => {});
     }
@@ -700,33 +700,33 @@ async function isBotOwnerInteraction(interaction) {
 
 async function handleTicketPanelSelect(interaction) {
   if (!interaction.guildId) {
-    return interaction.reply({ content: '❌ This menu can only be used in a server.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> This menu can only be used in a server.', flags: MessageFlags.Ephemeral });
   }
 
   const value = interaction.values?.[0] || '';
   if (!value.startsWith('type_')) {
-    return interaction.reply({ content: '❌ Unknown ticket type.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> Unknown ticket type.', flags: MessageFlags.Ephemeral });
   }
 
   const typeId = Number(value.slice(5));
   if (!Number.isFinite(typeId)) {
-    return interaction.reply({ content: '❌ Invalid ticket type id.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> Invalid ticket type id.', flags: MessageFlags.Ephemeral });
   }
 
   const settings = await getGuildTicketSettings(interaction.guildId);
   if (!settings?.category_id) {
-    return interaction.reply({ content: '❌ Ticket system is not configured yet.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> Ticket system is not configured yet.', flags: MessageFlags.Ephemeral });
   }
 
   const type = await getTicketTypeById(interaction.guildId, typeId);
   if (!type) {
-    return interaction.reply({ content: '❌ That ticket type no longer exists.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> That ticket type no longer exists.', flags: MessageFlags.Ephemeral });
   }
 
   const allowedRoles = parseRoleIds(type.allowed_role_ids);
   if (allowedRoles.length && !allowedRoles.some(roleId => interaction.member.roles.cache.has(roleId))) {
     return interaction.reply({
-      content: '❌ You do not have permission to open this ticket type.',
+      content: '<:warning:1496193692099285255> You do not have permission to open this ticket type.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -736,7 +736,7 @@ async function handleTicketPanelSelect(interaction) {
     [interaction.guildId, interaction.user.id]
   );
   if (isBlacklisted.length) {
-    return interaction.reply({ content: '❌ You are blacklisted from opening tickets in this server.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> You are blacklisted from opening tickets in this server.', flags: MessageFlags.Ephemeral });
   }
 
   const maxOpenTickets = await getPremiumLimit(interaction.client, interaction.guildId, 55, Number.POSITIVE_INFINITY);
@@ -748,7 +748,7 @@ async function handleTicketPanelSelect(interaction) {
     const guildOpenCount = Number(guildOpenRows[0]?.total || 0);
     if (guildOpenCount >= maxOpenTickets) {
       return interaction.reply({
-        content: `❌ This server already has ${guildOpenCount}/${maxOpenTickets} open tickets. Free servers can have up to ${maxOpenTickets} open tickets at once.`,
+        content: `<:warning:1496193692099285255> This server already has ${guildOpenCount}/${maxOpenTickets} open tickets. Free servers can have up to ${maxOpenTickets} open tickets at once.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -761,7 +761,7 @@ async function handleTicketPanelSelect(interaction) {
   );
   const openCount = Number(openRows[0]?.total || 0);
   if (openCount >= maxTickets) {
-    return interaction.reply({ content: `❌ You already have ${openCount}/${maxTickets} open tickets.`, flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: `<:warning:1496193692099285255> You already have ${openCount}/${maxTickets} open tickets.`, flags: MessageFlags.Ephemeral });
   }
 
   const cooldownMs = Math.max(0, Number(settings.creation_cooldown_ms || 0));
@@ -783,11 +783,13 @@ async function handleTicketPanelSelect(interaction) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`ticket_open_confirm:${type.id}`)
-      .setLabel('✅ Yes')
+      .setLabel('Yes')
+      .setEmoji({ id: '1495875811792781332', name: 'checkmark' })
       .setStyle(ButtonStyle.Success),
     new ButtonBuilder()
       .setCustomId(`ticket_open_cancel:${type.id}`)
-      .setLabel('❌ No')
+      .setLabel('No')
+      .setEmoji({ id: '1496193692099285255', name: 'warning' })
       .setStyle(ButtonStyle.Secondary)
   );
 
@@ -819,7 +821,7 @@ async function handleTicketButtons(interaction) {
       const settings = await getGuildTicketSettings(interaction.guildId);
 
       if (!type || !settings?.category_id) {
-        return interaction.followUp({ content: '❌ Ticket setup is missing or invalid.', flags: MessageFlags.Ephemeral });
+        return interaction.followUp({ content: '<:warning:1496193692099285255> Ticket setup is missing or invalid.', flags: MessageFlags.Ephemeral });
       }
 
     const maxOpenTickets = await getPremiumLimit(interaction.client, interaction.guildId, 55, Number.POSITIVE_INFINITY);
@@ -831,7 +833,7 @@ async function handleTicketButtons(interaction) {
       const guildOpenCount = Number(guildOpenRows[0]?.total || 0);
       if (guildOpenCount >= maxOpenTickets) {
         return interaction.followUp({
-          content: `❌ This server already has ${guildOpenCount}/${maxOpenTickets} open tickets. Free servers can have up to ${maxOpenTickets} open tickets at once.`,
+          content: `<:warning:1496193692099285255> This server already has ${guildOpenCount}/${maxOpenTickets} open tickets. Free servers can have up to ${maxOpenTickets} open tickets at once.`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -839,7 +841,7 @@ async function handleTicketButtons(interaction) {
 
     const category = await ensureTicketCategory(interaction.guild, settings.category_id);
     if (!category) {
-      return interaction.followUp({ content: '❌ The configured ticket category is missing. Ask staff to run `/ticket config` again.', flags: MessageFlags.Ephemeral });
+      return interaction.followUp({ content: '<:warning:1496193692099285255> The configured ticket category is missing. Ask staff to run `/ticket config` again.', flags: MessageFlags.Ephemeral });
     }
 
     const maxTickets = Math.min(5, Math.max(1, Number(settings.max_tickets_per_user || 1)));
@@ -849,7 +851,7 @@ async function handleTicketButtons(interaction) {
     );
     const openCount = Number(openRows[0]?.total || 0);
     if (openCount >= maxTickets) {
-      return interaction.followUp({ content: `❌ You already have ${openCount}/${maxTickets} open tickets.`, flags: MessageFlags.Ephemeral });
+      return interaction.followUp({ content: `<:warning:1496193692099285255> You already have ${openCount}/${maxTickets} open tickets.`, flags: MessageFlags.Ephemeral });
     }
 
     const existingSameTypeRows = await query(
@@ -909,7 +911,7 @@ async function handleTicketButtons(interaction) {
     }).catch(() => null);
 
     if (!channel) {
-      return interaction.followUp({ content: '❌ Failed to create the ticket channel. Check bot permissions.', flags: MessageFlags.Ephemeral });
+      return interaction.followUp({ content: '<:warning:1496193692099285255> Failed to create the ticket channel. Check bot permissions.', flags: MessageFlags.Ephemeral });
     }
 
     const now = Date.now();
@@ -992,7 +994,7 @@ async function handleTicketButtons(interaction) {
     }
 
     await refreshWorkloadPanel(interaction.guild);
-    return interaction.followUp({ content: `✅ Your ticket has been created: ${channel}`, flags: MessageFlags.Ephemeral });
+    return interaction.followUp({ content: `<:checkmark:1495875811792781332> Your ticket has been created: ${channel}`, flags: MessageFlags.Ephemeral });
     } finally {
       ticketCreateLocks.delete(lockKey);
     }
@@ -1009,24 +1011,24 @@ async function handleTicketButtons(interaction) {
     );
     const ticket = rows[0];
     if (!ticket) {
-      return interaction.reply({ content: '❌ Ticket not found or already closed.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Ticket not found or already closed.', flags: MessageFlags.Ephemeral });
     }
 
     const settings = await getGuildTicketSettings(interaction.guildId);
     if (!Number(settings?.claiming_enabled || 0)) {
-      return interaction.reply({ content: '❌ Ticket claiming is disabled by configuration.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Ticket claiming is disabled by configuration.', flags: MessageFlags.Ephemeral });
     }
 
     const staffRoles = parseRoleIds(ticket.staff_role_ids);
     const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoles.some(roleId => interaction.member.roles.cache.has(roleId));
     if (!isStaff) {
-      return interaction.reply({ content: '❌ Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
     }
     if (ticket.claimed_by && ticket.claimed_by !== interaction.user.id) {
-      return interaction.reply({ content: '❌ This ticket has already been claimed by another staff member.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> This ticket has already been claimed by another staff member.', flags: MessageFlags.Ephemeral });
     }
     if (ticket.claimed_by === interaction.user.id) {
-      return interaction.reply({ content: '❌ You already claimed this ticket.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> You already claimed this ticket.', flags: MessageFlags.Ephemeral });
     }
 
     await query('UPDATE tickets SET claimed_by = ? WHERE id = ?', [interaction.user.id, ticketId]);
@@ -1067,10 +1069,10 @@ async function handleTicketButtons(interaction) {
     const rows = await query('SELECT user_id FROM tickets WHERE id = ? AND guild_id = ? LIMIT 1', [ticketId, interaction.guildId]);
     const ticket = rows[0];
     if (!ticket) {
-      return interaction.reply({ content: '❌ Ticket no longer exists.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Ticket no longer exists.', flags: MessageFlags.Ephemeral });
     }
     if (interaction.user.id !== ticket.user_id) {
-      return interaction.reply({ content: '❌ Only the ticket owner can confirm this close request.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:warning:1496193692099285255> Only the ticket owner can confirm this close request.', flags: MessageFlags.Ephemeral });
     }
     await query(
       `UPDATE ticket_automation_close_requests
@@ -1097,13 +1099,13 @@ async function closeTicket(interaction, ticketId, closeReason) {
   );
   const ticket = rows[0];
   if (!ticket) {
-    return interaction.reply({ content: '❌ Ticket not found or already closed.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> Ticket not found or already closed.', flags: MessageFlags.Ephemeral });
   }
 
   const isOwner = interaction.user.id === ticket.user_id;
   const isStaff = await checkPerms(interaction, { scope: 'staff' }) || parseRoleIds(ticket.staff_role_ids).some(roleId => interaction.member.roles.cache.has(roleId));
   if (!isOwner && !isStaff) {
-    return interaction.reply({ content: '❌ You are not allowed to close this ticket.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> You are not allowed to close this ticket.', flags: MessageFlags.Ephemeral });
   }
 
   const channel = interaction.guild.channels.cache.get(ticket.channel_id) || await interaction.guild.channels.fetch(ticket.channel_id).catch(() => null);
@@ -1128,13 +1130,22 @@ async function closeTicket(interaction, ticketId, closeReason) {
     }
   }
 
-  const responseText = `✅ Closed ticket #${ticket.display_id}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
+  const responseText = `<:checkmark:1495875811792781332> Closed ticket #${ticket.display_id}${closeReason ? ` with reason: ${closeReason}` : '.'}`;
   if (interaction.deferred || interaction.replied) {
     await interaction.followUp({ content: responseText, flags: MessageFlags.Ephemeral }).catch(() => null);
   } else {
     await interaction.reply({ content: responseText, flags: MessageFlags.Ephemeral }).catch(() => null);
   }
 
+  if (channel?.isTextBased()) {
+    const noticeEmbed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('<a:partyblob:1495854250297790725> This ticket will be closed in 5 seconds')
+      .setDescription(`${interaction.user} has closed this ticket.`);
+    await channel.send({ embeds: [noticeEmbed], allowedMentions: { parse: [], users: [interaction.user.id] } }).catch(() => null);
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 5000));
   await query('DELETE FROM tickets WHERE id = ?', [ticketId]);
   if (channel) {
     await channel.delete(`Ticket closed by ${interaction.user.tag} (${interaction.user.id})`).catch(() => null);
@@ -1288,7 +1299,7 @@ async function showGiveawayParticipants(interaction, giveawayId, giveaway) {
     if (!i.customId.startsWith(customBase)) return;
 
     if (i.user.id !== interaction.user.id) {
-      return i.reply({ content: '❌ This participant list is only for the user who opened it.', flags: MessageFlags.Ephemeral });
+      return i.reply({ content: '<:warning:1496193692099285255> This participant list is only for the user who opened it.', flags: MessageFlags.Ephemeral });
     }
 
     if (i.customId.endsWith(':left')) {

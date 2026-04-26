@@ -89,7 +89,7 @@ module.exports = {
     } catch (error) {
       console.error('❌ Level command failed:', error);
       return interaction.reply({
-        content: '❌ Could not fetch level data right now.',
+        content: '<:warning:1496193692099285255> Could not fetch level data right now.',
         flags: MessageFlags.Ephemeral
       });
     }
