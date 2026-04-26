@@ -188,7 +188,7 @@ async function disableAllPerksForUser(client, userId) {
   try {
     await client.premiumManager.stopPremiumInstance(userId, { persist: true });
   } catch (error) {
-    console.error(`❌ Failed stopping expired premium instance for ${userId}:`, error.message || error);
+    console.error(`<:warning:1496193692099285255> Failed stopping expired premium instance for ${userId}:`, error.message || error);
   }
 }
 
@@ -289,7 +289,7 @@ async function runInitialRoleSync(client) {
 
   const guild = client.guilds.cache.get(sourceGuildId) || await client.guilds.fetch(sourceGuildId).catch(() => null);
   if (!guild) {
-    console.error(`❌ Premium role access guild ${sourceGuildId} not found.`);
+    console.error(`<:warning:1496193692099285255> Premium role access guild ${sourceGuildId} not found.`);
     return;
   }
 
@@ -474,13 +474,13 @@ async function removePremiumForUser(userId) {
 function initPremiumAccessManager(client) {
   client.on('guildMemberAdd', member => {
     evaluateMemberPremiumAccess(client, member).catch(err => {
-      console.error('❌ Premium access role-eval error (memberAdd):', err);
+      console.error('<:warning:1496193692099285255> Premium access role-eval error (memberAdd):', err);
     });
   });
 
   client.on('guildMemberUpdate', (_, newMember) => {
     evaluateMemberPremiumAccess(client, newMember).catch(err => {
-      console.error('❌ Premium access role-eval error (memberUpdate):', err);
+      console.error('<:warning:1496193692099285255> Premium access role-eval error (memberUpdate):', err);
     });
   });
 
@@ -488,7 +488,7 @@ function initPremiumAccessManager(client) {
   if (client.shard && shardId !== 0) return;
 
   runInitialRoleSync(client).catch(err => {
-    console.error('❌ Initial premium access role sync failed:', err);
+    console.error('<:warning:1496193692099285255> Initial premium access role sync failed:', err);
   });
 
   if (expiryInterval) clearInterval(expiryInterval);
@@ -497,7 +497,7 @@ function initPremiumAccessManager(client) {
       processExpiredRolePremiumAccess(client),
       processExpiredCodePremiumAccess(client)
     ]).catch(err => {
-      console.error('❌ Premium access expiry check failed:', err);
+      console.error('<:warning:1496193692099285255> Premium access expiry check failed:', err);
     });
   }, 10 * 60 * 1000);
 }

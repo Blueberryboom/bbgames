@@ -44,7 +44,7 @@ module.exports = {
 
       return interaction.reply({ embeds: [embed] });
     } catch (error) {
-      console.error('❌ /afk failed:', error);
+      console.error('<:warning:1496193692099285255> /afk failed:', error);
       if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({
           content: '<:warning:1496193692099285255> Failed to set AFK status. Please try again.',

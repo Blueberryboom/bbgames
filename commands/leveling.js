@@ -175,7 +175,7 @@ module.exports = {
 
       return handleRolesList(interaction);
     } catch (error) {
-      console.error('❌ Leveling command error:', error);
+      console.error('<:warning:1496193692099285255> Leveling command error:', error);
       if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({
           content: '<:warning:1496193692099285255> Leveling action failed. Please try again.',

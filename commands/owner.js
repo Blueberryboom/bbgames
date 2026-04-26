@@ -952,7 +952,7 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
     try {
       return await pool.query(sql, params);
     } catch (err) {
-      console.error('❌ owner announcement query failed:', err?.code || err);
+      console.error('<:warning:1496193692099285255> owner announcement query failed:', err?.code || err);
       return [];
     }
   };

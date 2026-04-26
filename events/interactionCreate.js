@@ -91,7 +91,7 @@ module.exports = async (interaction) => {
         return;
       }
 
-      console.error('❌ Slash command error:', err);
+      console.error('<:warning:1496193692099285255> Slash command error:', err);
 
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
@@ -638,7 +638,7 @@ module.exports = async (interaction) => {
       return;
     }
 
-    console.error('❌ Button interaction error:', err);
+    console.error('<:warning:1496193692099285255> Button interaction error:', err);
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({

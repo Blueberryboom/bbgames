@@ -24,7 +24,7 @@ module.exports = {
 
       await interaction.reply(payload);
     } catch (error) {
-      console.error('❌ /achievements failed:', error);
+      console.error('<:warning:1496193692099285255> /achievements failed:', error);
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
           content: '<:warning:1496193692099285255> Failed to load achievements. Please try again.',

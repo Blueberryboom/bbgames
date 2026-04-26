@@ -56,7 +56,7 @@ module.exports = {
       if (sub === 'disable') return handleDisable(interaction);
       return handleRegister(interaction);
     } catch (error) {
-      console.error('❌ Birthday command error:', error);
+      console.error('<:warning:1496193692099285255> Birthday command error:', error);
       if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({
           content: '<:warning:1496193692099285255> Birthday action failed. Please try again.',

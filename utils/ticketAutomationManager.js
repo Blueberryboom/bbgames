@@ -230,13 +230,13 @@ function initTicketAutomationManager(client) {
 
   processTimer = setInterval(() => {
     processTicketAutomationsSafely(client).catch(error => {
-      console.error('❌ Ticket automation processor error:', error);
+      console.error('<:warning:1496193692099285255> Ticket automation processor error:', error);
     });
   }, PROCESS_INTERVAL_MS);
   processTimer.unref?.();
 
   processTicketAutomationsSafely(client).catch(error => {
-    console.error('❌ Ticket automation startup run failed:', error);
+    console.error('<:warning:1496193692099285255> Ticket automation startup run failed:', error);
   });
 }
 

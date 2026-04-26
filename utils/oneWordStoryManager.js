@@ -7,7 +7,7 @@ const DEFAULT_WORD_DELAY_SECONDS = 5;
 const MIN_WORD_DELAY_SECONDS = 1;
 const MAX_WORD_DELAY_SECONDS = 30;
 const MAX_WORD_LENGTH = 12;
-const CHECK_EMOJI = '✅';
+const CHECK_EMOJI = '<:checkmark:1495875811792781332>';
 
 function getTimerKey(guildId, messageId) {
   return `${guildId}:${messageId}`;
@@ -82,7 +82,7 @@ async function queueOneWordStoryMessage(message) {
   const timer = setTimeout(async () => {
     pendingTimers.delete(key);
     await processQueuedMessage(message).catch(error => {
-      console.error('❌ One-word story processing failed:', error);
+      console.error('<:warning:1496193692099285255> One-word story processing failed:', error);
     });
   }, configuredSeconds * 1000);
 
