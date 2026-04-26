@@ -92,7 +92,7 @@ async function initPremiumRuntime(premiumClient, token) {
       await handleStickyMessage(message);
       await queueOneWordStoryMessage(message);
     } catch (err) {
-      console.error('❌ Premium counting handler error:', err);
+      console.error('<:warning:1496193692099285255> Premium counting handler error:', err);
     }
   });
 
@@ -153,7 +153,7 @@ async function initPremiumRuntime(premiumClient, token) {
       const payload = buildMemberEventPayload(EVENT_TYPES.welcome, member, member.guild, config);
       await targetChannel.send(payload);
     } catch (err) {
-      console.error('❌ Premium welcome system error:', err);
+      console.error('<:warning:1496193692099285255> Premium welcome system error:', err);
     }
   });
 
@@ -162,11 +162,11 @@ async function initPremiumRuntime(premiumClient, token) {
     try {
       await interactionHandler(interaction);
     } catch (err) {
-      console.error('❌ Premium interaction handler error:', err);
+      console.error('<:warning:1496193692099285255> Premium interaction handler error:', err);
 
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
-          content: '❌ Something went wrong.',
+          content: '<:warning:1496193692099285255> Something went wrong.',
           flags: MessageFlags.Ephemeral
         }).catch(() => {});
       }
@@ -193,9 +193,9 @@ async function initPremiumRuntime(premiumClient, token) {
 
       const guildCount = premiumClient.guilds.cache.size;
       const memberCount = premiumClient.guilds.cache.reduce((total, guild) => total + Number(guild.memberCount || 0), 0);
-      console.log(`✅ Premium runtime ready for ${premiumClient.user.tag} | Servers: ${guildCount} | Members: ${memberCount}`);
+      console.log(`<:checkmark:1495875811792781332> Premium runtime ready for ${premiumClient.user.tag} | Servers: ${guildCount} | Members: ${memberCount}`);
     } catch (error) {
-      console.error('❌ Premium runtime setup failed:', error);
+      console.error('<:warning:1496193692099285255> Premium runtime setup failed:', error);
     }
   });
 }
@@ -410,16 +410,16 @@ async function startPremiumInstance(mainClient, ownerId, token, options = {}) {
       instance?.guildIds.add(guild.id);
       await cancelGuildDataDeletion(guild.id);
     } catch (error) {
-      console.error('❌ Premium guildCreate check failed:', error);
+      console.error('<:warning:1496193692099285255> Premium guildCreate check failed:', error);
     }
   });
 
   premiumClient.on('error', error => {
-    console.error('❌ Premium client error:', error);
+    console.error('<:warning:1496193692099285255> Premium client error:', error);
   });
 
   premiumClient.on('shardError', error => {
-    console.error('❌ Premium shard error:', error);
+    console.error('<:warning:1496193692099285255> Premium shard error:', error);
   });
 
   try {
@@ -552,9 +552,9 @@ async function restorePremiumInstances(mainClient) {
         instanceId: row.instance_id,
         customStatuses: [row.status_one, row.status_two].filter(Boolean)
       });
-      console.log(`✅ Restored premium instance for user ${row.owner_id}`);
+      console.log(`<:checkmark:1495875811792781332> Restored premium instance for user ${row.owner_id}`);
     } catch (error) {
-      console.error(`❌ Failed to restore premium instance for user ${row.owner_id}:`, error.message);
+      console.error(`<:warning:1496193692099285255> Failed to restore premium instance for user ${row.owner_id}:`, error.message);
       await setPremiumInstanceEnabled(row.owner_id, false);
     }
   }

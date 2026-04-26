@@ -23,7 +23,7 @@ module.exports = {
     try {
       if (!interaction.inGuild()) {
         return interaction.reply({
-          content: '❌ You can only use `/afk` inside a server.',
+          content: '<:warning:1496193692099285255> You can only use `/afk` inside a server.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -44,15 +44,15 @@ module.exports = {
 
       return interaction.reply({ embeds: [embed] });
     } catch (error) {
-      console.error('❌ /afk failed:', error);
+      console.error('<:warning:1496193692099285255> /afk failed:', error);
       if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({
-          content: '❌ Failed to set AFK status. Please try again.',
+          content: '<:warning:1496193692099285255> Failed to set AFK status. Please try again.',
           flags: MessageFlags.Ephemeral
         });
       }
       return interaction.followUp({
-        content: '❌ Failed to set AFK status. Please try again.',
+        content: '<:warning:1496193692099285255> Failed to set AFK status. Please try again.',
         flags: MessageFlags.Ephemeral
       }).catch(() => null);
     }

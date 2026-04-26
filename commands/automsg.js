@@ -81,7 +81,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -100,7 +100,7 @@ module.exports = {
 
       if (missingPermissions.length) {
         return interaction.reply({
-          content: `❌ I can't send automatic messages in ${channel}. Missing: ${formatPermissionList(missingPermissions)}.`,
+          content: `<:warning:1496193692099285255> I can't send automatic messages in ${channel}. Missing: ${formatPermissionList(missingPermissions)}.`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -108,14 +108,14 @@ module.exports = {
       const intervalMs = parseDurationMs(intervalInput);
       if (!intervalMs) {
         return interaction.reply({
-          content: '❌ Invalid interval format. Use combinations like `2h 5m`, `4m 36s`, or `2h 5s`.',
+          content: '<:warning:1496193692099285255> Invalid interval format. Use combinations like `2h 5m`, `4m 36s`, or `2h 5s`.',
           flags: MessageFlags.Ephemeral
         });
       }
 
       if (intervalMs < MIN_INTERVAL_MS || intervalMs > MAX_INTERVAL_MS) {
         return interaction.reply({
-          content: '❌ Interval must be between 30 minutes and 24 hours.',
+          content: '<:warning:1496193692099285255> Interval must be between 30 minutes and 24 hours.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -130,7 +130,7 @@ module.exports = {
       const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 10);
       if (currentRows.length >= limit) {
         return interaction.reply({
-          content: `❌ This bot can only have ${limit} automatic messages in this server.`,
+          content: `<:warning:1496193692099285255> This bot can only have ${limit} automatic messages in this server.`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -151,7 +151,7 @@ module.exports = {
       }
 
       return interaction.reply({
-        content: `✅ Auto message #${autoMessageId} created for ${channel} every **${formatDuration(intervalMs)}**.`,
+        content: `<:checkmark:1495875811792781332> Auto message #${autoMessageId} created for ${channel} every **${formatDuration(intervalMs)}**.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -169,7 +169,7 @@ module.exports = {
 
       if (!rows.length) {
         return interaction.reply({
-          content: '❌ Auto message not found for this server.',
+          content: '<:warning:1496193692099285255> Auto message not found for this server.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -183,7 +183,7 @@ module.exports = {
       await refreshAutoMessageSchedule(interaction.client, id);
 
       return interaction.reply({
-        content: `✅ Removed auto message #${id}.`,
+        content: `<:checkmark:1495875811792781332> Removed auto message #${id}.`,
         flags: MessageFlags.Ephemeral
       });
     }

@@ -75,7 +75,7 @@ module.exports = {
     if (sub === 'redeem') {
       if (!interaction.inGuild()) {
         return interaction.reply({
-          content: '❌ `/premium redeem` must be used in the server where you want perks enabled.',
+          content: '<:warning:1496193692099285255> `/premium redeem` must be used in the server where you want perks enabled.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -88,12 +88,12 @@ module.exports = {
         const modeText = redeemed.sourceType === 'code' ? 'premium code' : 'role-based premium';
 
         return interaction.reply({
-          content: `✅ Premium perks enabled for **${redeemed.guildName}** using ${modeText}.${expiryText} This tier includes premium server features but not a custom bot.`,
+          content: `<:checkmark:1495875811792781332> Premium perks enabled for **${redeemed.guildName}** using ${modeText}.${expiryText} This tier includes premium server features but not a custom bot.`,
           flags: MessageFlags.Ephemeral
         });
       } catch (error) {
         return interaction.reply({
-          content: `❌ Could not redeem premium perks: ${error.message}`,
+          content: `<:warning:1496193692099285255> Could not redeem premium perks: ${error.message}`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -103,7 +103,7 @@ module.exports = {
       const result = await removePremiumForUser(interaction.user.id);
       return interaction.reply({
         content: result.removed
-          ? '✅ Your server premium perks were removed immediately. You can now redeem in a new server.'
+          ? '<:checkmark:1495875811792781332> Your server premium perks were removed immediately. You can now redeem in a new server.'
           : 'ℹ️ You do not currently have active redeemed server premium perks.',
         flags: MessageFlags.Ephemeral
       });
@@ -111,7 +111,7 @@ module.exports = {
 
     if (interaction.inGuild()) {
       return interaction.reply({
-        content: '❌ `/premium start|stop|status` only works in DMs.',
+        content: '<:warning:1496193692099285255> `/premium start|stop|status` only works in DMs.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -119,7 +119,7 @@ module.exports = {
     const allowed = await isPremiumAllowedUser(interaction.user.id);
     if (!allowed) {
       return interaction.reply({
-        content: '❌ You are not allowed to use premium instances.',
+        content: '<:warning:1496193692099285255> You are not allowed to use premium instances.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -141,7 +141,7 @@ module.exports = {
         .join('\n');
 
       return interaction.reply({
-        content: `✅ You have **${statuses.length}** running premium instance(s):\n${summary}`,
+        content: `<:checkmark:1495875811792781332> You have **${statuses.length}** running premium instance(s):\n${summary}`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -151,7 +151,7 @@ module.exports = {
       const stopped = await stopPremiumInstance(interaction.user.id, { instanceId });
       return interaction.reply({
         content: stopped
-          ? `✅ Premium instance \`${instanceId}\` was stopped.`
+          ? `<:checkmark:1495875811792781332> Premium instance \`${instanceId}\` was stopped.`
           : `ℹ️ No running premium instance found for ID \`${instanceId}\`.`,
         flags: MessageFlags.Ephemeral
       });
@@ -162,7 +162,7 @@ module.exports = {
     try {
       const hasGlobalInstance = await hasInstanceForUserGlobal(interaction.client, interaction.user.id);
       if (hasGlobalInstance && interaction.user.id !== BOT_OWNER_ID) {
-        return interaction.editReply('❌ You already have an active premium bot instance.');
+        return interaction.editReply('<:warning:1496193692099285255> You already have an active premium bot instance.');
       }
 
       const token = interaction.options.getString('token', true).trim();
@@ -174,11 +174,11 @@ module.exports = {
       const statusText = created.statusLine ? ` Custom status: ${created.statusLine}.` : '';
 
       return interaction.editReply(
-        `✅ Premium instance started as **${created.botTag}** in **${created.guildCount}** server(s).${statusText} This will auto-restore after restart.`
+        `<:checkmark:1495875811792781332> Premium instance started as **${created.botTag}** in **${created.guildCount}** server(s).${statusText} This will auto-restore after restart.`
       );
     } catch (error) {
-      console.error('❌ premium start failed:', error);
-      return interaction.editReply(`❌ Failed to start premium instance: ${error.message}`);
+      console.error('<:warning:1496193692099285255> premium start failed:', error);
+      return interaction.editReply(`<:warning:1496193692099285255> Failed to start premium instance: ${error.message}`);
     }
   }
 };

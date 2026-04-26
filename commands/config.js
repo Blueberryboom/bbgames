@@ -82,7 +82,7 @@ module.exports = {
 
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -100,7 +100,7 @@ module.exports = {
       });
 
       return interaction.reply({
-        content: `✅ Admin role set to ${role}.`,
+        content: `<:checkmark:1495875811792781332> Admin role set to ${role}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -118,7 +118,7 @@ module.exports = {
       });
 
       return interaction.reply({
-        content: `✅ Giveaway admin role set to ${role}.`,
+        content: `<:checkmark:1495875811792781332> Giveaway admin role set to ${role}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -136,7 +136,7 @@ module.exports = {
       });
 
       return interaction.reply({
-        content: `✅ Staff role set to ${role}.`,
+        content: `<:checkmark:1495875811792781332> Staff role set to ${role}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -160,7 +160,7 @@ module.exports = {
       });
 
       return interaction.reply({
-        content: `✅ System messages are now ${enabled ? 'enabled' : 'disabled'}.`,
+        content: `<:checkmark:1495875811792781332> System messages are now ${enabled ? 'enabled' : 'disabled'}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -203,7 +203,7 @@ async function handleDeleteData(interaction) {
   const isAdministrator = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator);
   if (!isAdministrator) {
     return interaction.reply({
-      content: '❌ Only members with the **Administrator** permission can use `/config delete_data`.',
+      content: '<:warning:1496193692099285255> Only members with the **Administrator** permission can use `/config delete_data`.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -226,7 +226,7 @@ async function handleDeleteData(interaction) {
 
   if (levelingMembers > 10000 && !hasOwnerApproval) {
     return interaction.reply({
-      content: '❌ This server has over **10,000** users in the leveling system. Please submit a support ticket in your Discord server first, then have the bot owner run `/owner approve_data_deletion` for this server.',
+      content: '<:warning:1496193692099285255> This server has over **10,000** users in the leveling system. Please submit a support ticket in your Discord server first, then have the bot owner run `/owner approve_data_deletion` for this server.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -256,13 +256,13 @@ async function handleDeleteData(interaction) {
 
   collector.on('collect', async buttonInteraction => {
     if (buttonInteraction.user.id !== interaction.user.id) {
-      return buttonInteraction.reply({ content: '❌ This confirmation is not for you.', flags: MessageFlags.Ephemeral });
+      return buttonInteraction.reply({ content: '<:warning:1496193692099285255> This confirmation is not for you.', flags: MessageFlags.Ephemeral });
     }
 
     if (buttonInteraction.customId.startsWith('config_delete_data_cancel:')) {
       collector.stop('cancelled');
       return buttonInteraction.update({
-        content: '✅ Data deletion cancelled.',
+        content: '<:checkmark:1495875811792781332> Data deletion cancelled.',
         components: []
       });
     }
@@ -282,7 +282,7 @@ async function handleDeleteData(interaction) {
 
     collector.stop('confirmed');
     return buttonInteraction.update({
-      content: '✅ All bot data for this server has been deleted.',
+      content: '<:checkmark:1495875811792781332> All bot data for this server has been deleted.',
       components: []
     });
   });

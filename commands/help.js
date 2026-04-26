@@ -16,7 +16,8 @@ const HELP_FEATURES = {
   birthdays: { label: 'Birthdays', summary: 'Configure birthday tracking and announcements.', commands: [['/birthday', 'Manage birthday settings.']] },
   boosting: { label: 'Boost Messages', summary: 'Configure boost thank-you and leave messages.', commands: [['/boostmsg', 'Configure boost messages.'], ['/leave', 'Configure leave messages.'], ['/welcome', 'Configure welcome messages.']] },
   bumping: { label: 'Bumping', summary: 'Advertise your server and receive server ads from others.', commands: [['/bumping channel', 'Set bump destination channel.'], ['/bumping advertisement', 'Set ad text.'], ['/bumping disable', 'Disable bumping.'], ['/bump', 'Send your ad to other servers.']] },
-  config: { label: 'Config', summary: 'Configure manager roles and system settings.', commands: [['/config', 'Open server configuration options.'], ['/logs', 'Configure logging options.']] },
+  autorevive: { label: 'Auto Revive', summary: 'Revive inactive chats by pinging a role after inactivity.', commands: [['/autorevive enable', 'Configure auto chat revive.'], ['/autorevive disable', 'Disable auto revive and remove config.']] },
+  config: { label: 'Config', summary: 'Configure manager roles and system settings.', commands: [['/config', 'Open server configuration options.'], ['/logs', 'Configure logging options.'], ['/changelog', 'Configure changelog follow channel.']] },
   counting: { label: 'Counting', summary: 'Run counting game channels and stats.', commands: [['/count channel', 'Set counting channel.'], ['/count current', 'Show current number.'], ['/count leaderboard', 'Show leaderboard.'], ['/count reset', 'Reset counting.']] },
   fun: { label: 'Fun & Games', summary: 'Play mini-games and random fun commands.', commands: [['/coinflip', 'Flip a coin.'], ['/dadjoke', 'Get a dad joke.'], ['/dice', 'Roll dice.'], ['/rps', 'Play rock paper scissors.'], ['/tictactoe', 'Play tic tac toe.']] },
   giveaways: { label: 'Giveaways', summary: 'Run and manage giveaways.', commands: [['/giveaway start', 'Start a giveaway.'], ['/giveaway list', 'List giveaways.'], ['/giveaway reroll', 'Reroll winner.'], ['/giveaway end', 'End giveaway now.']] },
@@ -120,7 +121,7 @@ module.exports = {
     collector.on('collect', async menuInteraction => {
       if (menuInteraction.user.id !== interaction.user.id) {
         await menuInteraction.reply({
-          content: '❌ Only the user who ran `/help` can use this dropdown.',
+          content: '<:warning:1496193692099285255> Only the user who ran `/help` can use this dropdown.',
           ephemeral: true
         }).catch(() => null);
         return;
@@ -130,7 +131,7 @@ module.exports = {
       const feature = HELP_FEATURES[key];
 
       if (!feature) {
-        await menuInteraction.reply({ content: '❌ Unknown help feature.', ephemeral: true }).catch(() => null);
+        await menuInteraction.reply({ content: '<:warning:1496193692099285255> Unknown help feature.', ephemeral: true }).catch(() => null);
         return;
       }
 

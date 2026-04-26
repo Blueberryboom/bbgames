@@ -105,7 +105,7 @@ module.exports = {
 
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use this command.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -140,7 +140,7 @@ async function handleStatus(interaction) {
 
     return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   } catch {
-    return interaction.reply({ content: '❌ Could not check that server. Please try again.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '<:warning:1496193692099285255> Could not check that server. Please try again.', flags: MessageFlags.Ephemeral });
   }
 }
 
@@ -154,7 +154,7 @@ async function handleMonitor(interaction) {
 
   if (!displayIp && !displayPlayerCount && !displayPlayerRecord) {
     return interaction.reply({
-      content: '❌ Enable at least one display option so there is something to monitor.',
+      content: '<:warning:1496193692099285255> Enable at least one display option so there is something to monitor.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -218,7 +218,7 @@ async function handleMonitor(interaction) {
   await syncGuildMonitor(interaction.client, guild.id);
 
   return interaction.editReply(
-    '✅ Minecraft monitor configured. Existing monitor settings (if any) were overwritten, and channels will update every 5 minutes.\nℹ️ For reliable monitoring, the bot needs **View Channel** and **Manage Channels** where you run this command and on the monitor channels (channel/category overwrites can still block it).'
+    '<:checkmark:1495875811792781332> Minecraft monitor configured. Existing monitor settings (if any) were overwritten, and channels will update every 5 minutes.\nℹ️ For reliable monitoring, the bot needs **View Channel** and **Manage Channels** where you run this command and on the monitor channels (channel/category overwrites can still block it).'
   );
 }
 
@@ -238,7 +238,7 @@ async function handleMonitorEmojis(interaction) {
 
   if (!rows.length) {
     return interaction.reply({
-      content: '❌ Set up monitoring first with `/minecraft monitor`.',
+      content: '<:warning:1496193692099285255> Set up monitoring first with `/minecraft monitor`.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -256,7 +256,7 @@ async function handleMonitorEmojis(interaction) {
   await syncGuildMonitor(interaction.client, interaction.guildId);
 
   return interaction.reply({
-    content: '✅ Updated Minecraft monitor channel emoji prefixes and forced an immediate monitor refresh.',
+    content: '<:checkmark:1495875811792781332> Updated Minecraft monitor channel emoji prefixes and forced an immediate monitor refresh.',
     flags: MessageFlags.Ephemeral
   });
 }
@@ -283,7 +283,7 @@ async function handleStopMonitoring(interaction) {
 
   if (cleanupResult.failed.length) {
     return interaction.reply({
-      content: `❌ I could not delete ${cleanupResult.failed.length} monitor channel(s), so I kept the saved config.\n` +
+      content: `<:warning:1496193692099285255> I could not delete ${cleanupResult.failed.length} monitor channel(s), so I kept the saved config.\n` +
         `Give me **Manage Channels** permission and run \`/minecraft stop_monitoring\` again.\n` +
         `Debug: ${cleanupResult.failed.map(f => `${f.channelId} (${f.reason})`).join(', ')}`,
       flags: MessageFlags.Ephemeral
@@ -293,7 +293,7 @@ async function handleStopMonitoring(interaction) {
   await query('DELETE FROM minecraft_monitors WHERE guild_id = ?', [guild.id]);
 
   return interaction.reply({
-    content: `✅ Stopped Minecraft monitoring. Deleted ${cleanupResult.deleted.length} channel(s), ${cleanupResult.missing.length} were already missing, and removed saved monitor data.`,
+    content: `<:checkmark:1495875811792781332> Stopped Minecraft monitoring. Deleted ${cleanupResult.deleted.length} channel(s), ${cleanupResult.missing.length} were already missing, and removed saved monitor data.`,
     flags: MessageFlags.Ephemeral
   });
 }

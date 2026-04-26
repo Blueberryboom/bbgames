@@ -156,7 +156,7 @@ module.exports = {
       const ticketRows = await query('SELECT id, user_id, type_id, claimed_by FROM tickets WHERE guild_id = ? AND channel_id = ? LIMIT 1', [interaction.guildId, interaction.channelId]);
       const ticket = ticketRows[0];
       if (!ticket) {
-        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
       }
 
       const typeRows = await query('SELECT staff_role_ids FROM ticket_types WHERE guild_id = ? AND id = ? LIMIT 1', [interaction.guildId, ticket.type_id]);
@@ -164,13 +164,13 @@ module.exports = {
       const isAssigned = ticket.claimed_by && interaction.user.id === ticket.claimed_by;
       const isStaff = await checkPerms(interaction) || isAssigned || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       if (!isStaff) {
-        return interaction.reply({ content: '❌ Only assigned ticket staff or administrators can send close requests.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only assigned ticket staff or administrators can send close requests.', flags: MessageFlags.Ephemeral });
       }
 
       const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`ticket_close_request_yes:${ticket.id}`)
-          .setLabel('✅ Yes, close this ticket')
+          .setLabel('<:checkmark:1495875811792781332> Yes, close this ticket')
           .setStyle(ButtonStyle.Danger)
       );
 
@@ -181,7 +181,7 @@ module.exports = {
         allowedMentions: { users: mentionUserIds }
       });
 
-      return interaction.reply({ content: '✅ Close request sent to the ticket owner.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:checkmark:1495875811792781332> Close request sent to the ticket owner.', flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'unclaim') {
@@ -195,18 +195,18 @@ module.exports = {
       );
       const ticket = ticketRows[0];
       if (!ticket) {
-        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
       }
 
       if (!ticket.claimed_by) {
-        return interaction.reply({ content: '❌ This ticket is not currently claimed.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This ticket is not currently claimed.', flags: MessageFlags.Ephemeral });
       }
 
       const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
       const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       const isClaimer = interaction.user.id === ticket.claimed_by;
       if (!isStaff && !isClaimer) {
-        return interaction.reply({ content: '❌ Only the claimer, ticket staff, or admins can unclaim this ticket.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only the claimer, ticket staff, or admins can unclaim this ticket.', flags: MessageFlags.Ephemeral });
       }
 
       await query('UPDATE tickets SET claimed_by = NULL WHERE id = ?', [ticket.id]);
@@ -240,7 +240,7 @@ module.exports = {
         .setDescription(`This ticket was unclaimed by ${interaction.user}.`);
       await interaction.channel.send({ embeds: [unclaimEmbed] }).catch(() => null);
 
-      return interaction.reply({ content: '✅ Ticket is now unclaimed.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '<:checkmark:1495875811792781332> Ticket is now unclaimed.', flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'claim') {
@@ -254,28 +254,28 @@ module.exports = {
       );
       const ticket = ticketRows[0];
       if (!ticket) {
-        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
       }
 
       const settings = await getGuildTicketSettings(interaction.guildId);
       if (!Number(settings?.claiming_enabled || 0)) {
-        return interaction.reply({ content: '❌ Ticket claiming is disabled by configuration.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Ticket claiming is disabled by configuration.', flags: MessageFlags.Ephemeral });
       }
 
       const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
       const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       if (!isStaff) {
-        return interaction.reply({ content: '❌ Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only ticket staff can claim tickets.', flags: MessageFlags.Ephemeral });
       }
       if (ticket.claimed_by && ticket.claimed_by !== interaction.user.id) {
-        return interaction.reply({ content: '❌ This ticket has already been claimed by another staff member.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This ticket has already been claimed by another staff member.', flags: MessageFlags.Ephemeral });
       }
       if (ticket.claimed_by === interaction.user.id) {
-        return interaction.reply({ content: '❌ You already claimed this ticket.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> You already claimed this ticket.', flags: MessageFlags.Ephemeral });
       }
 
       await query('UPDATE tickets SET claimed_by = ? WHERE id = ?', [interaction.user.id, ticket.id]);
-      return interaction.reply({ content: `✅ You claimed this ticket.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `<:checkmark:1495875811792781332> You claimed this ticket.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'add_user') {
@@ -290,13 +290,13 @@ module.exports = {
       );
       const ticket = ticketRows[0];
       if (!ticket) {
-        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
       }
 
       const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
       const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       if (!isStaff) {
-        return interaction.reply({ content: '❌ Only ticket staff can add users to a ticket.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only ticket staff can add users to a ticket.', flags: MessageFlags.Ephemeral });
       }
 
       await interaction.channel.permissionOverwrites.edit(target.id, {
@@ -311,7 +311,7 @@ module.exports = {
       }).catch(() => null);
 
       return interaction.reply({
-        content: `✅ Added ${target} to this ticket.`,
+        content: `<:checkmark:1495875811792781332> Added ${target} to this ticket.`,
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
@@ -330,17 +330,17 @@ module.exports = {
       );
       const ticket = ticketRows[0];
       if (!ticket) {
-        return interaction.reply({ content: '❌ This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> This command can only be used inside an open ticket channel.', flags: MessageFlags.Ephemeral });
       }
 
       const staffRoleIds = parseRoleIds(ticket.staff_role_ids);
       const isStaff = await checkPerms(interaction, { scope: 'staff' }) || staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
       if (!isStaff) {
-        return interaction.reply({ content: '❌ Only ticket staff can remove users from a ticket.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Only ticket staff can remove users from a ticket.', flags: MessageFlags.Ephemeral });
       }
 
       if (target.id === ticket.user_id) {
-        return interaction.reply({ content: '❌ You cannot remove the ticket owner from their own ticket.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> You cannot remove the ticket owner from their own ticket.', flags: MessageFlags.Ephemeral });
       }
 
       await interaction.channel.permissionOverwrites.delete(target.id).catch(() => null);
@@ -351,7 +351,7 @@ module.exports = {
       }).catch(() => null);
 
       return interaction.reply({
-        content: `✅ Removed ${target} from this ticket.`,
+        content: `<:checkmark:1495875811792781332> Removed ${target} from this ticket.`,
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
@@ -359,7 +359,7 @@ module.exports = {
 
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '❌ You need administrator or the configured bot manager role to use ticket configuration commands.',
+        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use ticket configuration commands.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -427,7 +427,7 @@ module.exports = {
       );
 
       return modalSubmit.reply({
-        content: '✅ Ticket settings updated.',
+        content: '<:checkmark:1495875811792781332> Ticket settings updated.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -441,7 +441,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: `✅ ${user} is now blacklisted from opening tickets.`,
+        content: `<:checkmark:1495875811792781332> ${user} is now blacklisted from opening tickets.`,
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
@@ -453,7 +453,7 @@ module.exports = {
 
       if (cooldownMs === null) {
         return interaction.reply({
-          content: '❌ Invalid format. Use values like `2d 9h 54m`, `2h`, `4m`, or `1d 2m`.',
+          content: '<:warning:1496193692099285255> Invalid format. Use values like `2d 9h 54m`, `2h`, `4m`, or `1d 2m`.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -466,7 +466,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: `✅ Ticket creation cooldown set to **${formatDuration(cooldownMs)}**.`,
+        content: `<:checkmark:1495875811792781332> Ticket creation cooldown set to **${formatDuration(cooldownMs)}**.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -479,7 +479,7 @@ module.exports = {
       const settings = await getGuildTicketSettings(interaction.guildId);
       if (!settings?.category_id) {
         return interaction.reply({
-          content: '❌ Configure ticket settings first using `/ticket config`.',
+          content: '<:warning:1496193692099285255> Configure ticket settings first using `/ticket config`.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -487,7 +487,7 @@ module.exports = {
       const types = await query('SELECT id, name, description, emoji FROM ticket_types WHERE guild_id = ? ORDER BY name ASC', [interaction.guildId]);
       if (!types.length) {
         return interaction.reply({
-          content: '❌ No ticket types exist yet. Create one with `/tickets create_type` first.',
+          content: '<:warning:1496193692099285255> No ticket types exist yet. Create one with `/tickets create_type` first.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -537,7 +537,7 @@ module.exports = {
       }
 
       return interaction.reply({
-        content: `✅ Ticket panel sent in ${targetChannel}.`,
+        content: `<:checkmark:1495875811792781332> Ticket panel sent in ${targetChannel}.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -553,7 +553,7 @@ module.exports = {
       );
       const type = typeRows[0];
       if (!type) {
-        return interaction.reply({ content: '❌ Ticket type not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '<:warning:1496193692099285255> Ticket type not found.', flags: MessageFlags.Ephemeral });
       }
 
       const openRows = await query(
@@ -563,14 +563,14 @@ module.exports = {
       const openCount = Number(openRows[0]?.total || 0);
       if (openCount > 0) {
         return interaction.reply({
-          content: `❌ Cannot delete **${type.name}** while it has open tickets (${openCount}).`,
+          content: `<:warning:1496193692099285255> Cannot delete **${type.name}** while it has open tickets (${openCount}).`,
           flags: MessageFlags.Ephemeral
         });
       }
 
       await query('DELETE FROM ticket_types WHERE guild_id = ? AND id = ?', [interaction.guildId, type.id]);
       return interaction.reply({
-        content: `✅ Deleted ticket type **${type.name}**.`,
+        content: `<:checkmark:1495875811792781332> Deleted ticket type **${type.name}**.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -599,7 +599,7 @@ module.exports = {
       await query('DELETE FROM ticket_settings WHERE guild_id = ?', [interaction.guildId]);
 
       return interaction.reply({
-        content: `✅ Ticket system fully reset. Removed ${deletedChannels} ticket channel(s) and all ticket configuration.`,
+        content: `<:checkmark:1495875811792781332> Ticket system fully reset. Removed ${deletedChannels} ticket channel(s) and all ticket configuration.`,
         flags: MessageFlags.Ephemeral
       });
     }
