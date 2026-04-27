@@ -33,7 +33,7 @@ const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
 if (!token || !clientId) {
-  console.error('<:warning:1496193692099285255> TOKEN or CLIENT_ID missing in .env');
+  console.error('⚠️ TOKEN or CLIENT_ID missing in .env');
   process.exit(1);
 }
 
@@ -66,18 +66,18 @@ for (const file of commandFiles) {
 
 // ─── READY EVENT ────────────────────────────
 client.once('clientReady', async () => {
-  console.log(`<:checkmark:1495875811792781332> Logged in as ${client.user.tag}`);
+  console.log(`✅ Logged in as ${client.user.tag}`);
 
   try {
     // Setup database
     const setupDatabase = require('./database/setup');
     await setupDatabase();
-    console.log('<:checkmark:1495875811792781332> Database setup complete!');
+    console.log('✅ Database setup complete!');
 
     // Init giveaway manager
     const { initGiveawaySystem } = require('./utils/giveawayManager');
     await initGiveawaySystem(client);
-    console.log('<:checkmark:1495875811792781332> Giveaway system initialised');
+    console.log('✅ Giveaway system initialised');
 
     // Init YouTube notifier
     const { initYouTubeNotifier } = require('./utils/youtubeNotifier');
@@ -117,7 +117,7 @@ client.once('clientReady', async () => {
     initAutoReviveManager(client);
 
   } catch (err) {
-    console.error('<:warning:1496193692099285255> Error during ready setup:', err);
+    console.error('⚠️ Error during ready setup:', err);
   }
 
   // Register slash commands (only shard 0)
@@ -132,10 +132,10 @@ client.once('clientReady', async () => {
         { body: commands }
       );
 
-      console.log('<:checkmark:1495875811792781332> Slash commands registered');
+      console.log('✅ Slash commands registered');
 
     } catch (err) {
-      console.error('<:warning:1496193692099285255> Failed to register slash commands:', err);
+      console.error('⚠️ Failed to register slash commands:', err);
     }
 
     startStatsApiServer(client);
@@ -217,7 +217,7 @@ client.on('messageCreate', async message => {
     await handleAutoResponderMessage(message);
     await trackAutoReviveChannelActivity(message);
   } catch (err) {
-    console.error('<:warning:1496193692099285255> Message handler error:', err);
+    console.error('⚠️ Message handler error:', err);
   }
 });
 
@@ -307,7 +307,7 @@ This project began as a private custom bot for Blueberryboom's discord server, s
 
     await targetUser.send({ embeds: [embed] }).catch(() => {});
   } catch (err) {
-    console.error('<:warning:1496193692099285255> guildCreate handler error:', err);
+    console.error('⚠️ guildCreate handler error:', err);
   }
 });
 
@@ -319,7 +319,7 @@ client.on('guildDelete', async guild => {
     await scheduleGuildDataDeletion(guild.id, 'main_left');
     console.log(`🕒 Scheduled guild data cleanup for ${guild.id} in 3 days`);
   } catch (err) {
-    console.error('<:warning:1496193692099285255> guildDelete cleanup error:', err);
+    console.error('⚠️ guildDelete cleanup error:', err);
   }
 });
 
@@ -387,7 +387,7 @@ client.on('guildMemberAdd', async member => {
       `📥 **Member joined:** <@${member.id}> (${member.user.tag})`
     );
   } catch (err) {
-    console.error('<:warning:1496193692099285255> Welcome system error:', err);
+    console.error('⚠️ Welcome system error:', err);
   }
 });
 
@@ -421,7 +421,7 @@ client.on('guildMemberRemove', async member => {
 
     await cleanupUserGuildData(member.guild.id, member.id);
   } catch (err) {
-    console.error('<:warning:1496193692099285255> guildMemberRemove cleanup error:', err);
+    console.error('⚠️ guildMemberRemove cleanup error:', err);
   }
 });
 
@@ -456,7 +456,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
       `🚀 **Server boost:** <@${newMember.id}> started boosting the server.`
     );
   } catch (err) {
-    console.error('<:warning:1496193692099285255> boost message system error:', err);
+    console.error('⚠️ boost message system error:', err);
   }
 });
 
@@ -477,7 +477,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
 
     await processStarboardReaction(reaction, user);
   } catch (err) {
-    console.error('<:warning:1496193692099285255> messageReactionAdd handler error:', err);
+    console.error('⚠️ messageReactionAdd handler error:', err);
   }
 });
 
@@ -498,7 +498,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
 
     await processStarboardReaction(reaction, user);
   } catch (err) {
-    console.error('<:warning:1496193692099285255> messageReactionRemove handler error:', err);
+    console.error('⚠️ messageReactionRemove handler error:', err);
   }
 });
 
@@ -523,7 +523,7 @@ client.on('messageDelete', async message => {
         const cfgRows = await query('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [message.guildId]);
         const notifyChannel = cfgRows[0]?.channel_id ? await message.guild.channels.fetch(cfgRows[0].channel_id).catch(() => null) : null;
         if (notifyChannel?.isTextBased()) {
-          await notifyChannel.send('<:warning:1496193692099285255> Do not delete bumping channel messages! This server has been blacklisted from bumping for 2 days.').catch(() => null);
+          await notifyChannel.send('⚠️ Do not delete bumping channel messages! This server has been blacklisted from bumping for 2 days.').catch(() => null);
         }
       }
       await query('DELETE FROM bumping_sent_messages WHERE message_id = ?', [message.id]);
@@ -531,7 +531,7 @@ client.on('messageDelete', async message => {
 
     await cleanupStarboardSourceMessage(message.guildId, message.id);
   } catch (err) {
-    console.error('<:warning:1496193692099285255> messageDelete cleanup error:', err);
+    console.error('⚠️ messageDelete cleanup error:', err);
   }
 });
 
@@ -542,11 +542,11 @@ client.on('interactionCreate', async interaction => {
   try {
     await interactionHandler(interaction);
   } catch (err) {
-    console.error('<:warning:1496193692099285255> Interaction handler error:', err);
+    console.error('⚠️ Interaction handler error:', err);
 
     if (!interaction.replied && !interaction.deferred) {
       await interaction.reply({
-        content: '<:warning:1496193692099285255> Something went wrong.',
+        content: '⚠️ Something went wrong.',
         flags: MessageFlags.Ephemeral
       }).catch(() => {});
     }
@@ -556,15 +556,15 @@ client.on('interactionCreate', async interaction => {
 
 // ─── GLOBAL ERROR HANDLING ─────────────────
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('<:warning:1496193692099285255> Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 process.on('uncaughtException', err => {
-  console.error('<:warning:1496193692099285255> Uncaught Exception:', err);
+  console.error('⚠️ Uncaught Exception:', err);
 });
 
 process.on('uncaughtExceptionMonitor', (err, origin) => {
-  console.error('<:warning:1496193692099285255> Uncaught Exception Monitor:', err, origin);
+  console.error('⚠️ Uncaught Exception Monitor:', err, origin);
 });
 
 

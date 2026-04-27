@@ -677,7 +677,7 @@ if (sub === "servers") {
       const modal = new ModalBuilder().setCustomId(`owner_server_announce_modal:${guildId}`).setTitle('Send Announcement');
       modal.addComponents(
         new ActionRowBuilder().addComponents(
-          new TextInputBuilder().setCustomId('target').setLabel('Target: log/counting/leveling/welcome/bumping/channel_id').setStyle(TextInputStyle.Short).setRequired(true)
+          new TextInputBuilder().setCustomId('target').setLabel('Target: counting/leveling/changelog/onewordstory/logs/custom_id').setStyle(TextInputStyle.Short).setRequired(true)
         ),
         new ActionRowBuilder().addComponents(
           new TextInputBuilder().setCustomId('message').setLabel('Message').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800)
@@ -692,8 +692,27 @@ if (sub === "servers") {
       await submitted.deferReply({ flags: MessageFlags.Ephemeral });
       const target = submitted.fields.getTextInputValue('target').trim();
       const messageText = submitted.fields.getTextInputValue('message').trim();
+      const confirmRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`owner_server_announce_confirm:${guildId}`).setLabel('Confirm & Send').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId(`owner_server_announce_cancel:${guildId}`).setLabel('Cancel').setStyle(ButtonStyle.Secondary)
+      );
+      const confirmMessage = await submitted.editReply({
+        content: `**Confirm announcement**\nTarget: \`${target}\`\nMessage:\n>>> ${messageText}`,
+        components: [confirmRow]
+      });
+      const decision = await confirmMessage.awaitMessageComponent({
+        componentType: ComponentType.Button,
+        time: 120000,
+        filter: btn => btn.user.id === submitted.user.id && [`owner_server_announce_confirm:${guildId}`, `owner_server_announce_cancel:${guildId}`].includes(btn.customId)
+      }).catch(() => null);
+      if (!decision) {
+        return submitted.editReply({ content: '<:warning:1496193692099285255> Announcement confirmation timed out.', components: [] });
+      }
+      if (decision.customId === `owner_server_announce_cancel:${guildId}`) {
+        return decision.update({ content: 'Cancelled announcement.', components: [] });
+      }
       const ok = await sendOwnerServerAnnouncement(interaction.client, guildId, target, messageText);
-      return submitted.editReply({ content: ok ? '<:checkmark:1495875811792781332> Announcement sent.' : '<:warning:1496193692099285255> Could not find target channel or send message.' });
+      return decision.update({ content: ok ? '<:checkmark:1495875811792781332> Announcement sent.' : '<:warning:1496193692099285255> Could not find target channel or send message.', components: [] });
     }
 
   });
@@ -956,7 +975,7 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
       return [];
     }
   };
-  const [countingRows, levelingRows, welcomeRows, legacyWelcomeRows, logsRows, bumpRows] = await Promise.all([
+  const [countingRows, levelingRows, welcomeRows, legacyWelcomeRows, logsRows, bumpRows, oneWordStoryRows] = await Promise.all([
     safeQuery('SELECT channel_id FROM counting WHERE guild_id = ? LIMIT 1', [guildId]),
     safeQuery('SELECT levelup_channel_id FROM leveling_settings WHERE guild_id = ? LIMIT 1', [guildId]),
     safeQuery(`SELECT channel_id
@@ -966,7 +985,8 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
                LIMIT 1`, [guildId, 'welcome']),
     safeQuery('SELECT channel_id FROM welcome_settings WHERE guild_id = ? LIMIT 1', [guildId]),
     safeQuery('SELECT channel_id FROM guild_logs_settings WHERE guild_id = ? LIMIT 1', [guildId]),
-    safeQuery('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [guildId])
+    safeQuery('SELECT channel_id FROM bumping_configs WHERE guild_id = ? LIMIT 1', [guildId]),
+    safeQuery('SELECT channel_id FROM one_word_story_settings WHERE guild_id = ? LIMIT 1', [guildId])
   ]);
 
   const mapping = {
@@ -976,6 +996,9 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
     log: logsRows[0]?.channel_id,
     logs: logsRows[0]?.channel_id,
     bumping: bumpRows[0]?.channel_id,
+    onewordstory: oneWordStoryRows[0]?.channel_id,
+    one_word_story: oneWordStoryRows[0]?.channel_id,
+    story: oneWordStoryRows[0]?.channel_id,
     changelog: (await safeQuery('SELECT channel_id FROM changelog_followers WHERE guild_id = ? LIMIT 1', [guildId]))[0]?.channel_id
   };
 
@@ -1015,16 +1038,32 @@ async function sendOwnerServerAnnouncement(client, guildId, targetInput, message
 
 module.exports.generateGuildInvite = generateGuildInvite;
 module.exports.leaveGuildById = leaveGuildById;
+module.exports.sendOwnerServerAnnouncement = sendOwnerServerAnnouncement;
 
 async function generateGuildInvite(client, guildId) {
   const sevenDaysSeconds = 7 * 24 * 60 * 60;
+  const getInviteChannel = async (guild) => {
+    const me = guild.members.me || await guild.members.fetchMe().catch(() => null);
+    if (!me) return null;
+
+    const channels = guild.channels?.cache?.size
+      ? guild.channels.cache
+      : await guild.channels.fetch().catch(() => null);
+    if (!channels) return null;
+
+    return channels
+      .filter(c =>
+        typeof c?.createInvite === 'function' &&
+        c.permissionsFor(me)?.has(['ViewChannel', 'CreateInstantInvite'])
+      )
+      .first() || null;
+  };
+
   try {
     if (!client.shard) {
       const guild = client.guilds.cache.get(guildId);
       if (!guild) return null;
-      const channel = guild.channels.cache
-        .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has('CreateInstantInvite'))
-        .first();
+      const channel = await getInviteChannel(guild);
       if (!channel) return null;
       const invite = await channel.createInvite({
         maxAge: sevenDaysSeconds,
@@ -1044,8 +1083,13 @@ async function generateGuildInvite(client, guildId) {
         const guild = botClient.guilds.cache.get(guildId);
         if (!guild) return null;
 
+        const me = guild.members.me || await guild.members.fetchMe().catch(() => null);
+        if (!me) return null;
         const channel = guild.channels.cache
-          .filter(c => c.isTextBased() && c.permissionsFor(guild.members.me)?.has('CreateInstantInvite'))
+          .filter(c =>
+            typeof c?.createInvite === 'function' &&
+            c.permissionsFor(me)?.has(['ViewChannel', 'CreateInstantInvite'])
+          )
           .first();
         if (!channel) return null;
 
