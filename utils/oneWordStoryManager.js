@@ -7,7 +7,7 @@ const DEFAULT_WORD_DELAY_SECONDS = 5;
 const MIN_WORD_DELAY_SECONDS = 1;
 const MAX_WORD_DELAY_SECONDS = 30;
 const MAX_WORD_LENGTH = 12;
-const CHECK_EMOJI = '<:checkmark:1495875811792781332>';
+const CHECK_EMOJI = '✅';
 
 function getTimerKey(guildId, messageId) {
   return `${guildId}:${messageId}`;
