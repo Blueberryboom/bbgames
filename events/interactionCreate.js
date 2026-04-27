@@ -37,7 +37,7 @@ const { canManageSuggestions, getSuggestionSettings, statusLabel } = require('..
 const suggestCommand = require('../commands/suggest');
 const { BUMP_REPORT_CHANNEL_ID } = require('../commands/bump');
 const { BOT_OWNER_ID } = require('../utils/constants');
-const { generateGuildInvite, leaveGuildById } = require('../commands/owner');
+const { generateGuildInvite, leaveGuildById, sendOwnerServerAnnouncement } = require('../commands/owner');
 
 const ticketCreateLocks = new Map();
 
@@ -465,23 +465,67 @@ module.exports = async (interaction) => {
       }
 
       if (action === 'invite') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const invite = await generateGuildInvite(interaction.client, guildId);
         if (!invite) return interaction.editReply('<:warning:1496193692099285255> Cannot create invite.');
         return interaction.editReply(`🔗 ${invite.url}\nExpires: <t:${Math.floor(invite.expiresAt / 1000)}:R>`);
       }
 
       if (action === 'leave') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         const left = await leaveGuildById(interaction.client, guildId);
         return interaction.editReply(left ? '<:checkmark:1495875811792781332> Left server.' : '<:warning:1496193692099285255> Could not leave.');
       }
 
       if (action === 'blacklist') {
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply({ ephemeral: true });
         await query(`REPLACE INTO blacklist (guild_id, added_at) VALUES (?, ?)`, [guildId, Date.now()]);
         await leaveGuildById(interaction.client, guildId);
         return interaction.editReply('<:checkmark:1495875811792781332> Blacklisted + left server.');
+      }
+
+      if (action === 'send_announcement') {
+        const modal = new ModalBuilder().setCustomId(`owner_server_announce_modal:${guildId}`).setTitle('Send Announcement');
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('target').setLabel('Target: counting/leveling/changelog/onewordstory/logs/custom_id').setStyle(TextInputStyle.Short).setRequired(true)
+          ),
+          new ActionRowBuilder().addComponents(
+            new TextInputBuilder().setCustomId('message').setLabel('Message').setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(1800)
+          )
+        );
+        await interaction.showModal(modal);
+
+        const submitted = await interaction.awaitModalSubmit({
+          time: 180000,
+          filter: m => m.customId === `owner_server_announce_modal:${guildId}` && m.user.id === interaction.user.id
+        }).catch(() => null);
+        if (!submitted) return;
+
+        await submitted.deferReply({ ephemeral: true });
+        const target = submitted.fields.getTextInputValue('target').trim();
+        const messageText = submitted.fields.getTextInputValue('message').trim();
+        const confirmRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`owner_server_announce_confirm:${guildId}`).setLabel('Confirm & Send').setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId(`owner_server_announce_cancel:${guildId}`).setLabel('Cancel').setStyle(ButtonStyle.Secondary)
+        );
+        const confirmMessage = await submitted.editReply({
+          content: `**Confirm announcement**\nTarget: \`${target}\`\nMessage:\n>>> ${messageText}`,
+          components: [confirmRow]
+        });
+        const decision = await confirmMessage.awaitMessageComponent({
+          componentType: ComponentType.Button,
+          time: 120000,
+          filter: btn => btn.user.id === submitted.user.id && [`owner_server_announce_confirm:${guildId}`, `owner_server_announce_cancel:${guildId}`].includes(btn.customId)
+        }).catch(() => null);
+        if (!decision) {
+          return submitted.editReply({ content: '<:warning:1496193692099285255> Announcement confirmation timed out.', components: [] });
+        }
+        if (decision.customId === `owner_server_announce_cancel:${guildId}`) {
+          return decision.update({ content: 'Cancelled announcement.', components: [] });
+        }
+        const ok = await sendOwnerServerAnnouncement(interaction.client, guildId, target, messageText);
+        return decision.update({ content: ok ? '<:checkmark:1495875811792781332> Announcement sent.' : '<:warning:1496193692099285255> Could not find target channel or send message.', components: [] });
       }
     }
 
