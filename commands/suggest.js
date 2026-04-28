@@ -5,7 +5,7 @@ const { getSuggestionSettings, parseRoleIds } = require('../utils/suggestionSyst
 async function createSuggestion(interaction, title, description, categoryName) {
   const settings = await getSuggestionSettings(interaction.guildId);
   if (!settings) {
-    return interaction.reply({ content: '<:warning:1496193692099285255> Suggestions are not configured in this server yet. Ask staff to run `/suggestions config` first.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '⚠️ Suggestions are not configured in this server yet. Ask staff to run `/suggestions config` first.', flags: MessageFlags.Ephemeral });
   }
 
   if (settings.disabled_until && Number(settings.disabled_until) > Date.now()) {
@@ -14,12 +14,12 @@ async function createSuggestion(interaction, title, description, categoryName) {
 
   const blacklisted = await query('SELECT 1 FROM suggestion_blacklist WHERE guild_id = ? AND user_id = ? LIMIT 1', [interaction.guildId, interaction.user.id]);
   if (blacklisted.length) {
-    return interaction.reply({ content: '<:warning:1496193692099285255> You are blacklisted from creating suggestions in this server.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '⚠️ You are blacklisted from creating suggestions in this server.', flags: MessageFlags.Ephemeral });
   }
 
   const allowedRoles = parseRoleIds(settings.allowed_role_ids);
   if (allowedRoles.length && !allowedRoles.some(roleId => interaction.member.roles.cache.has(roleId))) {
-    return interaction.reply({ content: '<:warning:1496193692099285255> You do not have permission to create suggestions.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '⚠️ You do not have permission to create suggestions.', flags: MessageFlags.Ephemeral });
   }
 
   const cooldownMs = Math.max(0, Number(settings.cooldown_ms || 0));
@@ -34,7 +34,7 @@ async function createSuggestion(interaction, title, description, categoryName) {
 
   const channel = await interaction.guild.channels.fetch(settings.channel_id).catch(() => null);
   if (!channel?.isTextBased()) {
-    return interaction.reply({ content: '<:warning:1496193692099285255> The configured suggestions channel is missing or no longer text-based.', flags: MessageFlags.Ephemeral });
+    return interaction.reply({ content: '⚠️ The configured suggestions channel is missing or no longer text-based.', flags: MessageFlags.Ephemeral });
   }
 
   const embed = {
@@ -65,8 +65,8 @@ async function createSuggestion(interaction, title, description, categoryName) {
     embeds: [embed],
     components
   });
-  await message.react('<:checkmark:1495875811792781332>').catch(() => null);
-  await message.react('<:warning:1496193692099285255>').catch(() => null);
+  await message.react('✅').catch(() => null);
+  await message.react('⚠️').catch(() => null);
 
   let threadId = null;
   if (Number(settings.create_thread || 0) === 1 && typeof message.startThread === 'function') {
@@ -83,7 +83,7 @@ async function createSuggestion(interaction, title, description, categoryName) {
 
   await query('REPLACE INTO suggestion_user_activity (guild_id, user_id, last_suggested_at) VALUES (?, ?, ?)', [interaction.guildId, interaction.user.id, Date.now()]);
 
-  return interaction.reply({ content: `<:checkmark:1495875811792781332> Suggestion posted in ${channel}.`, flags: MessageFlags.Ephemeral });
+  return interaction.reply({ content: `✅ Suggestion posted in ${channel}.`, flags: MessageFlags.Ephemeral });
 }
 
 module.exports = {
@@ -121,7 +121,7 @@ module.exports = {
     if (category) {
       const rows = await query('SELECT 1 FROM suggestion_categories WHERE guild_id = ? AND name = ? LIMIT 1', [interaction.guildId, category]);
       if (!rows.length) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> That category does not exist. Ask staff to create it with `/suggestions create_category`.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ That category does not exist. Ask staff to create it with `/suggestions create_category`.', flags: MessageFlags.Ephemeral });
       }
     }
 

@@ -110,7 +110,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
+        content: '⚠️ You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -135,21 +135,21 @@ module.exports = {
 
       if (missingPermissions.length) {
         return interaction.reply({
-          content: `<:warning:1496193692099285255> I can't post sticky messages in ${channel}. Missing: ${formatPermissionList(missingPermissions)}.`,
+          content: `⚠️ I can't post sticky messages in ${channel}. Missing: ${formatPermissionList(missingPermissions)}.`,
           flags: MessageFlags.Ephemeral
         });
       }
 
       if ((buttonLabel && !buttonUrl) || (!buttonLabel && buttonUrl)) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> You must provide both `button_label` and `button_url` (or neither).',
+          content: '⚠️ You must provide both `button_label` and `button_url` (or neither).',
           flags: MessageFlags.Ephemeral
         });
       }
 
       if (buttonUrl && !/^https?:\/\/\S+$/i.test(buttonUrl)) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Button URL must start with `http://` or `https://`.',
+          content: '⚠️ Button URL must start with `http://` or `https://`.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -157,7 +157,7 @@ module.exports = {
       // Keep plain-text sticky messages non-pinging, but allow mentions in embed mode.
       if (!isEmbed && DISALLOWED_MENTION_PATTERN.test(content)) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Plain-text sticky messages cannot contain mentions (for example: @everyone, @here, or @username). Use embed mode if you need mentions in the sticky text.',
+          content: '⚠️ Plain-text sticky messages cannot contain mentions (for example: @everyone, @here, or @username). Use embed mode if you need mentions in the sticky text.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -244,7 +244,7 @@ module.exports = {
 
       if (!existingForChannel && currentRows.length >= limit) {
         return interaction.reply({
-          content: `<:warning:1496193692099285255> This bot can only have ${limit} sticky messages in a server.`,
+          content: `⚠️ This bot can only have ${limit} sticky messages in a server.`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -277,7 +277,7 @@ module.exports = {
       }).catch(() => null);
 
       const responsePayload = {
-        content: `<:checkmark:1495875811792781332> Sticky message saved for ${channel} with a ${cooldownSeconds}s cooldown (${isEmbed ? 'embed' : 'text'} mode).`,
+        content: `✅ Sticky message saved for ${channel} with a ${cooldownSeconds}s cooldown (${isEmbed ? 'embed' : 'text'} mode).`,
         components: [],
         flags: MessageFlags.Ephemeral
       };
@@ -311,7 +311,7 @@ module.exports = {
       }
 
       return interaction.reply({
-        content: `<:checkmark:1495875811792781332> Removed sticky message for ${channel}.`,
+        content: `✅ Removed sticky message for ${channel}.`,
         flags: MessageFlags.Ephemeral
       });
     }

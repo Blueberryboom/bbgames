@@ -99,7 +99,7 @@ async function processPendingGuildDeletions() {
       await clearGuildData(row.guild_id);
       console.log(`🧹 Deleted delayed guild data for ${row.guild_id}`);
     } catch (error) {
-      console.error(`<:warning:1496193692099285255> Failed delayed guild cleanup for ${row.guild_id}:`, error.message || error);
+      console.error(`⚠️ Failed delayed guild cleanup for ${row.guild_id}:`, error.message || error);
     }
   }
 }
@@ -111,12 +111,12 @@ function startGuildCleanupScheduler(client) {
   if (cleanupInterval) clearInterval(cleanupInterval);
 
   processPendingGuildDeletions().catch(err => {
-    console.error('<:warning:1496193692099285255> Initial delayed guild cleanup check failed:', err);
+    console.error('⚠️ Initial delayed guild cleanup check failed:', err);
   });
 
   cleanupInterval = setInterval(() => {
     processPendingGuildDeletions().catch(err => {
-      console.error('<:warning:1496193692099285255> Delayed guild cleanup check failed:', err);
+      console.error('⚠️ Delayed guild cleanup check failed:', err);
     });
   }, 60 * 60 * 1000);
   cleanupInterval.unref?.();

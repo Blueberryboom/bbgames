@@ -122,7 +122,7 @@ module.exports = {
     collector.on('collect', async menuInteraction => {
       if (menuInteraction.user.id !== interaction.user.id) {
         await menuInteraction.reply({
-          content: '<:warning:1496193692099285255> Only the user who ran `/help` can use this dropdown.',
+          content: '⚠️ Only the user who ran `/help` can use this dropdown.',
           ephemeral: true
         }).catch(() => null);
         return;
@@ -132,7 +132,7 @@ module.exports = {
       const feature = HELP_FEATURES[key];
 
       if (!feature) {
-        await menuInteraction.reply({ content: '<:warning:1496193692099285255> Unknown help feature.', ephemeral: true }).catch(() => null);
+        await menuInteraction.reply({ content: '⚠️ Unknown help feature.', ephemeral: true }).catch(() => null);
         return;
       }
 

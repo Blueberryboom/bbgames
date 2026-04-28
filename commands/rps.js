@@ -75,11 +75,11 @@ module.exports = {
     }
 
     if (opponent.id === interaction.user.id) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> You cannot challenge yourself.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ You cannot challenge yourself.', flags: MessageFlags.Ephemeral });
     }
 
     if (opponent.bot) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> You can only challenge human users or the bot directly.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ You can only challenge human users or the bot directly.', flags: MessageFlags.Ephemeral });
     }
 
     const gameId = rpsState.createGame({

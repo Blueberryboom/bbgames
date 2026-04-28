@@ -22,13 +22,13 @@ module.exports = {
 
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ You need administrator or the configured bot manager role to use this command.', flags: MessageFlags.Ephemeral });
     }
 
     const sub = interaction.options.getSubcommand();
     if (sub === 'disable') {
       await query('DELETE FROM auto_revive_configs WHERE guild_id = ?', [interaction.guildId]);
-      return interaction.reply({ content: '<:checkmark:1495875811792781332> Auto revive disabled and removed from the database.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '✅ Auto revive disabled and removed from the database.', flags: MessageFlags.Ephemeral });
     }
 
     const channel = interaction.options.getChannel('channel', true);
@@ -38,13 +38,13 @@ module.exports = {
 
     const durationMs = parseDurationMs(rawTime);
     if (!durationMs || durationMs < MIN_MS) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> Invalid time. Minimum is **30 minutes** and format must use d/h/m (example: `1h 30m`).', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ Invalid time. Minimum is **30 minutes** and format must use d/h/m (example: `1h 30m`).', flags: MessageFlags.Ephemeral });
     }
 
     const me = interaction.guild.members.me || await interaction.guild.members.fetchMe().catch(() => null);
     const perms = channel.permissionsFor(me);
     if (!perms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> I need **View Channel** and **Send Messages** in that channel to use auto revive.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ I need **View Channel** and **Send Messages** in that channel to use auto revive.', flags: MessageFlags.Ephemeral });
     }
 
     const now = Date.now();
@@ -56,7 +56,7 @@ module.exports = {
     );
 
     return interaction.reply({
-      content: `<:checkmark:1495875811792781332> Auto revive enabled in ${channel}. It will trigger after **${rawTime}** of inactivity.`,
+      content: `✅ Auto revive enabled in ${channel}. It will trigger after **${rawTime}** of inactivity.`,
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
     });

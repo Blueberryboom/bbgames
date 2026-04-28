@@ -103,7 +103,7 @@ function queueAutoMessage(client, config) {
 
   const timer = setTimeout(() => {
     dispatchAutoMessage(client, id).catch(error => {
-      console.error('<:warning:1496193692099285255> Auto message dispatch failed:', error);
+      console.error('⚠️ Auto message dispatch failed:', error);
       refreshAutoMessageSchedule(client, id).catch(() => null);
     });
   }, delay);

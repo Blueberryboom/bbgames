@@ -28,6 +28,7 @@ const { initTicketAutomationManager, trackTicketMessageActivity } = require('./u
 const { initMinecraftMonitorManager } = require('./utils/minecraftMonitorManager');
 const { initAutoReviveManager, trackChannelActivity: trackAutoReviveChannelActivity } = require('./utils/autoReviveManager');
 const { handleAutoResponderMessage, invalidateGuild: invalidateGuildAutoResponderCache } = require('./utils/autoResponderManager');
+const { getTopFeatureLeaderboard } = require('./utils/featureLeaderboard');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -268,35 +269,11 @@ client.on('guildCreate', async guild => {
       });
     }
 
-    const popularityRows = await Promise.all([
-      query('SELECT COUNT(*) AS total FROM counting WHERE channel_id IS NOT NULL'),
-      query('SELECT COUNT(*) AS total FROM leveling_settings WHERE enabled = 1'),
-      query('SELECT COUNT(*) AS total FROM member_event_messages WHERE event_type = ? AND enabled = 1', ['welcome']),
-      query('SELECT COUNT(*) AS total FROM member_event_messages WHERE event_type = ? AND enabled = 1', ['boost']),
-      query('SELECT COUNT(*) AS total FROM bumping_configs WHERE enabled = 1 AND channel_id IS NOT NULL AND advertisement IS NOT NULL'),
-      query('SELECT COUNT(*) AS total FROM guild_logs_settings WHERE enabled = 1'),
-      query('SELECT COUNT(*) AS total FROM youtube_subscriptions'),
-      query('SELECT COUNT(*) AS total FROM suggestion_settings WHERE channel_id IS NOT NULL'),
-      query('SELECT COUNT(*) AS total FROM ticket_settings WHERE category_id IS NOT NULL'),
-      query('SELECT COUNT(*) AS total FROM starboard_configs')
-    ]);
-
-    const popularFeatures = [
-      ['Counting', Number(popularityRows[0][0]?.total || 0)],
-      ['Leveling', Number(popularityRows[1][0]?.total || 0)],
-      ['Welcome messages', Number(popularityRows[2][0]?.total || 0)],
-      ['Boost messages', Number(popularityRows[3][0]?.total || 0)],
-      ['Bumping', Number(popularityRows[4][0]?.total || 0)],
-      ['Logs', Number(popularityRows[5][0]?.total || 0)],
-      ['YouTube alerts', Number(popularityRows[6][0]?.total || 0)],
-      ['Suggestions', Number(popularityRows[7][0]?.total || 0)],
-      ['Tickets', Number(popularityRows[8][0]?.total || 0)],
-      ['Starboard', Number(popularityRows[9][0]?.total || 0)]
-    ].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    const popularFeatures = await getTopFeatureLeaderboard(query, 10);
 
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
-      .setTitle('<a:partyblob:1495854250297790725> Thanks for adding BBGames to your server!')
+      .setTitle('🎉 Thanks for adding BBGames to your server!')
       .setDescription(`BBGames is a powerful bot build to replace multiple discord bots with just a single one!
 It is insanely customizable and isn't just for games, somehow it became a utility bot too!
 This project began as a private custom bot for Blueberryboom's discord server, so if you could donate to support the bot's development and hosting that would help a ton! Use /donate to checkout the amazing perks that you could get :)`)
@@ -466,7 +443,7 @@ client.on('messageReactionAdd', async (reaction, user) => {
     if (reaction.partial) await reaction.fetch().catch(() => null);
     if (!reaction.message?.guildId) return;
 
-    if (reaction.emoji?.name === '<:checkmark:1495875811792781332>') {
+    if (reaction.emoji?.name === '✅') {
       await updateContributionStarCount({
         guildId: reaction.message.guildId,
         channelId: reaction.message.channelId,
@@ -487,7 +464,7 @@ client.on('messageReactionRemove', async (reaction, user) => {
     if (reaction.partial) await reaction.fetch().catch(() => null);
     if (!reaction.message?.guildId) return;
 
-    if (reaction.emoji?.name === '<:checkmark:1495875811792781332>') {
+    if (reaction.emoji?.name === '✅') {
       await updateContributionStarCount({
         guildId: reaction.message.guildId,
         channelId: reaction.message.channelId,

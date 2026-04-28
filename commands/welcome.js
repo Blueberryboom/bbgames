@@ -12,7 +12,7 @@ const { LOG_EVENT_KEYS, logGuildEvent } = require('../utils/guildLogger');
 
 function validateButton(buttonLabel, buttonUrl) {
   if ((buttonLabel && !buttonUrl) || (!buttonLabel && buttonUrl)) {
-    return '<:warning:1496193692099285255> To add a link button, provide both **Link button name** and **Link button** URL.';
+    return '⚠️ To add a link button, provide both **Link button name** and **Link button** URL.';
   }
 
   if (!buttonUrl) return null;
@@ -21,11 +21,11 @@ function validateButton(buttonLabel, buttonUrl) {
   try {
     parsed = new URL(buttonUrl);
   } catch {
-    return '<:warning:1496193692099285255> Link button must be a valid URL.';
+    return '⚠️ Link button must be a valid URL.';
   }
 
   if (!['http:', 'https:'].includes(parsed.protocol)) {
-    return '<:warning:1496193692099285255> Link button URL must start with http:// or https://.';
+    return '⚠️ Link button URL must start with http:// or https://.';
   }
 
   return null;
@@ -76,7 +76,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
+        content: '⚠️ You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -98,7 +98,7 @@ module.exports = {
       );
 
       return interaction.reply({
-        content: '<:checkmark:1495875811792781332> Welcome messages disabled for this server.',
+        content: '✅ Welcome messages disabled for this server.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -145,7 +145,7 @@ module.exports = {
 
     return interaction.reply({
       content:
-        `<:checkmark:1495875811792781332> Welcome messages configured in <#${channel.id}>.\n` +
+        `✅ Welcome messages configured in <#${channel.id}>.\n` +
         `Preview: ${renderMessage(messageTemplate, interaction.user, interaction.guild)}`,
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] }
