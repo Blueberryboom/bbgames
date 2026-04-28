@@ -225,7 +225,7 @@ function buildAchievementEmbed(user, rows) {
     if (!tierRows.length) return null;
 
     const lines = tierRows.map(row => {
-      const status = row.unlocked ? '✅' : '⚠️';
+      const status = row.unlocked ? '✅' : '❌';
       return `${status} ${row.icon} **${row.name}** - ${row.description} *(Progress: ${row.progressLabel})*`;
     });
 
