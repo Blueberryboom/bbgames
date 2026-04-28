@@ -63,14 +63,14 @@ module.exports = {
       await interaction.reply(
         row
           ? `🔢 Current count: **${row.current}**`
-          : '<:warning:1496193692099285255> Counting not set up'
+          : '⚠️ Counting not set up'
       );
       return;
     }
 
     if (subcommand === 'channel') {
       if (!await checkPerms(interaction)) {
-        await interaction.reply({ content: '<:warning:1496193692099285255> No permission', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '⚠️ No permission', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -78,7 +78,7 @@ module.exports = {
 
       if (!channel || channel.guildId !== interaction.guildId || channel.type !== ChannelType.GuildText) {
         await interaction.reply({
-          content: '<:warning:1496193692099285255> Please select a valid text channel from this server.',
+          content: '⚠️ Please select a valid text channel from this server.',
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -91,13 +91,13 @@ module.exports = {
         [interaction.guildId, channel.id, channel.id]
       );
 
-      await interaction.reply(`<:checkmark:1495875811792781332> Counting channel set to ${channel}`);
+      await interaction.reply(`✅ Counting channel set to ${channel}`);
       return;
     }
 
     if (subcommand === 'removechannel') {
       if (!await checkPerms(interaction)) {
-        await interaction.reply({ content: '<:warning:1496193692099285255> No permission', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '⚠️ No permission', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -112,7 +112,7 @@ module.exports = {
 
     if (subcommand === 'reset') {
       if (!await checkPerms(interaction)) {
-        await interaction.reply({ content: '<:warning:1496193692099285255> No permission', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '⚠️ No permission', flags: MessageFlags.Ephemeral });
         return;
       }
 
@@ -160,14 +160,14 @@ module.exports = {
 
     if (subcommand === 'set') {
       if (!await checkPerms(interaction)) {
-        await interaction.reply({ content: '<:warning:1496193692099285255> No permission', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: '⚠️ No permission', flags: MessageFlags.Ephemeral });
         return;
       }
 
       const number = interaction.options.getInteger('number', true);
       if (number > 100000) {
         await interaction.reply({
-          content: '<:warning:1496193692099285255> Counts above **100000** require approval. Please open a support ticket in my Discord if you are switching from an existing bot and have a count of 100000+.',
+          content: '⚠️ Counts above **100000** require approval. Please open a support ticket in my Discord if you are switching from an existing bot and have a count of 100000+.',
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -181,7 +181,7 @@ module.exports = {
 
       if (!countingChannelId) {
         await interaction.reply({
-          content: '<:warning:1496193692099285255> You need to set a counting channel first with `/count channel` before setting the number.',
+          content: '⚠️ You need to set a counting channel first with `/count channel` before setting the number.',
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -190,7 +190,7 @@ module.exports = {
       const countingChannel = await interaction.guild.channels.fetch(countingChannelId).catch(() => null);
       if (!countingChannel || !countingChannel.isTextBased()) {
         await interaction.reply({
-          content: '<:warning:1496193692099285255> The configured counting channel could not be found. Please run `/count channel` again.',
+          content: '⚠️ The configured counting channel could not be found. Please run `/count channel` again.',
           flags: MessageFlags.Ephemeral
         });
         return;
@@ -204,7 +204,7 @@ module.exports = {
       );
 
       await countingChannel.send(`${interaction.user} has set the count to **${number}**!`);
-      await interaction.reply({ content: `<:checkmark:1495875811792781332> Current count set to **${number}**.`, flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: `✅ Current count set to **${number}**.`, flags: MessageFlags.Ephemeral });
     }
   }
 };

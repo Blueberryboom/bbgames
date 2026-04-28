@@ -128,7 +128,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to manage ticket settings.',
+        content: '⚠️ You need administrator or the configured bot manager role to manage ticket settings.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -142,7 +142,7 @@ module.exports = {
 
       if (!/^[a-zA-Z0-9-]{1,8}$/.test(prefix)) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Prefix must be 1-8 characters and only use letters, numbers, or hyphens.',
+          content: '⚠️ Prefix must be 1-8 characters and only use letters, numbers, or hyphens.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -164,7 +164,7 @@ module.exports = {
 
       if (!staffRoleIds.length) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> You must set at least one staff role for visibility and ticket handling.',
+          content: '⚠️ You must set at least one staff role for visibility and ticket handling.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -176,7 +176,7 @@ module.exports = {
 
       if (exists.length) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> A ticket type with this name already exists.',
+          content: '⚠️ A ticket type with this name already exists.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -191,7 +191,7 @@ module.exports = {
       const maxTypes = await getPremiumLimit(interaction.client, interaction.guildId, 6, 15);
       if (currentCount >= maxTypes) {
         return interaction.reply({
-          content: `<:warning:1496193692099285255> This server already has the max number of ticket types (**${maxTypes}**).`,
+          content: `⚠️ This server already has the max number of ticket types (**${maxTypes}**).`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -252,7 +252,7 @@ module.exports = {
       }).catch(() => null);
 
       return modalSubmit.reply({
-        content: `<:checkmark:1495875811792781332> Created ticket type **${name}** with ${staffRoleIds.length} staff role(s).`,
+        content: `✅ Created ticket type **${name}** with ${staffRoleIds.length} staff role(s).`,
         flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] }
       });
@@ -267,14 +267,14 @@ module.exports = {
 
       if (!AUTOMATION_NAME_PATTERN.test(name)) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Automation names must be plain letters/spaces only (1-64 chars).',
+          content: '⚠️ Automation names must be plain letters/spaces only (1-64 chars).',
           flags: MessageFlags.Ephemeral
         });
       }
 
       if (durationMs === null || durationMs <= 0) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Invalid time. Use format like `2d 4h 15m`, `1d 2m`, or `2h 2m`.',
+          content: '⚠️ Invalid time. Use format like `2d 4h 15m`, `1d 2m`, or `2h 2m`.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -289,7 +289,7 @@ module.exports = {
       const type = typeRows[0];
       if (!type) {
         return interaction.reply({
-          content: `<:warning:1496193692099285255> Ticket type **${ticketTypeName}** was not found.`,
+          content: `⚠️ Ticket type **${ticketTypeName}** was not found.`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -299,14 +299,14 @@ module.exports = {
         [interaction.guildId, name]
       );
       if (existing.length) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> A ticket automation with this name already exists.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ A ticket automation with this name already exists.', flags: MessageFlags.Ephemeral });
       }
 
       const countRows = await query('SELECT COUNT(*) AS total FROM ticket_automations WHERE guild_id = ?', [interaction.guildId]);
       const maxAutomations = await getPremiumLimit(interaction.client, interaction.guildId, 4, 20);
       if (Number(countRows[0]?.total || 0) >= maxAutomations) {
         return interaction.reply({
-          content: `<:warning:1496193692099285255> This server already has the maximum ticket automations (${maxAutomations}).`,
+          content: `⚠️ This server already has the maximum ticket automations (${maxAutomations}).`,
           flags: MessageFlags.Ephemeral
         });
       }
@@ -386,7 +386,7 @@ module.exports = {
       }).catch(() => null);
 
       return interaction.editReply({
-        content: `<:checkmark:1495875811792781332> Created ticket automation **${name}** for **${type.name}** (${formatDuration(durationMs)} → ${actionType.replaceAll('_', ' ')}).`,
+        content: `✅ Created ticket automation **${name}** for **${type.name}** (${formatDuration(durationMs)} → ${actionType.replaceAll('_', ' ')}).`,
         components: []
       });
     }
@@ -423,7 +423,7 @@ module.exports = {
       const name = interaction.options.getString('name', true).trim();
       const result = await query('DELETE FROM ticket_automations WHERE guild_id = ? AND LOWER(name) = LOWER(?)', [interaction.guildId, name]);
       if (!Number(result.affectedRows || 0)) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> Ticket automation not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ Ticket automation not found.', flags: MessageFlags.Ephemeral });
       }
 
       await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.configuration_changes, {
@@ -431,7 +431,7 @@ module.exports = {
         description: `${interaction.user} deleted automation **${name}**.`
       }).catch(() => null);
 
-      return interaction.reply({ content: `<:checkmark:1495875811792781332> Deleted automation **${name}**.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `✅ Deleted automation **${name}**.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'disable_automation') {
@@ -441,7 +441,7 @@ module.exports = {
 
       if (disableMs === null || disableMs <= 0) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Invalid disable time. Use format like `2d 4h`, `1h 30m`, or `15m`.',
+          content: '⚠️ Invalid disable time. Use format like `2d 4h`, `1h 30m`, or `15m`.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -455,7 +455,7 @@ module.exports = {
       );
 
       if (!Number(result.affectedRows || 0)) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> Ticket automation not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ Ticket automation not found.', flags: MessageFlags.Ephemeral });
       }
 
       await logGuildEvent(interaction.client, interaction.guildId, LOG_EVENT_KEYS.configuration_changes, {
@@ -464,7 +464,7 @@ module.exports = {
       }).catch(() => null);
 
       return interaction.reply({
-        content: `<:checkmark:1495875811792781332> Disabled **${name}** until <t:${Math.floor(disabledUntil / 1000)}:F>.`,
+        content: `✅ Disabled **${name}** until <t:${Math.floor(disabledUntil / 1000)}:F>.`,
         flags: MessageFlags.Ephemeral
       });
     }

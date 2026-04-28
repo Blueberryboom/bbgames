@@ -58,11 +58,11 @@ async function collectWord(interactionBase, buttonInteraction, mode) {
   if (!submit) return null;
   const word = submit.fields.getTextInputValue('word').trim().toLowerCase();
   if (!/^[^\s]{2,32}$/.test(word)) {
-    await submit.reply({ content: '<:warning:1496193692099285255> Trigger must be a single word between 2 and 32 characters (no spaces).', flags: MessageFlags.Ephemeral });
+    await submit.reply({ content: '⚠️ Trigger must be a single word between 2 and 32 characters (no spaces).', flags: MessageFlags.Ephemeral });
     return false;
   }
 
-  await submit.reply({ content: `<:checkmark:1495875811792781332> Added **${mode}** trigger: \`${word}\``, flags: MessageFlags.Ephemeral });
+  await submit.reply({ content: `✅ Added **${mode}** trigger: \`${word}\``, flags: MessageFlags.Ephemeral });
   return { mode, word };
 }
 
@@ -93,7 +93,7 @@ async function collectResponse(interactionBase) {
     }).catch(() => null);
     if (!submit) return null;
     const content = submit.fields.getTextInputValue('content').trim();
-    await submit.reply({ content: '<:checkmark:1495875811792781332> Plaintext response saved.', flags: MessageFlags.Ephemeral });
+    await submit.reply({ content: '✅ Plaintext response saved.', flags: MessageFlags.Ephemeral });
     return { responseType: 'plaintext', responsePayload: { content } };
   }
 
@@ -121,7 +121,7 @@ async function collectResponse(interactionBase) {
     footer: submit.fields.getTextInputValue('footer')?.trim() || null
   };
 
-  await submit.reply({ content: '<:checkmark:1495875811792781332> Embed response saved.', flags: MessageFlags.Ephemeral });
+  await submit.reply({ content: '✅ Embed response saved.', flags: MessageFlags.Ephemeral });
   return { responseType: 'embed', responsePayload: payload };
 }
 
@@ -140,7 +140,7 @@ async function collectWhitelist(interactionBase) {
   if (!button) return null;
 
   if (button.customId === 'ar_channels_all') {
-    await button.update({ content: '<:checkmark:1495875811792781332> Auto responder will run in all channels.', components: [] });
+    await button.update({ content: '✅ Auto responder will run in all channels.', components: [] });
     return null;
   }
 
@@ -165,11 +165,11 @@ async function collectWhitelist(interactionBase) {
   const unique = [...new Set(ids)];
   const valid = unique.filter(id => submit.guild.channels.cache.has(id));
   if (!valid.length) {
-    await submit.reply({ content: '<:warning:1496193692099285255> No valid channels from this server were provided.', flags: MessageFlags.Ephemeral });
+    await submit.reply({ content: '⚠️ No valid channels from this server were provided.', flags: MessageFlags.Ephemeral });
     return false;
   }
 
-  await submit.reply({ content: `<:checkmark:1495875811792781332> Whitelist set: ${valid.map(id => `<#${id}>`).join(', ')}`, flags: MessageFlags.Ephemeral });
+  await submit.reply({ content: `✅ Whitelist set: ${valid.map(id => `<#${id}>`).join(', ')}`, flags: MessageFlags.Ephemeral });
   return valid;
 }
 
@@ -208,7 +208,7 @@ module.exports = {
     const sub = interaction.options.getSubcommand();
 
     if (!await checkPerms(interaction)) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ You need administrator or the configured bot manager role.', flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'list') {
@@ -237,17 +237,17 @@ module.exports = {
         [interaction.guildId, name]
       );
       if (!result.affectedRows) {
-        return interaction.reply({ content: `<:warning:1496193692099285255> Auto responder **${name}** not found.`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: `⚠️ Auto responder **${name}** not found.`, flags: MessageFlags.Ephemeral });
       }
       invalidateGuild(interaction.guildId);
-      return interaction.reply({ content: `<:checkmark:1495875811792781332> Deleted auto responder **${name}**.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `✅ Deleted auto responder **${name}**.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'disable') {
       const name = interaction.options.getString('name', true).trim();
       const ms = parseDhms(interaction.options.getString('time', true));
       if (!ms || ms <= 0) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> Invalid time format. Example: `2d 3h 52m`.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ Invalid time format. Example: `2d 3h 52m`.', flags: MessageFlags.Ephemeral });
       }
       const until = Date.now() + ms;
       const result = await query(
@@ -257,17 +257,17 @@ module.exports = {
         [until, Date.now(), interaction.guildId, name]
       );
       if (!result.affectedRows) {
-        return interaction.reply({ content: `<:warning:1496193692099285255> Auto responder **${name}** not found.`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: `⚠️ Auto responder **${name}** not found.`, flags: MessageFlags.Ephemeral });
       }
       invalidateGuild(interaction.guildId);
-      return interaction.reply({ content: `<:checkmark:1495875811792781332> Disabled **${name}** until <t:${Math.floor(until / 1000)}:R>.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `✅ Disabled **${name}** until <t:${Math.floor(until / 1000)}:R>.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'edit') {
       const name = interaction.options.getString('name', true).trim();
       const existingRows = await query('SELECT id FROM auto_responders WHERE guild_id = ? AND LOWER(name) = LOWER(?) LIMIT 1', [interaction.guildId, name]);
       const existing = existingRows[0];
-      if (!existing) return interaction.reply({ content: `<:warning:1496193692099285255> Auto responder **${name}** not found.`, flags: MessageFlags.Ephemeral });
+      if (!existing) return interaction.reply({ content: `⚠️ Auto responder **${name}** not found.`, flags: MessageFlags.Ephemeral });
 
       await interaction.reply({ content: 'Let\'s update the response message.', flags: MessageFlags.Ephemeral });
       const prompt = await interaction.fetchReply();
@@ -283,21 +283,21 @@ module.exports = {
         [response.responseType, JSON.stringify(response.responsePayload), Date.now(), existing.id]
       );
       invalidateGuild(interaction.guildId);
-      return interaction.editReply({ content: `<:checkmark:1495875811792781332> Updated response for **${name}**.`, components: [] });
+      return interaction.editReply({ content: `✅ Updated response for **${name}**.`, components: [] });
     }
 
     const name = interaction.options.getString('name', true).trim();
     if (!/^[A-Za-z0-9 _-]{1,64}$/.test(name)) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> Name can only contain letters, numbers, spaces, `_` and `-`.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ Name can only contain letters, numbers, spaces, `_` and `-`.', flags: MessageFlags.Ephemeral });
     }
 
     const dup = await query('SELECT id FROM auto_responders WHERE guild_id = ? AND LOWER(name) = LOWER(?) LIMIT 1', [interaction.guildId, name]);
-    if (dup.length) return interaction.reply({ content: '<:warning:1496193692099285255> An auto responder with that name already exists.', flags: MessageFlags.Ephemeral });
+    if (dup.length) return interaction.reply({ content: '⚠️ An auto responder with that name already exists.', flags: MessageFlags.Ephemeral });
 
     const countRows = await query('SELECT COUNT(*) AS total FROM auto_responders WHERE guild_id = ?', [interaction.guildId]);
     const limit = await getPremiumLimit(interaction.client, interaction.guildId, 4, 10);
     if (Number(countRows[0]?.total || 0) >= limit) {
-      return interaction.reply({ content: `<:warning:1496193692099285255> You can only have ${limit} auto responders on this bot tier.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `⚠️ You can only have ${limit} auto responders on this bot tier.`, flags: MessageFlags.Ephemeral });
     }
 
     await interaction.reply({ content: 'Configure trigger words. Add triggers, then click **Finish** when done (max 10).', components: [triggerButtons(true)], flags: MessageFlags.Ephemeral });
@@ -316,10 +316,10 @@ module.exports = {
 
       if (button.customId === 'ar_trigger_finish') {
         if (!triggers.length) {
-          await button.reply({ content: '<:warning:1496193692099285255> Add at least one trigger before finishing.', flags: MessageFlags.Ephemeral }).catch(() => null);
+          await button.reply({ content: '⚠️ Add at least one trigger before finishing.', flags: MessageFlags.Ephemeral }).catch(() => null);
           continue;
         }
-        await button.update({ content: `<:checkmark:1495875811792781332> Trigger collection done (${triggers.length}).`, components: [] }).catch(() => null);
+        await button.update({ content: `✅ Trigger collection done (${triggers.length}).`, components: [] }).catch(() => null);
         break;
       }
 
@@ -335,14 +335,14 @@ module.exports = {
     }
 
     if (!triggers.length) {
-      return interaction.editReply({ content: '<:warning:1496193692099285255> You must configure at least one trigger.', components: [] });
+      return interaction.editReply({ content: '⚠️ You must configure at least one trigger.', components: [] });
     }
 
     const response = await collectResponse(interaction);
     if (!response) return interaction.editReply({ content: '⏱️ Auto responder setup expired after 10 minutes.', components: [] });
 
     const whitelist = await collectWhitelist(interaction);
-    if (whitelist === false) return interaction.editReply({ content: '<:warning:1496193692099285255> Invalid whitelist selection. Run setup again.', components: [] });
+    if (whitelist === false) return interaction.editReply({ content: '⚠️ Invalid whitelist selection. Run setup again.', components: [] });
 
     await query(
       `INSERT INTO auto_responders
@@ -364,7 +364,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
-      .setTitle('<:checkmark:1495875811792781332> Auto responder created')
+      .setTitle('✅ Auto responder created')
       .setDescription(`**${name}** is now active.`)
       .addFields(
         { name: 'Triggers', value: triggers.map(t => `• ${t.mode}: \`${t.word}\``).join('\n').slice(0, 1024) },

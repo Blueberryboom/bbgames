@@ -82,7 +82,7 @@ async function queueOneWordStoryMessage(message) {
   const timer = setTimeout(async () => {
     pendingTimers.delete(key);
     await processQueuedMessage(message).catch(error => {
-      console.error('<:warning:1496193692099285255> One-word story processing failed:', error);
+      console.error('⚠️ One-word story processing failed:', error);
     });
   }, configuredSeconds * 1000);
 

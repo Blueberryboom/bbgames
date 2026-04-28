@@ -9,9 +9,9 @@ const WORKLOAD_LABELS = {
 };
 
 const WORKLOAD_EMOJIS = {
-  low: '<:LowWorkloadIcon:1490471010024161290>',
-  medium: '<:ModerateWorkloadIcon:1490473891842490560>',
-  high: '<:HighWorkloadIcon:1490473971542528101>'
+  low: '🟢',
+  medium: '🟡',
+  high: '🔴'
 };
 
 function parseRoleIds(raw) {

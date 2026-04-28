@@ -26,9 +26,9 @@ module.exports = {
         scheduleEnd(client, giveaway);
       }
 
-      console.log(`<:checkmark:1495875811792781332> Giveaway system initialized. ${rows.length} active giveaways loaded.`);
+      console.log(`✅ Giveaway system initialized. ${rows.length} active giveaways loaded.`);
     } catch (err) {
-      console.error('<:warning:1496193692099285255> Failed to init giveaway system:', err);
+      console.error('⚠️ Failed to init giveaway system:', err);
     }
   },
 

@@ -316,7 +316,7 @@ async function runSweep(client) {
       try {
         await syncGuildMonitor(client, monitor.guild_id);
       } catch (error) {
-        console.error(`<:warning:1496193692099285255> Minecraft monitor sync failed for guild ${monitor.guild_id}:`, error.message || error);
+        console.error(`⚠️ Minecraft monitor sync failed for guild ${monitor.guild_id}:`, error.message || error);
       }
     }
   } finally {
@@ -335,12 +335,12 @@ function initMinecraftMonitorManager(client) {
   stopMinecraftMonitorManager();
 
   runSweep(client).catch(err => {
-    console.error('<:warning:1496193692099285255> Initial Minecraft monitor sweep failed:', err.message || err);
+    console.error('⚠️ Initial Minecraft monitor sweep failed:', err.message || err);
   });
 
   monitorInterval = setInterval(() => {
     runSweep(client).catch(err => {
-      console.error('<:warning:1496193692099285255> Minecraft monitor sweep failed:', err.message || err);
+      console.error('⚠️ Minecraft monitor sweep failed:', err.message || err);
     });
   }, CHECK_INTERVAL_MS);
 

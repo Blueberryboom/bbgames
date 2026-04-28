@@ -67,7 +67,7 @@ module.exports = {
     if (subcommand === 'disable') {
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Only a server administrator can use `/logs disable`.',
+          content: '⚠️ Only a server administrator can use `/logs disable`.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -82,14 +82,14 @@ module.exports = {
       await query('DELETE FROM guild_logs_events WHERE guild_id = ?', [interaction.guildId]);
 
       return interaction.reply({
-        content: '<:checkmark:1495875811792781332> Logging disabled for this server.',
+        content: '✅ Logging disabled for this server.',
         flags: MessageFlags.Ephemeral
       });
     }
 
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
+        content: '⚠️ You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -99,7 +99,7 @@ module.exports = {
       const me = interaction.guild.members.me || await interaction.guild.members.fetchMe().catch(() => null);
       const perms = channel.permissionsFor(me);
       if (!perms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> I need **View Channel** and **Send Messages** in that channel.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ I need **View Channel** and **Send Messages** in that channel.', flags: MessageFlags.Ephemeral });
       }
       const now = Date.now();
 
@@ -124,7 +124,7 @@ module.exports = {
       }
 
       return interaction.reply({
-        content: `<:checkmark:1495875811792781332> Log channel set to <#${channel.id}>.\nNext step: use **/logs choose** to select which events should be logged.`,
+        content: `✅ Log channel set to <#${channel.id}>.\nNext step: use **/logs choose** to select which events should be logged.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -137,7 +137,7 @@ module.exports = {
 
     if (!selected.size) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> Select at least one log type.',
+        content: '⚠️ Select at least one log type.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -152,7 +152,7 @@ module.exports = {
 
     if (!settingsRows.length || Number(settingsRows[0].enabled) !== 1) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> Set a log channel first with `/logs channel`.',
+        content: '⚠️ Set a log channel first with `/logs channel`.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -172,7 +172,7 @@ module.exports = {
     const labels = LOG_CHOICES.filter(choice => selected.has(choice.value)).map(choice => `• ${choice.name}`).join('\n');
 
     await interaction.reply({
-      content: `<:checkmark:1495875811792781332> Log types updated.\n${labels}`,
+      content: `✅ Log types updated.\n${labels}`,
       flags: MessageFlags.Ephemeral
     });
 

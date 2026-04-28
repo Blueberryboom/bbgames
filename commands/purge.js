@@ -35,20 +35,20 @@ module.exports = {
   async execute(interaction) {
     if (!interaction.inGuild()) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> This command can only be used in a server channel.',
+        content: '⚠️ This command can only be used in a server channel.',
         flags: MessageFlags.Ephemeral
       });
     }
 
     if (!await checkPerms(interaction, { scope: 'staff' })) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> You need administrator, the configured bot manager role, or the configured staff role to use this command.',
+        content: '⚠️ You need administrator, the configured bot manager role, or the configured staff role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
     if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> You need the **Manage Messages** permission to use `/purge`.',
+        content: '⚠️ You need the **Manage Messages** permission to use `/purge`.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -77,7 +77,7 @@ module.exports = {
     const deletedCount = deleted.size;
     const skippedCount = requested - deletedCount;
 
-    let result = `<:checkmark:1495875811792781332> Deleted **${deletedCount}** message${deletedCount === 1 ? '' : 's'}.`;
+    let result = `✅ Deleted **${deletedCount}** message${deletedCount === 1 ? '' : 's'}.`;
 
     if (skippedCount > 0) {
       result += ` Skipped **${skippedCount}** message${skippedCount === 1 ? '' : 's'} (likely older than 14 days).`;

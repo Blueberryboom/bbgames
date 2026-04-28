@@ -146,7 +146,7 @@ module.exports = {
     try {
       if (!await checkPerms(interaction)) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> You need administrator, manager role, or owner access for this command.',
+          content: '⚠️ You need administrator, manager role, or owner access for this command.',
           flags: MessageFlags.Ephemeral
         });
       }
@@ -175,15 +175,15 @@ module.exports = {
 
       return handleRolesList(interaction);
     } catch (error) {
-      console.error('<:warning:1496193692099285255> Leveling command error:', error);
+      console.error('⚠️ Leveling command error:', error);
       if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({
-          content: '<:warning:1496193692099285255> Leveling action failed. Please try again.',
+          content: '⚠️ Leveling action failed. Please try again.',
           flags: MessageFlags.Ephemeral
         });
       }
       return interaction.followUp({
-        content: '<:warning:1496193692099285255> Leveling action failed. Please try again.',
+        content: '⚠️ Leveling action failed. Please try again.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -238,7 +238,7 @@ async function handleConfig(interaction) {
   return interaction.reply({
     // Include the supported difficulty range directly in the confirmation so admins
     // can immediately see the lowest and highest accepted values.
-    content: `<:checkmark:1495875811792781332> Leveling config saved. Difficulty ${finalDifficulty} (min ${MIN_DIFFICULTY}, max ${MAX_DIFFICULTY}), channel <#${channel.id}>, message preset \`${messagePreset}\`.`,
+    content: `✅ Leveling config saved. Difficulty ${finalDifficulty} (min ${MIN_DIFFICULTY}, max ${MAX_DIFFICULTY}), channel <#${channel.id}>, message preset \`${messagePreset}\`.`,
     flags: MessageFlags.Ephemeral
   });
 }
@@ -264,7 +264,7 @@ async function handleChannels(interaction) {
 
   if (!mode) {
     return interaction.reply({
-      content: '<:warning:1496193692099285255> Please choose a mode (whitelist or blacklist) when providing channels.',
+      content: '⚠️ Please choose a mode (whitelist or blacklist) when providing channels.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -302,7 +302,7 @@ async function handleChannels(interaction) {
   });
 
   return interaction.reply({
-    content: `<:checkmark:1495875811792781332> Channel ${mode} saved with ${channelIds.length} channel(s).`,
+    content: `✅ Channel ${mode} saved with ${channelIds.length} channel(s).`,
     flags: MessageFlags.Ephemeral
   });
 }
@@ -314,7 +314,7 @@ async function handleDeactivate(interaction) {
   // This subcommand is intentionally stricter than other /leveling actions.
   if (!isOwner && !isAdministrator) {
     return interaction.reply({
-      content: '<:warning:1496193692099285255> Only a server administrator can use `/leveling deactivate`.',
+      content: '⚠️ Only a server administrator can use `/leveling deactivate`.',
       flags: MessageFlags.Ephemeral
     });
   }
@@ -332,7 +332,7 @@ async function handleDeactivate(interaction) {
   });
 
   return interaction.reply({
-    content: '<:checkmark:1495875811792781332> Leveling has been fully deactivated and all leveling data was deleted for this server.',
+    content: '✅ Leveling has been fully deactivated and all leveling data was deleted for this server.',
     flags: MessageFlags.Ephemeral
   });
 }
@@ -352,7 +352,7 @@ async function handleRoles(interaction) {
   const hasLevel = rows.some(row => Number(row.level_required) === level);
   if (!hasLevel && rows.length >= limit) {
     return interaction.reply({
-      content: `<:warning:1496193692099285255> You reached the role reward limit (${limit}).`,
+      content: `⚠️ You reached the role reward limit (${limit}).`,
       flags: MessageFlags.Ephemeral
     });
   }
@@ -373,7 +373,7 @@ async function handleRoles(interaction) {
   });
 
   return interaction.reply({
-    content: `<:checkmark:1495875811792781332> Reward role set: level ${level} -> <@&${role.id}>.`,
+    content: `✅ Reward role set: level ${level} -> <@&${role.id}>.`,
     flags: MessageFlags.Ephemeral
   });
 }
@@ -445,7 +445,7 @@ async function handleLevelSet(interaction) {
   });
 
   return interaction.reply({
-    content: `<:checkmark:1495875811792781332> Updated ${user} from level ${currentLevel} to level ${nextLevel}.`,
+    content: `✅ Updated ${user} from level ${currentLevel} to level ${nextLevel}.`,
     flags: MessageFlags.Ephemeral
   });
 }

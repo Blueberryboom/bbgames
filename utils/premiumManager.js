@@ -27,18 +27,9 @@ let mainClientRef = null;
 
 const MAX_PREMIUM_GUILDS_PER_BOT = 1;
 const AFK_WELCOME_BACK_DELETE_MS = 6000;
-const PREMIUM_EMOJI_REPLACEMENTS = new Map([
-  ['<:checkmark:1495875811792781332>', '✅'],
-  ['<:warning:1496193692099285255>', '⚠️']
-]);
 
 function normalizePremiumText(value) {
-  if (typeof value !== 'string' || !value) return value;
-  let next = value;
-  for (const [from, to] of PREMIUM_EMOJI_REPLACEMENTS.entries()) {
-    next = next.split(from).join(to);
-  }
-  return next;
+  return value;
 }
 
 function normalizePremiumPayload(input) {

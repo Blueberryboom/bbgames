@@ -45,7 +45,7 @@ module.exports = {
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
       return interaction.reply({
-        content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.',
+        content: '⚠️ You need administrator or the configured bot manager role to use this command.',
         flags: MessageFlags.Ephemeral
       });
     }
@@ -60,17 +60,17 @@ module.exports = {
       const colorInput = interaction.options.getString('color', false);
 
       if (!/^[a-z0-9-_]{2,40}$/.test(rawName)) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> Name must be 2-40 chars and use lowercase letters, numbers, dashes, or underscores.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ Name must be 2-40 chars and use lowercase letters, numbers, dashes, or underscores.', flags: MessageFlags.Ephemeral });
       }
 
       const normalizedEmoji = normalizeEmojiInput(rawEmoji);
       if (!normalizedEmoji) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> Invalid emoji input. Use a Unicode emoji or custom emoji like <:name:id>.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ Invalid emoji input. Use a Unicode emoji or custom emoji like <:name:id>.', flags: MessageFlags.Ephemeral });
       }
 
       const embedColor = colorInput ? parseHexColor(colorInput) : null;
       if (colorInput && embedColor == null) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> Color must be a valid hex code such as #191919 or 191919.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ Color must be a valid hex code such as #191919 or 191919.', flags: MessageFlags.Ephemeral });
       }
 
       const countRows = await query(
@@ -93,7 +93,7 @@ module.exports = {
       const limit = await getPremiumLimit(interaction.client, interaction.guildId, 2, 5);
 
       if (!exists && total >= limit) {
-        return interaction.reply({ content: `<:warning:1496193692099285255> Starboard limit reached (${limit}).`, flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: `⚠️ Starboard limit reached (${limit}).`, flags: MessageFlags.Ephemeral });
       }
 
       await query(
@@ -112,7 +112,7 @@ module.exports = {
       invalidateGuildCache(interaction.guildId);
 
       return interaction.reply({
-        content: `<:checkmark:1495875811792781332> Starboard \`${rawName}\` saved: channel ${channel}, emoji ${formatStoredEmoji(normalizedEmoji)}, threshold **${amount}**.`,
+        content: `✅ Starboard \`${rawName}\` saved: channel ${channel}, emoji ${formatStoredEmoji(normalizedEmoji)}, threshold **${amount}**.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -153,7 +153,7 @@ module.exports = {
       );
 
       if (!configRows.length) {
-        return interaction.reply({ content: '<:warning:1496193692099285255> Starboard config not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: '⚠️ Starboard config not found.', flags: MessageFlags.Ephemeral });
       }
 
       const configId = configRows[0].id;
@@ -162,7 +162,7 @@ module.exports = {
       await query('DELETE FROM starboard_configs WHERE guild_id = ? AND id = ?', [interaction.guildId, configId]);
       invalidateGuildCache(interaction.guildId);
 
-      return interaction.reply({ content: `<:checkmark:1495875811792781332> Removed starboard \`${rawName}\`.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `✅ Removed starboard \`${rawName}\`.`, flags: MessageFlags.Ephemeral });
     }
 
     if (sub === 'ban_user') {
@@ -175,7 +175,7 @@ module.exports = {
       );
 
       invalidateGuildCache(interaction.guildId);
-      return interaction.reply({ content: `<:checkmark:1495875811792781332> <@${target.id}> is now banned from all starboards in this server.`, flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: `✅ <@${target.id}> is now banned from all starboards in this server.`, flags: MessageFlags.Ephemeral });
     }
   }
 };

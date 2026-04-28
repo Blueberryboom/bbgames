@@ -16,13 +16,13 @@ module.exports = {
 
   async execute(interaction) {
     if (!await checkPerms(interaction)) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> You need administrator or the configured bot manager role to use this command.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ You need administrator or the configured bot manager role to use this command.', flags: MessageFlags.Ephemeral });
     }
 
     const sub = interaction.options.getSubcommand();
     if (sub === 'stop_following') {
       await query('DELETE FROM changelog_followers WHERE guild_id = ?', [interaction.guildId]);
-      return interaction.reply({ content: '<:checkmark:1495875811792781332> This server is no longer following changelogs.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '✅ This server is no longer following changelogs.', flags: MessageFlags.Ephemeral });
     }
 
     const channel = interaction.options.getChannel('channel', true);
@@ -30,7 +30,7 @@ module.exports = {
     const me = interaction.guild.members.me || await interaction.guild.members.fetchMe().catch(() => null);
     const perms = channel.permissionsFor(me);
     if (!perms?.has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
-      return interaction.reply({ content: '<:warning:1496193692099285255> I cannot send messages in that channel. Please fix channel permissions and try again.', flags: MessageFlags.Ephemeral });
+      return interaction.reply({ content: '⚠️ I cannot send messages in that channel. Please fix channel permissions and try again.', flags: MessageFlags.Ephemeral });
     }
 
     await query(
@@ -39,6 +39,6 @@ module.exports = {
       [interaction.guildId, channel.id, role?.id || null, interaction.user.id, Date.now()]
     );
 
-    return interaction.reply({ content: `<:checkmark:1495875811792781332> Changelog channel set to ${channel}${role ? ` with ping role ${role}` : ''}.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
+    return interaction.reply({ content: `✅ Changelog channel set to ${channel}${role ? ` with ping role ${role}` : ''}.`, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
   }
 };

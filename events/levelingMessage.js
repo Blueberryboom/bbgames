@@ -119,7 +119,7 @@ module.exports = async function handleLevelingMessage(message) {
       allowedMentions: { parse: [], users: [message.author.id] }
     }).catch(() => null);
   } catch (error) {
-    console.error('<:warning:1496193692099285255> Leveling message handler failed:', error);
+    console.error('⚠️ Leveling message handler failed:', error);
   }
 };
 

@@ -52,7 +52,7 @@ async function runBirthdayCheck(client) {
       );
     }
   } catch (error) {
-    console.error('<:warning:1496193692099285255> Birthday scheduler error:', error);
+    console.error('⚠️ Birthday scheduler error:', error);
   } finally {
     running = false;
   }

@@ -139,7 +139,7 @@ async function notifyMentionedAfkUsers(message) {
     try {
       afk = await getAfk(user.id);
     } catch (error) {
-      console.error('<:warning:1496193692099285255> Failed to load AFK status:', error);
+      console.error('⚠️ Failed to load AFK status:', error);
       continue;
     }
 

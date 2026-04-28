@@ -257,7 +257,7 @@ function buildTurnEmbed(p1, p2, current, level = null) {
 
 function renderDescription(p1, p2, current, level = null) {
   const levelLine = Number.isInteger(level) ? `\n🤖 **AI Level:** ${level}` : '';
-  return `<:warning:1496193692099285255> **${p1.tag}**\n⭕ **${p2.tag}**${levelLine}\n\nCurrent Turn: **${current.tag}**`;
+  return `⚠️ **${p1.tag}**\n⭕ **${p2.tag}**${levelLine}\n\nCurrent Turn: **${current.tag}**`;
 }
 
 function buildResultEmbed(p1, p2, winner, level = null) {
@@ -271,7 +271,7 @@ function buildResultEmbed(p1, p2, winner, level = null) {
   return new EmbedBuilder()
     .setColor(winner ? '#2ecc71' : '#f1c40f')
     .setTitle('Tic Tac Toe')
-    .setDescription(`<:warning:1496193692099285255> **${p1.tag}**\n⭕ **${p2.tag}**${levelLine}\n\n${resultText}`);
+    .setDescription(`⚠️ **${p1.tag}**\n⭕ **${p2.tag}**${levelLine}\n\n${resultText}`);
 }
 
 function createComponents(board, disabled = false, rematchLevel = null) {

@@ -59,7 +59,7 @@ async function runServerTagSync(client) {
   const guilds = [...client.guilds.cache.values()];
   for (const guild of guilds) {
     await syncGuildServerTagRewards(guild).catch(err => {
-      console.error(`<:warning:1496193692099285255> Server tag reward sync failed for ${guild.id}:`, err?.message || err);
+      console.error(`⚠️ Server tag reward sync failed for ${guild.id}:`, err?.message || err);
     });
   }
 }
@@ -72,7 +72,7 @@ function initServerTagRewardManager(client) {
 
   syncInterval = setInterval(() => {
     runServerTagSync(client).catch(err => {
-      console.error('<:warning:1496193692099285255> Server tag reward sync loop failed:', err);
+      console.error('⚠️ Server tag reward sync loop failed:', err);
     });
   }, 5 * 60 * 1000);
 
